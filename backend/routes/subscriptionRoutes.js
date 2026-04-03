@@ -1,5 +1,14 @@
-﻿const express = require('express')
-const router = express.Router()
-// Routes will be added here
-module.exports = router
+const express = require("express");
+const router = express.Router();
+const {
+  createOrder,
+  verifyPayment,
+  checkSubscription,
+} = require("../controllers/subscriptionController");
+const { verifyToken } = require("../middleware/authMiddleware");
 
+router.post("/create-order", verifyToken, createOrder);
+router.post("/verify", verifyToken, verifyPayment);
+router.get("/check", verifyToken, checkSubscription);
+
+module.exports = router;

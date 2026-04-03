@@ -1,6 +1,6 @@
+require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
-const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const authRoutes =
   require("./routes/authRoutes");
@@ -31,8 +31,9 @@ const tripRoutes =
   require('./routes/tripRoutes')
 const inviteRoutes =
   require('./routes/inviteRoutes')
+const subscriptionRoutes =
+  require('./routes/subscriptionRoutes')
 
-dotenv.config();
 connectDB();
 
 const app = express();
@@ -64,7 +65,7 @@ app.use("/api/ratings", ratingRoutes);
 app.use("/api/resign", resignRoutes);
 app.use('/api/trips', tripRoutes)
 app.use('/api/invites', inviteRoutes)
-// app.use('/api/subscriptions', subscriptionRoutes)
+app.use('/api/subscription', subscriptionRoutes)
 
 app.use((err, req, res, next) => {
   // eslint-disable-next-line no-console

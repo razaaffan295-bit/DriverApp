@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getJobDetail, applyJob } from '../../api/driverAPI'
+import { checkSubscription } from '../../api/subscriptionAPI'
 import API from '../../api/axios'
 
 const formatDate = (d) => {
@@ -42,12 +43,6 @@ const JobDetail = () => {
       setLoading(false)
     }
   }, [id, navigate])
-
-  useEffect(() => {
-    toast('₹99/month subscription required — Razorpay setup pending', {
-      icon: '⚠️',
-    })
-  }, [])
 
   useEffect(() => {
     loadJob()
@@ -117,25 +112,28 @@ const JobDetail = () => {
 
   const handleApply = async () => {
     if (!id || applied) return
-    toast('₹99/month subscription required — Razorpay setup pending', {
-      icon: '⚠️',
-    })
     setApplyLoading(true)
     try {
+      const subRes = await checkSubscription()
+      if (!subRes.data?.isActive) {
+        navigate('/subscription')
+        return
+      }
       await applyJob(id)
       toast.success(
         'Apply ho gaya! Owner ka reply aane tak wait karein'
       )
       setHasApplied(true)
     } catch (err) {
+      const code = err.response?.data?.code
       const msg =
         err.response?.data?.message || 'Apply nahi ho paya.'
       if (
+        code === 'SUBSCRIPTION_REQUIRED' ||
         msg.includes('subscription') ||
         msg.includes('Subscription')
       ) {
-        toast.error('₹99/month subscription required')
-        toast('Razorpay setup pending', { icon: 'ℹ️' })
+        navigate('/subscription')
       } else {
         toast.error(msg)
       }

@@ -247,8 +247,26 @@ const getJobDetail = async (req, res) => {
 const applyJob = async (req, res) => {
   try {
     const driverId = driverIdFromReq(req);
-    // Subscription: Razorpay phase — enforce active Subscription (driver, ₹99/mo).
-    // Testing: allow apply without subscription (PRD IMPORTANT).
+
+    const driverUser = await User.findById(driverId).select("subscription");
+    if (!driverUser) {
+      return res.status(401).json({
+        success: false,
+        message: "User nahi mila",
+      });
+    }
+    const subActive =
+      driverUser.subscription?.isActive === true &&
+      driverUser.subscription?.endDate &&
+      new Date(driverUser.subscription.endDate) > new Date();
+    if (!subActive) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Job apply karne ke liye active subscription chahiye (₹99/month).",
+        code: "SUBSCRIPTION_REQUIRED",
+      });
+    }
 
     const job = await Job.findOne({
       _id: req.params.id,

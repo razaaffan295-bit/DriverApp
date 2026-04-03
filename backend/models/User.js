@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema({
     startDate: { type: Date },
     endDate: { type: Date },
     razorpaySubscriptionId: { type: String },
+    razorpayPaymentId: { type: String },
   },
   createdAt: { type: Date, default: Date.now },
 });

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { STATES, VEHICLE_TYPES } from '../../utils/constants'
 import { getVehicles, createJob } from '../../api/ownerAPI'
+import { checkSubscription } from '../../api/subscriptionAPI'
 
 const PostJob = () => {
   const navigate = useNavigate()
@@ -62,6 +63,16 @@ const PostJob = () => {
     e.preventDefault()
     if (!form.vehicleType || !form.vehicleId) {
       toast.error('Vehicle type aur gadi zaroori hain')
+      return
+    }
+    try {
+      const subRes = await checkSubscription()
+      if (!subRes.data?.isActive) {
+        navigate('/subscription')
+        return
+      }
+    } catch {
+      navigate('/subscription')
       return
     }
     setSubmitLoading(true)

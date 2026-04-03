@@ -1,14 +1,32 @@
 const Job = require("../models/Job");
 const Vehicle = require("../models/Vehicle");
+const User = require("../models/User");
 
 const ownerIdFromReq = (req) => req.user._id || req.user.id;
 
 const createJob = async (req, res) => {
   try {
     const oid = ownerIdFromReq(req);
-    // Subscription (Subscription model + status active, endDate > now):
-    // Razorpay phase: block with "Pehle subscription lein — ₹499/month" if missing.
-    // Testing: allow job post without subscription (PRD IMPORTANT).
+
+    const ownerUser = await User.findById(oid).select("subscription");
+    if (!ownerUser) {
+      return res.status(401).json({
+        success: false,
+        message: "User nahi mila",
+      });
+    }
+    const subActive =
+      ownerUser.subscription?.isActive === true &&
+      ownerUser.subscription?.endDate &&
+      new Date(ownerUser.subscription.endDate) > new Date();
+    if (!subActive) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Job post karne ke liye active subscription chahiye (₹499/month).",
+        code: "SUBSCRIPTION_REQUIRED",
+      });
+    }
 
     const {
       title,

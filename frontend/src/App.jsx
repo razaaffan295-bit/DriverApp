@@ -76,6 +76,7 @@ import DriverComplaints from './pages/driver/Complaints'
 import OwnerRatings from './pages/owner/Ratings'
 import DriverRatings from './pages/driver/Ratings'
 import OwnerMyDrivers from './pages/owner/MyDrivers'
+import Subscription from './pages/Subscription'
 
 function App() {
   return (
@@ -90,6 +91,15 @@ function App() {
           element={<Signup />} />
         <Route path="/admin/login" 
           element={<AdminLogin />} />
+
+        <Route
+          path="/subscription"
+          element={
+            <ProtectedRoute>
+              <Subscription />
+            </ProtectedRoute>
+          }
+        />
         
         {/* Owner Routes */}
         <Route
