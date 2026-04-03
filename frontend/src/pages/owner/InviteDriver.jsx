@@ -1,59 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import {
-  MdDashboard,
-  MdDirectionsCar,
-  MdPostAdd,
-  MdAssignment,
-  MdGroups,
-  MdCalendarMonth,
-  MdPayments,
-  MdWarning,
-  MdStar,
-  MdSettings,
-  MdHome,
-  MdWork,
-  MdMenu,
-  MdPerson,
-  MdChat,
-} from 'react-icons/md'
 import API from '../../api/axios'
-import { clearAuth, getUser } from '../../utils/helpers'
 import { getVehicles } from '../../api/ownerAPI'
 import { getOwnerInvites, sendInvite } from '../../api/inviteAPI'
 
-const navInactive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50'
-const navActive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium border-r-2 border-blue-700 bg-blue-50 text-blue-700'
-
-const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', to: '/owner/dashboard', Icon: MdDashboard },
-  { id: 'profile', label: 'Profile', to: '/owner/profile', Icon: MdPerson },
-  {
-    id: 'vehicles',
-    label: 'Meri Gadiyaan',
-    to: '/owner/profile?tab=vehicles',
-    Icon: MdDirectionsCar,
-  },
-  { id: 'post-job', label: 'Job Post Karo', to: '/owner/post-job', Icon: MdPostAdd },
-  { id: 'my-jobs', label: 'Meri Jobs', to: '/owner/jobs', Icon: MdWork },
-  { id: 'applications', label: 'Applications', to: '/owner/applications', Icon: MdAssignment },
-  { id: 'messages', label: 'Messages', to: '/owner/messages', Icon: MdChat },
-  { id: 'drivers', label: 'Mere Drivers', to: '/owner/drivers', Icon: MdGroups },
-  { id: 'attendance', label: 'Attendance', to: '/owner/attendance', Icon: MdCalendarMonth },
-  { id: 'payments', label: 'Payments', to: '/owner/payments', Icon: MdPayments },
-  { id: 'complaints', label: 'Complaints', to: '/owner/complaints', Icon: MdWarning },
-  { id: 'ratings', label: 'Ratings', to: '/owner/ratings', Icon: MdStar },
-  { id: 'settings', label: 'Settings', Icon: MdSettings },
-]
-
 const InviteDriver = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [searchParams] = useSearchParams()
-
   const [step, setStep] = useState(1)
   const [phone, setPhone] = useState('')
   const [checking, setChecking] = useState(false)
@@ -62,7 +13,6 @@ const InviteDriver = () => {
   const [vehicles, setVehicles] = useState([])
   const [sending, setSending] = useState(false)
   const [sentInvites, setSentInvites] = useState([])
-  const [user, setUser] = useState(null)
 
   const [form, setForm] = useState({
     vehicleId: '',
@@ -81,15 +31,6 @@ const InviteDriver = () => {
     safetyConditions: '',
     workLocation: '',
   })
-
-  const profileNavActive =
-    location.pathname === '/owner/profile' && searchParams.get('tab') !== 'vehicles'
-  const vehiclesNavActive =
-    location.pathname === '/owner/profile' && searchParams.get('tab') === 'vehicles'
-
-  useEffect(() => {
-    setUser(getUser())
-  }, [])
 
   useEffect(() => {
     ;(async () => {
@@ -111,16 +52,6 @@ const InviteDriver = () => {
       .join('')
       .slice(0, 2)
       .toUpperCase() || 'D'
-
-  const handleLogout = () => {
-    clearAuth()
-    navigate('/login')
-    toast.success('Logout ho gaye!')
-  }
-
-  const placeholderNav = () => {
-    // no placeholder toasts in navigation
-  }
 
   const statusBadge = (status) => {
     if (status === 'pending') return 'bg-yellow-100 text-yellow-700'

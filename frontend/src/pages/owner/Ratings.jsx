@@ -1,58 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import {
-  Link,
-  NavLink,
-  useNavigate,
-  useLocation,
-  useSearchParams,
-} from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import {
-  MdDashboard,
-  MdDirectionsCar,
-  MdPostAdd,
-  MdAssignment,
-  MdGroups,
-  MdCalendarMonth,
-  MdPayments,
-  MdWarning,
-  MdStar,
-  MdSettings,
-  MdHome,
-  MdWork,
-  MdMenu,
-  MdPerson,
-  MdChat,
-} from 'react-icons/md'
-import { clearAuth } from '../../utils/helpers'
 import { getOwnerContracts } from '../../api/contractAPI'
 import { getMyRatings, giveRating } from '../../api/ratingAPI'
-
-const navInactive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50'
-const navActive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium border-r-2 border-blue-700 bg-blue-50 text-blue-700'
-
-const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', to: '/owner/dashboard', Icon: MdDashboard },
-  { id: 'profile', label: 'Profile', to: '/owner/profile', Icon: MdPerson },
-  {
-    id: 'vehicles',
-    label: 'Meri Gadiyaan',
-    to: '/owner/profile?tab=vehicles',
-    Icon: MdDirectionsCar,
-  },
-  { id: 'post-job', label: 'Job Post Karo', to: '/owner/post-job', Icon: MdPostAdd },
-  { id: 'my-jobs', label: 'Meri Jobs', to: '/owner/jobs', Icon: MdWork },
-  { id: 'applications', label: 'Applications', to: '/owner/applications', Icon: MdAssignment },
-  { id: 'messages', label: 'Messages', to: '/owner/messages', Icon: MdChat },
-  { id: 'drivers', label: 'Mere Drivers', to: '/owner/drivers', Icon: MdGroups },
-  { id: 'attendance', label: 'Attendance', to: '/owner/attendance', Icon: MdCalendarMonth },
-  { id: 'payments', label: 'Payments', to: '/owner/payments', Icon: MdPayments },
-  { id: 'complaints', label: 'Complaints', to: '/owner/complaints', Icon: MdWarning },
-  { id: 'ratings', label: 'Ratings', to: '/owner/ratings', Icon: MdStar },
-  { id: 'settings', label: 'Settings', Icon: MdSettings },
-]
 
 const fmtDate = (d) =>
   d
@@ -75,9 +24,6 @@ const StarDisplay = ({ score, size = 'text-lg' }) => {
 }
 
 const OwnerRatings = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [searchParams] = useSearchParams()
   const [tab, setTab] = useState('mine')
   const [loading, setLoading] = useState(true)
   const [contractsLoading, setContractsLoading] = useState(false)
@@ -92,17 +38,6 @@ const OwnerRatings = () => {
   const [starHover, setStarHover] = useState({})
   const [reviewDrafts, setReviewDrafts] = useState({})
   const [submittingId, setSubmittingId] = useState(null)
-
-  const profileNavActive =
-    location.pathname === '/owner/profile' &&
-    searchParams.get('tab') !== 'vehicles'
-  const vehiclesNavActive =
-    location.pathname === '/owner/profile' &&
-    searchParams.get('tab') === 'vehicles'
-
-  const placeholderNav = () => {
-    navigate('/owner/profile')
-  }
 
   const loadMine = useCallback(async () => {
     setLoading(true)
@@ -172,12 +107,6 @@ const OwnerRatings = () => {
     () => Math.max(1, ...Object.values(breakdown)),
     [breakdown]
   )
-
-  const handleLogout = () => {
-    clearAuth()
-    navigate('/login')
-    toast.success('Logout ho gaye!')
-  }
 
   const submitRating = async (contract, score, reviewText) => {
     const driver = contract.driverId

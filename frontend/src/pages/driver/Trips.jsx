@@ -1,44 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import {
-  MdDashboard,
-  MdPerson,
-  MdWork,
-  MdAssignment,
-  MdBuild,
-  MdCalendarMonth,
-  MdPayments,
-  MdWarning,
-  MdStar,
-  MdHome,
-  MdChat,
-} from 'react-icons/md'
-import { getUser, clearAuth } from '../../utils/helpers'
+import { getUser } from '../../utils/helpers'
 import { getDriverTrips, createTrip, addExpense, submitTrip, createRepairRequest } from '../../api/tripAPI'
-
-const navInactive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50'
-const navActive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium border-r-2 border-green-700 bg-green-50 text-green-700'
-
-const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', to: '/driver/dashboard', Icon: MdDashboard },
-  { id: 'profile', label: 'Mera Profile', to: '/driver/profile', Icon: MdPerson },
-  { id: 'jobs', label: 'Jobs Dhundho', to: '/driver/jobs', Icon: MdWork },
-  { id: 'applications', label: 'Meri Applications', to: '/driver/applications', Icon: MdAssignment },
-  { id: 'messages', label: 'Messages', to: '/driver/messages', Icon: MdChat },
-  { id: 'active', label: 'Active Kaam', to: '/driver/active-job', Icon: MdBuild },
-  { id: 'attendance', label: 'Attendance', to: '/driver/attendance', Icon: MdCalendarMonth },
-  { id: 'trips', label: 'Trip Records', to: '/driver/trips', Icon: MdBuild },
-  { id: 'earnings', label: 'Earnings', to: '/driver/payments', Icon: MdPayments },
-  { id: 'complaints', label: 'Complaints', to: '/driver/complaints', Icon: MdWarning },
-  { id: 'ratings', label: 'Ratings', to: '/driver/ratings', Icon: MdStar },
-]
 
 const DriverTrips = () => {
   const navigate = useNavigate()
-  const location = useLocation()
 
   const [user, setUser] = useState(null)
   const [contract, setContract] = useState(null)
@@ -64,15 +31,6 @@ const DriverTrips = () => {
     description: '',
     amount: '',
   })
-
-  const profileNavActive = location.pathname === '/driver/profile'
-  const jobsNavActive = location.pathname.startsWith('/driver/jobs')
-  const appsNavActive = location.pathname === '/driver/applications'
-  const activeJobNav = location.pathname === '/driver/active-job'
-
-  const placeholderNav = () => {
-    // no placeholder toasts in navigation
-  }
 
   useEffect(() => {
     setUser(getUser())

@@ -3,8 +3,6 @@ const Vehicle = require("../models/Vehicle");
 
 const ownerIdFromReq = (req) => req.user._id || req.user.id;
 
-const toBool = (v) => v === true || v === "true" || v === 1 || v === "1";
-
 const createJob = async (req, res) => {
   try {
     const oid = ownerIdFromReq(req);
@@ -32,10 +30,10 @@ const createJob = async (req, res) => {
     } = req.body;
 
     const loc = location && typeof location === "object" ? location : null;
-    const reqState = state ?? loc?.state;
-    const reqDistrict = district ?? loc?.district;
-    const reqCity = city ?? loc?.city;
-    const reqAddress = address ?? loc?.address;
+    const reqState = loc?.state;
+    const reqDistrict = loc?.district;
+    const reqCity = loc?.city;
+    const reqAddress = loc?.address;
 
     const missing =
       !vehicleType ||
@@ -143,7 +141,6 @@ const createJob = async (req, res) => {
       });
     }
 
-    const bhattaNum = Number(dailyBhatta || 0);
     const bhattaAllowed = cat === "mining" || cat === "road";
 
     const job = await Job.create({
@@ -160,12 +157,15 @@ const createJob = async (req, res) => {
       },
       vehicleCategory: cat,
       salaryType: st,
-      salaryPerDay: Number.isNaN(salaryDayNum) ? 0 : salaryDayNum || 0,
-      salaryPerMonth: Number.isNaN(salaryMonthNum) ? 0 : salaryMonthNum || 0,
-      salaryPerHour: Number.isNaN(salaryHourNum) ? 0 : salaryHourNum || 0,
-      dailyBhatta: bhattaAllowed && !Number.isNaN(bhattaNum) ? bhattaNum : 0,
-      hasBhatta: bhattaAllowed ? toBool(hasBhatta) : false,
-      hasHourlyBonus: cat !== "transport" && st !== "hourly" ? toBool(hasHourlyBonus) : false,
+      salaryPerDay: Number(salaryPerDay) || 0,
+      salaryPerMonth: Number(salaryPerMonth) || 0,
+      salaryPerHour: Number(salaryPerHour) || 0,
+      dailyBhatta: bhattaAllowed ? Number(dailyBhatta) || 0 : 0,
+      hasBhatta: bhattaAllowed ? Boolean(hasBhatta) || false : false,
+      hasHourlyBonus:
+        cat !== "transport" && st !== "hourly"
+          ? Boolean(hasHourlyBonus) || false
+          : false,
       transportType: cat === "transport" ? tt : "none",
       duration: durationNum,
       startDate: new Date(startDate),

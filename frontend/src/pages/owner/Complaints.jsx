@@ -1,60 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import {
-  Link,
-  NavLink,
-  useNavigate,
-  useLocation,
-  useSearchParams,
-} from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import {
-  MdDashboard,
-  MdDirectionsCar,
-  MdPostAdd,
-  MdAssignment,
-  MdGroups,
-  MdCalendarMonth,
-  MdPayments,
-  MdWarning,
-  MdStar,
-  MdSettings,
-  MdHome,
-  MdWork,
-  MdPerson,
-  MdChat,
-} from 'react-icons/md'
-import { clearAuth } from '../../utils/helpers'
 import { getOwnerContracts } from '../../api/contractAPI'
 import {
   getMyComplaints,
   createComplaint,
 } from '../../api/complaintAPI'
-
-const navInactive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50'
-const navActive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium border-r-2 border-blue-700 bg-blue-50 text-blue-700'
-
-const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', to: '/owner/dashboard', Icon: MdDashboard },
-  { id: 'profile', label: 'Profile', to: '/owner/profile', Icon: MdPerson },
-  {
-    id: 'vehicles',
-    label: 'Meri Gadiyaan',
-    to: '/owner/profile?tab=vehicles',
-    Icon: MdDirectionsCar,
-  },
-  { id: 'post-job', label: 'Job Post Karo', to: '/owner/post-job', Icon: MdPostAdd },
-  { id: 'my-jobs', label: 'Meri Jobs', to: '/owner/jobs', Icon: MdWork },
-  { id: 'applications', label: 'Applications', to: '/owner/applications', Icon: MdAssignment },
-  { id: 'messages', label: 'Messages', to: '/owner/messages', Icon: MdChat },
-  { id: 'drivers', label: 'Mere Drivers', to: '/owner/drivers', Icon: MdGroups },
-  { id: 'attendance', label: 'Attendance', to: '/owner/attendance', Icon: MdCalendarMonth },
-  { id: 'payments', label: 'Payments', to: '/owner/payments', Icon: MdPayments },
-  { id: 'complaints', label: 'Complaints', to: '/owner/complaints', Icon: MdWarning },
-  { id: 'ratings', label: 'Ratings', to: '/owner/ratings', Icon: MdStar },
-  { id: 'settings', label: 'Settings', Icon: MdSettings },
-]
 
 const OWNER_TYPES = [
   { value: 'part_chori', label: 'Part Chori' },
@@ -95,9 +45,6 @@ const readFilesAsDataUrls = (fileList) =>
   )
 
 const OwnerComplaints = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [searchParams] = useSearchParams()
   const [tab, setTab] = useState('mine')
   const [complaints, setComplaints] = useState([])
   const [loading, setLoading] = useState(true)
@@ -108,16 +55,6 @@ const OwnerComplaints = () => {
   const [description, setDescription] = useState('')
   const [evidenceFiles, setEvidenceFiles] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-
-  const profileNavActive =
-    location.pathname === '/owner/profile' &&
-    searchParams.get('tab') !== 'vehicles'
-  const vehiclesNavActive =
-    location.pathname === '/owner/profile' &&
-    searchParams.get('tab') === 'vehicles'
-  const placeholderNav = () => {
-    navigate('/owner/profile')
-  }
 
   const loadMine = useCallback(async () => {
     setLoading(true)
@@ -162,12 +99,6 @@ const OwnerComplaints = () => {
     if (tab === 'mine') loadMine()
     else loadContracts()
   }, [tab, loadMine, loadContracts])
-
-  const handleLogout = () => {
-    clearAuth()
-    navigate('/login')
-    toast.success('Logout ho gaye!')
-  }
 
   const handleSubmit = async () => {
     if (

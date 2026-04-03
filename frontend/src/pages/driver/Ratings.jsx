@@ -1,41 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import {
-  MdDashboard,
-  MdPerson,
-  MdWork,
-  MdAssignment,
-  MdBuild,
-  MdCalendarMonth,
-  MdPayments,
-  MdWarning,
-  MdStar,
-  MdHome,
-  MdMenu,
-  MdChat,
-} from 'react-icons/md'
-import { clearAuth } from '../../utils/helpers'
 import { getDriverContracts } from '../../api/contractAPI'
 import { getMyRatings, giveRating } from '../../api/ratingAPI'
-
-const navInactive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50'
-const navActive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium border-r-2 border-green-700 bg-green-50 text-green-700'
-
-const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', to: '/driver/dashboard', Icon: MdDashboard },
-  { id: 'profile', label: 'Mera Profile', to: '/driver/profile', Icon: MdPerson },
-  { id: 'jobs', label: 'Jobs Dhundho', to: '/driver/jobs', Icon: MdWork },
-  { id: 'applications', label: 'Meri Applications', to: '/driver/applications', Icon: MdAssignment },
-  { id: 'messages', label: 'Messages', to: '/driver/messages', Icon: MdChat },
-  { id: 'active', label: 'Active Kaam', to: '/driver/active-job', Icon: MdBuild },
-  { id: 'attendance', label: 'Attendance', to: '/driver/attendance', Icon: MdCalendarMonth },
-  { id: 'earnings', label: 'Earnings', to: '/driver/payments', Icon: MdPayments },
-  { id: 'complaints', label: 'Complaints', to: '/driver/complaints', Icon: MdWarning },
-  { id: 'ratings', label: 'Ratings', to: '/driver/ratings', Icon: MdStar },
-]
 
 const fmtDate = (d) =>
   d
@@ -58,8 +24,6 @@ const StarDisplay = ({ score, size = 'text-lg' }) => {
 }
 
 const DriverRatings = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
   const [tab, setTab] = useState('mine')
   const [loading, setLoading] = useState(true)
   const [contractsLoading, setContractsLoading] = useState(false)
@@ -74,19 +38,6 @@ const DriverRatings = () => {
   const [starHover, setStarHover] = useState({})
   const [reviewDrafts, setReviewDrafts] = useState({})
   const [submittingId, setSubmittingId] = useState(null)
-
-  const profileNavActive = location.pathname === '/driver/profile'
-  const jobsNavActive = location.pathname.startsWith('/driver/jobs')
-  const appsNavActive =
-    location.pathname === '/driver/applications'
-  const msgsNavActive =
-    location.pathname === '/driver/messages'
-  const activeJobNav =
-    location.pathname === '/driver/active-job'
-
-  const placeholderNav = () => {
-    navigate('/driver/profile')
-  }
 
   const loadMine = useCallback(async () => {
     setLoading(true)
@@ -157,12 +108,6 @@ const DriverRatings = () => {
     () => Math.max(1, ...Object.values(breakdown)),
     [breakdown]
   )
-
-  const handleLogout = () => {
-    clearAuth()
-    navigate('/login')
-    toast.success('Logout ho gaye!')
-  }
 
   const submitRating = async (contract, score, reviewText) => {
     const owner = contract.ownerId

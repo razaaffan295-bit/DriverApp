@@ -7,6 +7,7 @@ import {
   ownerGetContracts,
   ownerGetRecords,
 } from '../../api/attendanceAPI'
+import { getUser } from '../../utils/helpers'
 
 const MONTH_NAMES = [
   'January',
@@ -65,6 +66,12 @@ const calcSalary = (contract, status, hours) => {
 
 const OwnerAttendance = () => {
   const navigate = useNavigate()
+  const [user, setUser] = useState(null)
+
+  useEffect(() => {
+    setUser(getUser())
+  }, [])
+
   const [contracts, setContracts] = useState([])
   const [selectedContractId, setSelectedContractId] = useState('')
   const [selectedContract, setSelectedContract] = useState(null)

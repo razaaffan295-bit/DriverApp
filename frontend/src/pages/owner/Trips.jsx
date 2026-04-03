@@ -1,76 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import {
-  MdDashboard,
-  MdDirectionsCar,
-  MdPostAdd,
-  MdAssignment,
-  MdGroups,
-  MdCalendarMonth,
-  MdPayments,
-  MdWarning,
-  MdStar,
-  MdSettings,
-  MdHome,
-  MdWork,
-  MdMenu,
-  MdPerson,
-  MdChat,
-  MdBuild,
-} from 'react-icons/md'
-import { getUser, clearAuth } from '../../utils/helpers'
+import { getUser } from '../../utils/helpers'
 import { getOwnerTrips, reviewTrip } from '../../api/tripAPI'
 
-const navInactive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50'
-const navActive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium border-r-2 border-blue-700 bg-blue-50 text-blue-700'
-
-const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', to: '/owner/dashboard', Icon: MdDashboard },
-  { id: 'profile', label: 'Profile', to: '/owner/profile', Icon: MdPerson },
-  {
-    id: 'vehicles',
-    label: 'Meri Gadiyaan',
-    to: '/owner/profile?tab=vehicles',
-    Icon: MdDirectionsCar,
-  },
-  { id: 'post-job', label: 'Job Post Karo', to: '/owner/post-job', Icon: MdPostAdd },
-  { id: 'my-jobs', label: 'Meri Jobs', to: '/owner/jobs', Icon: MdWork },
-  { id: 'applications', label: 'Applications', to: '/owner/applications', Icon: MdAssignment },
-  { id: 'messages', label: 'Messages', to: '/owner/messages', Icon: MdChat },
-  { id: 'drivers', label: 'Mere Drivers', to: '/owner/drivers', Icon: MdGroups },
-  { id: 'attendance', label: 'Attendance', to: '/owner/attendance', Icon: MdCalendarMonth },
-  { id: 'trips', label: 'Trip Requests', to: '/owner/trips', Icon: MdBuild },
-  { id: 'payments', label: 'Payments', to: '/owner/payments', Icon: MdPayments },
-  { id: 'complaints', label: 'Complaints', to: '/owner/complaints', Icon: MdWarning },
-  { id: 'ratings', label: 'Ratings', to: '/owner/ratings', Icon: MdStar },
-  { id: 'settings', label: 'Settings', Icon: MdSettings },
-]
-
 const OwnerTrips = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [searchParams] = useSearchParams()
-
   const [user, setUser] = useState(null)
   const [tab, setTab] = useState('pending')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [trips, setTrips] = useState([])
   const [reviewByTripId, setReviewByTripId] = useState({})
-
-  const profileNavActive =
-    location.pathname === '/owner/profile' &&
-    searchParams.get('tab') !== 'vehicles'
-  const vehiclesNavActive =
-    location.pathname === '/owner/profile' &&
-    searchParams.get('tab') === 'vehicles'
-
-  const placeholderNav = () => {
-    // no placeholder toasts in navigation
-  }
 
   useEffect(() => {
     setUser(getUser())
@@ -92,12 +31,6 @@ const OwnerTrips = () => {
   useEffect(() => {
     load()
   }, [])
-
-  const handleLogout = () => {
-    clearAuth()
-    navigate('/login')
-    toast.success('Logout ho gaye!')
-  }
 
   const pendingTrips = useMemo(() => {
     return (trips || []).filter((t) => t.status === 'submitted')

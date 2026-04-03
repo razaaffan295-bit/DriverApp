@@ -1,60 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import {
-  Link,
-  NavLink,
-  useNavigate,
-  useLocation,
-  useSearchParams,
-} from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import {
-  MdDashboard,
-  MdDirectionsCar,
-  MdPostAdd,
-  MdAssignment,
-  MdGroups,
-  MdCalendarMonth,
-  MdPayments,
-  MdWarning,
-  MdStar,
-  MdSettings,
-  MdHome,
-  MdWork,
-  MdPerson,
-  MdChat,
-} from 'react-icons/md'
-import { clearAuth } from '../../utils/helpers'
 import { getOwnerContracts } from '../../api/contractAPI'
 import {
   getResignRequests,
   handleResign,
 } from '../../api/resignAPI'
-
-const navInactive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50'
-const navActive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium border-r-2 border-blue-700 bg-blue-50 text-blue-700'
-
-const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', to: '/owner/dashboard', Icon: MdDashboard },
-  { id: 'profile', label: 'Profile', to: '/owner/profile', Icon: MdPerson },
-  {
-    id: 'vehicles',
-    label: 'Meri Gadiyaan',
-    to: '/owner/profile?tab=vehicles',
-    Icon: MdDirectionsCar,
-  },
-  { id: 'post-job', label: 'Job Post Karo', to: '/owner/post-job', Icon: MdPostAdd },
-  { id: 'my-jobs', label: 'Meri Jobs', to: '/owner/jobs', Icon: MdWork },
-  { id: 'applications', label: 'Applications', to: '/owner/applications', Icon: MdAssignment },
-  { id: 'messages', label: 'Messages', to: '/owner/messages', Icon: MdChat },
-  { id: 'drivers', label: 'Mere Drivers', to: '/owner/drivers', Icon: MdGroups },
-  { id: 'attendance', label: 'Attendance', to: '/owner/attendance', Icon: MdCalendarMonth },
-  { id: 'payments', label: 'Payments', to: '/owner/payments', Icon: MdPayments },
-  { id: 'complaints', label: 'Complaints', to: '/owner/complaints', Icon: MdWarning },
-  { id: 'ratings', label: 'Ratings', to: '/owner/ratings', Icon: MdStar },
-  { id: 'settings', label: 'Settings', Icon: MdSettings },
-]
 
 const fmtDate = (d) =>
   d
@@ -67,8 +18,6 @@ const fmtDate = (d) =>
 
 const MyDrivers = () => {
   const navigate = useNavigate()
-  const location = useLocation()
-  const [searchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [contracts, setContracts] = useState([])
   const [resigns, setResigns] = useState([])
@@ -76,17 +25,6 @@ const MyDrivers = () => {
   const [actionId, setActionId] = useState(null)
   const [actionType, setActionType] = useState(null)
   const [actionText, setActionText] = useState('')
-
-  const profileNavActive =
-    location.pathname === '/owner/profile' &&
-    searchParams.get('tab') !== 'vehicles'
-  const vehiclesNavActive =
-    location.pathname === '/owner/profile' &&
-    searchParams.get('tab') === 'vehicles'
-
-  const placeholderNav = () => {
-    // no placeholder toasts in navigation
-  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -125,12 +63,6 @@ const MyDrivers = () => {
       ),
     [resigns]
   )
-
-  const handleLogout = () => {
-    clearAuth()
-    navigate('/login')
-    toast.success('Logout ho gaye!')
-  }
 
   const onSubmitAction = async () => {
     if (!actionId || !actionType) return

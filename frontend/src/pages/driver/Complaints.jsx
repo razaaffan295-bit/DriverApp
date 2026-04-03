@@ -1,44 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import {
-  MdDashboard,
-  MdPerson,
-  MdWork,
-  MdAssignment,
-  MdBuild,
-  MdCalendarMonth,
-  MdPayments,
-  MdWarning,
-  MdStar,
-  MdHome,
-  MdMenu,
-  MdChat,
-} from 'react-icons/md'
-import { clearAuth } from '../../utils/helpers'
 import { getDriverActiveContract } from '../../api/contractAPI'
 import {
   getMyComplaints,
   createComplaint,
 } from '../../api/complaintAPI'
-
-const navInactive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50'
-const navActive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium border-r-2 border-green-700 bg-green-50 text-green-700'
-
-const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', to: '/driver/dashboard', Icon: MdDashboard },
-  { id: 'profile', label: 'Mera Profile', to: '/driver/profile', Icon: MdPerson },
-  { id: 'jobs', label: 'Jobs Dhundho', to: '/driver/jobs', Icon: MdWork },
-  { id: 'applications', label: 'Meri Applications', to: '/driver/applications', Icon: MdAssignment },
-  { id: 'messages', label: 'Messages', to: '/driver/messages', Icon: MdChat },
-  { id: 'active', label: 'Active Kaam', to: '/driver/active-job', Icon: MdBuild },
-  { id: 'attendance', label: 'Attendance', to: '/driver/attendance', Icon: MdCalendarMonth },
-  { id: 'earnings', label: 'Earnings', to: '/driver/payments', Icon: MdPayments },
-  { id: 'complaints', label: 'Complaints', to: '/driver/complaints', Icon: MdWarning },
-  { id: 'ratings', label: 'Ratings', to: '/driver/ratings', Icon: MdStar },
-]
 
 const DRIVER_TYPES = [
   { value: 'payment_nahi_diya', label: 'Payment Nahi Di' },
@@ -78,8 +44,6 @@ const readFilesAsDataUrls = (fileList) =>
   )
 
 const DriverComplaints = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
   const [tab, setTab] = useState('mine')
   const [complaints, setComplaints] = useState([])
   const [loading, setLoading] = useState(true)
@@ -89,19 +53,6 @@ const DriverComplaints = () => {
   const [description, setDescription] = useState('')
   const [evidenceFiles, setEvidenceFiles] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-
-  const profileNavActive = location.pathname === '/driver/profile'
-  const jobsNavActive = location.pathname.startsWith('/driver/jobs')
-  const appsNavActive =
-    location.pathname === '/driver/applications'
-  const msgsNavActive =
-    location.pathname === '/driver/messages'
-  const activeJobNav =
-    location.pathname === '/driver/active-job'
-
-  const placeholderNav = () => {
-    navigate('/driver/profile')
-  }
 
   const loadMine = useCallback(async () => {
     setLoading(true)
@@ -135,12 +86,6 @@ const DriverComplaints = () => {
     if (tab === 'mine') loadMine()
     else loadContract()
   }, [tab, loadMine, loadContract])
-
-  const handleLogout = () => {
-    clearAuth()
-    navigate('/login')
-    toast.success('Logout ho gaye!')
-  }
 
   const selectedUser = contract?.ownerId
 

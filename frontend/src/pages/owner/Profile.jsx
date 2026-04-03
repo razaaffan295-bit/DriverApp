@@ -4,7 +4,7 @@ import {
   useSearchParams,
 } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import { getUser, clearAuth, setAuth, getToken } from '../../utils/helpers'
+import { getUser, setAuth, getToken } from '../../utils/helpers'
 import { STATES, VEHICLE_TYPES } from '../../utils/constants'
 import {
   getOwnerProfile,
@@ -81,12 +81,6 @@ const OwnerProfile = () => {
     if (!getUser()) return
     loadData()
   }, [loadData])
-
-  const handleLogout = () => {
-    clearAuth()
-    navigate('/login')
-    toast.success('Logout ho gaye!')
-  }
 
   const initials =
     user?.name

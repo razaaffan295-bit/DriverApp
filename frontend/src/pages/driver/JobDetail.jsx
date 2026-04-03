@@ -88,33 +88,27 @@ const JobDetail = () => {
       .slice(0, 2)
       .toUpperCase() || 'O'
 
-  const getSalaryDisplay = (j) => {
-    if (!j) return '₹0/din'
-    if (j.salaryType === 'monthly') {
-      return `₹${Number(j.salaryPerMonth) || 0}/month`
+  const getSalaryDisplay = (job) => {
+    if (!job) return '₹0'
+    if (job.salaryType === 'monthly') {
+      return `₹${job.salaryPerMonth || 0}/month`
     }
-    if (j.salaryType === 'hourly') {
-      return `₹${Number(j.salaryPerHour) || 0}/ghanta`
+    if (job.salaryType === 'hourly') {
+      return `₹${job.salaryPerHour || 0}/ghanta`
     }
-    const daily =
-      Number(j.salaryPerDay) ||
-      Number(j.salaryPerMonth) ||
-      Number(j.salaryPerHour) ||
-      0
-    return `₹${daily}/din`
+    return `₹${job.salaryPerDay || 0}/din`
   }
 
-  const getTotalKamayi = (j) => {
-    if (!j) return 0
-    const duration = Number(j.duration) || 0
-    if (j.salaryType === 'monthly') {
-      const months = Math.ceil(duration / 30)
-      return (Number(j.salaryPerMonth) || 0) * (months || 0)
+  const getTotalKamayi = (job) => {
+    if (!job) return 0
+    if (job.salaryType === 'monthly') {
+      const months = Math.ceil((job.duration || 30) / 30)
+      return (job.salaryPerMonth || 0) * months
     }
-    if (j.salaryType === 'hourly') {
+    if (job.salaryType === 'hourly') {
       return 'Ghante ke hisaab se'
     }
-    return (Number(j.salaryPerDay) || 0) * duration
+    return (job.salaryPerDay || 0) * (job.duration || 0)
   }
 
   const totalKamai = getTotalKamayi(job)

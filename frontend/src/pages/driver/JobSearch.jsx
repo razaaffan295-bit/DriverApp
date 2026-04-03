@@ -79,19 +79,26 @@ const JobSearch = () => {
   const hasMore = jobs.length < total
 
   const getSalaryDisplay = (job) => {
-    if (!job) return '₹0/din'
+    if (!job) return '₹0'
     if (job.salaryType === 'monthly') {
-      return `₹${Number(job.salaryPerMonth) || 0}/month`
+      return `₹${job.salaryPerMonth || 0}/month`
     }
     if (job.salaryType === 'hourly') {
-      return `₹${Number(job.salaryPerHour) || 0}/ghanta`
+      return `₹${job.salaryPerHour || 0}/ghanta`
     }
-    const daily =
-      Number(job.salaryPerDay) ||
-      Number(job.salaryPerMonth) ||
-      Number(job.salaryPerHour) ||
-      0
-    return `₹${daily}/din`
+    return `₹${job.salaryPerDay || 0}/din`
+  }
+
+  const getTotalKamayi = (job) => {
+    if (!job) return 0
+    if (job.salaryType === 'monthly') {
+      const months = Math.ceil((job.duration || 30) / 30)
+      return (job.salaryPerMonth || 0) * months
+    }
+    if (job.salaryType === 'hourly') {
+      return 'Ghante ke hisaab se'
+    }
+    return (job.salaryPerDay || 0) * (job.duration || 0)
   }
 
   return (
@@ -206,6 +213,12 @@ const JobSearch = () => {
                   </p>
                   <p className="text-sm text-gray-500">
                     ⏱️ {job.duration} din
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    💰 Total (approx):{' '}
+                    {typeof getTotalKamayi(job) === 'string'
+                      ? getTotalKamayi(job)
+                      : `₹${getTotalKamayi(job)}`}
                   </p>
                   <button
                     type="button"

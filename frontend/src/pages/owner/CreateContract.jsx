@@ -1,62 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
-import {
-  Link,
-  NavLink,
-  useNavigate,
-  useLocation,
-  useSearchParams,
-} from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import {
-  MdDashboard,
-  MdDirectionsCar,
-  MdPostAdd,
-  MdAssignment,
-  MdGroups,
-  MdCalendarMonth,
-  MdPayments,
-  MdWarning,
-  MdStar,
-  MdSettings,
-  MdHome,
-  MdWork,
-  MdMenu,
-  MdPerson,
-  MdChat,
-  MdArrowBack,
-} from 'react-icons/md'
-import { getUser, clearAuth } from '../../utils/helpers'
+import { getUser } from '../../utils/helpers'
 import {
   getJobById,
   getPublicDriverProfile,
 } from '../../api/ownerAPI'
 import { createContract } from '../../api/contractAPI'
-
-const navInactive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50'
-const navActive =
-  'flex items-center gap-3 px-6 py-3 text-sm font-medium border-r-2 border-blue-700 bg-blue-50 text-blue-700'
-
-const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', to: '/owner/dashboard', Icon: MdDashboard },
-  { id: 'profile', label: 'Profile', to: '/owner/profile', Icon: MdPerson },
-  {
-    id: 'vehicles',
-    label: 'Meri Gadiyaan',
-    to: '/owner/profile?tab=vehicles',
-    Icon: MdDirectionsCar,
-  },
-  { id: 'post-job', label: 'Job Post Karo', to: '/owner/post-job', Icon: MdPostAdd },
-  { id: 'my-jobs', label: 'Meri Jobs', to: '/owner/jobs', Icon: MdWork },
-  { id: 'applications', label: 'Applications', to: '/owner/applications', Icon: MdAssignment },
-  { id: 'messages', label: 'Messages', to: '/owner/messages', Icon: MdChat },
-  { id: 'drivers', label: 'Mere Drivers', to: '/owner/drivers', Icon: MdGroups },
-  { id: 'attendance', label: 'Attendance', to: '/owner/attendance', Icon: MdCalendarMonth },
-  { id: 'payments', label: 'Payments', to: '/owner/payments', Icon: MdPayments },
-  { id: 'complaints', label: 'Complaints', to: '/owner/complaints', Icon: MdWarning },
-  { id: 'ratings', label: 'Ratings', to: '/owner/ratings', Icon: MdStar },
-  { id: 'settings', label: 'Settings', Icon: MdSettings },
-]
 
 const fmtDate = (d) => {
   if (!d) return '—'
@@ -73,7 +23,6 @@ const fmtDate = (d) => {
 
 const CreateContract = () => {
   const navigate = useNavigate()
-  const location = useLocation()
   const [searchParams] = useSearchParams()
   const jobId = searchParams.get('jobId')
   const driverId = searchParams.get('driverId')
@@ -87,17 +36,6 @@ const CreateContract = () => {
   })
   const [loading, setLoading] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
-
-  const profileNavActive =
-    location.pathname === '/owner/profile' &&
-    searchParams.get('tab') !== 'vehicles'
-  const vehiclesNavActive =
-    location.pathname === '/owner/profile' &&
-    searchParams.get('tab') === 'vehicles'
-
-  const placeholderNav = () => {
-    navigate('/owner/profile')
-  }
 
   useEffect(() => {
     setUser(getUser())
@@ -141,12 +79,6 @@ const CreateContract = () => {
   useEffect(() => {
     loadPage()
   }, [loadPage])
-
-  const handleLogout = () => {
-    clearAuth()
-    navigate('/login')
-    toast.success('Logout ho gaye!')
-  }
 
   const initials =
     user?.name
