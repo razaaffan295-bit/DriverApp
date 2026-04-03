@@ -261,7 +261,9 @@ const OwnerApplications = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0F4FF' }}
+    >
         <div className="p-4 md:p-6">
           <div className="mb-6 max-w-md">
             <label className="mb-1 block text-sm font-medium text-gray-700">

@@ -173,7 +173,9 @@ const DriverAttendance = () => {
     new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0FDF4' }}
+    >
       <div className="mx-auto max-w-3xl p-4 md:p-6 pb-8">
           {loading ? (
             <div className="flex justify-center py-16">
@@ -508,7 +510,13 @@ const DriverAttendance = () => {
                             min={0}
                             max={24}
                             value={form.hoursWorked}
-                            onChange={(e) => setForm((f) => ({ ...f, hoursWorked: e.target.value }))}
+                            onChange={(e) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                hoursWorked:
+                                  Number(e.target.value) || 0,
+                              }))
+                            }
                             placeholder="8"
                             className="input-field w-full"
                           />

@@ -102,7 +102,9 @@ const JobSearch = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0FDF4' }}
+    >
       <div className="p-4 md:p-6 pb-8">
         <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">

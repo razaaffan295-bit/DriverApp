@@ -69,7 +69,9 @@ const OwnerDashboard = () => {
     user != null && user.isProfileComplete !== true
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0F4FF' }}
+    >
       <div className="p-4 md:p-6">
           {showBanner && vacantVehicles.length > 0 ? (
             <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-orange-200 bg-orange-50 p-4 sm:flex-row sm:items-start sm:justify-between">

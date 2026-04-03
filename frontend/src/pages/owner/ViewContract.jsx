@@ -4,6 +4,52 @@ import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
 import { getContractById, completeContract } from '../../api/contractAPI'
 
+const getSalaryDisplay = (contract) => {
+  if (!contract) return '₹0'
+  const cat = contract.vehicleCategory
+  const type = contract.salaryType
+
+  if (cat === 'transport') {
+    return `₹${contract.salaryPerMonth || 0}/month`
+  }
+  if (type === 'hourly') {
+    return `₹${contract.salaryPerHour || 0}/ghanta`
+  }
+  if (type === 'monthly') {
+    return `₹${contract.salaryPerMonth || 0}/month`
+  }
+  return `₹${contract.salaryPerDay || 0}/din`
+}
+
+const getTotalKamayi = (contract) => {
+  if (!contract) return 0
+  const type = contract.salaryType
+  const cat = contract.vehicleCategory
+  const dur = contract.duration || 0
+
+  if (cat === 'transport') {
+    const months = Math.ceil(dur / 30)
+    return (contract.salaryPerMonth || 0) * months
+  }
+  if (type === 'monthly') {
+    const months = Math.ceil(dur / 30)
+    return (contract.salaryPerMonth || 0) * months
+  }
+  if (type === 'hourly') {
+    return 'Ghante ke hisaab se'
+  }
+  return (contract.salaryPerDay || 0) * dur
+}
+
+const contractSalaryTypeLabel = (c) => {
+  if (!c) return '—'
+  if (c.vehicleCategory === 'transport') return 'Monthly (Transport)'
+  if (c.salaryType === 'hourly') return 'Per Hour'
+  if (c.salaryType === 'monthly') return 'Per Month'
+  if (c.salaryType === 'daily') return 'Per Day'
+  return String(c.salaryType || '—')
+}
+
 const ViewContract = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -83,10 +129,6 @@ const ViewContract = () => {
       .slice(0, 2)
       .toUpperCase() || 'O'
 
-  const salary = Number(contract?.salaryPerDay) || 0
-  const duration = Number(contract?.duration) || 0
-  const totalValue = salary * duration
-
   const driverLoc = [
     contract?.driverId?.location?.state,
     contract?.driverId?.location?.district,
@@ -95,7 +137,9 @@ const ViewContract = () => {
     .join(', ')
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0F4FF' }}
+    >
         <div className="mx-auto max-w-4xl px-4 py-6">
           {loading ? (
             <div className="flex justify-center items-center h-64">
@@ -159,7 +203,9 @@ const ViewContract = () => {
                   </div>
                   <div className="text-left sm:text-right">
                     <div className="text-xl font-bold text-green-700">
-                      ₹{totalValue}
+                      {typeof getTotalKamayi(contract) === 'string'
+                        ? getTotalKamayi(contract)
+                        : `₹${getTotalKamayi(contract)}`}
                     </div>
                     <div className="text-xs text-green-600">
                       Total Contract Value
@@ -236,23 +282,40 @@ const ViewContract = () => {
                 </div>
 
                 <div className="print-row">
-                  <span>Salary:</span>
-                  <span>
-                    {contract.salaryType === 'daily' &&
-                      `₹${contract.salaryPerDay}/din`}
-                    {contract.salaryType === 'monthly' &&
-                      `₹${contract.salaryPerMonth}/month`}
-                    {contract.salaryType === 'hourly' &&
-                      `₹${contract.salaryPerHour}/ghanta`}
-                  </span>
+                  <span>Salary Type:</span>
+                  <span>{contractSalaryTypeLabel(contract)}</span>
                 </div>
 
-                {contract.hasBhatta && (
+                <div className="print-row">
+                  <span>Rate:</span>
+                  <span>{getSalaryDisplay(contract)}</span>
+                </div>
+
+                {contract.hasBhatta && contract.dailyBhatta > 0 && (
                   <div className="print-row">
                     <span>Daily Bhatta:</span>
                     <span>₹{contract.dailyBhatta}/din</span>
                   </div>
                 )}
+
+                {contract.hasHourlyBonus &&
+                  contract.salaryPerHour > 0 && (
+                    <div className="print-row">
+                      <span>Hourly Bonus:</span>
+                      <span>
+                        ₹{contract.salaryPerHour}/ghanta
+                      </span>
+                    </div>
+                  )}
+
+                <div className="print-row">
+                  <span>Total Kamayi:</span>
+                  <span>
+                    {typeof getTotalKamayi(contract) === 'string'
+                      ? getTotalKamayi(contract)
+                      : `₹${getTotalKamayi(contract)}`}
+                  </span>
+                </div>
 
                 <div style={{ marginTop: '16px' }}>
                   <strong>Shartein:</strong>

@@ -199,7 +199,9 @@ const OwnerProfile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0F4FF' }}
+    >
         <div className="p-4 md:p-6">
           {loading && (
             <p className="mb-4 text-sm text-gray-500">Loading...</p>

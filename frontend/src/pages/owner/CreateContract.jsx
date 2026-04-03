@@ -126,7 +126,18 @@ const CreateContract = () => {
   })()
 
   const duration = Number(job?.duration) || 0
-  const totalK = salaryPerDay * duration
+  const totalK = (() => {
+    if (vehicleCategory === 'transport') {
+      return salaryPerMonth * Math.ceil(duration / 30)
+    }
+    if (salaryType === 'monthly') {
+      return salaryPerMonth * Math.ceil(duration / 30)
+    }
+    if (salaryType === 'hourly') {
+      return 'Ghante ke hisaab se'
+    }
+    return salaryPerDay * duration
+  })()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -157,7 +168,9 @@ const CreateContract = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0F4FF' }}
+    >
         <div className="mx-auto max-w-4xl px-4 py-6">
           {!jobId || !driverId ? (
             <p className="text-center text-gray-500">
@@ -330,7 +343,7 @@ Start Date: ${fmtDate(job.startDate)}
 Duration: ${job.duration} din
 Salary Type: ${salaryTypeLabel}
 ${rateLine}
-${dailyBhatta > 0 && vehicleCategory !== 'transport' ? `Daily Bhatta: ₹${dailyBhatta}\n` : ''}Total Kamayi: ₹${totalK}
+${dailyBhatta > 0 && vehicleCategory !== 'transport' ? `Daily Bhatta: ₹${dailyBhatta}\n` : ''}Total Kamayi: ${typeof totalK === 'string' ? totalK : `₹${totalK}`}
 
 Shartein:
 ${form.terms || '(likhein...)'}

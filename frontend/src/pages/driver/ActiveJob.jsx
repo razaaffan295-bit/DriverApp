@@ -12,6 +12,52 @@ import {
   requestResign,
 } from '../../api/resignAPI'
 
+const getSalaryDisplay = (contract) => {
+  if (!contract) return '₹0'
+  const cat = contract.vehicleCategory
+  const type = contract.salaryType
+
+  if (cat === 'transport') {
+    return `₹${contract.salaryPerMonth || 0}/month`
+  }
+  if (type === 'hourly') {
+    return `₹${contract.salaryPerHour || 0}/ghanta`
+  }
+  if (type === 'monthly') {
+    return `₹${contract.salaryPerMonth || 0}/month`
+  }
+  return `₹${contract.salaryPerDay || 0}/din`
+}
+
+const getTotalKamayi = (contract) => {
+  if (!contract) return 0
+  const type = contract.salaryType
+  const cat = contract.vehicleCategory
+  const dur = contract.duration || 0
+
+  if (cat === 'transport') {
+    const months = Math.ceil(dur / 30)
+    return (contract.salaryPerMonth || 0) * months
+  }
+  if (type === 'monthly') {
+    const months = Math.ceil(dur / 30)
+    return (contract.salaryPerMonth || 0) * months
+  }
+  if (type === 'hourly') {
+    return 'Ghante ke hisaab se'
+  }
+  return (contract.salaryPerDay || 0) * dur
+}
+
+const contractSalaryTypeLabel = (c) => {
+  if (!c) return '—'
+  if (c.vehicleCategory === 'transport') return 'Monthly (Transport)'
+  if (c.salaryType === 'hourly') return 'Per Hour'
+  if (c.salaryType === 'monthly') return 'Per Month'
+  if (c.salaryType === 'daily') return 'Per Day'
+  return String(c.salaryType || '—')
+}
+
 const ActiveJob = () => {
   const [contract, setContract] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -191,12 +237,12 @@ const ActiveJob = () => {
     return Math.max(0, diff)
   }
 
-  const salary = Number(contract?.salaryPerDay) || 0
   const duration = Number(contract?.duration) || 0
-  const totalKamayi = salary * duration
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0FDF4' }}
+    >
       <div className="mx-auto max-w-4xl p-4 md:p-6 pb-8">
           {loading ? (
             <div className="flex justify-center items-center h-64">
@@ -296,12 +342,42 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Salary
+                            Salary Type
                           </span>
-                          <span className="font-bold text-green-700">
-                            ₹{salary}/din
+                          <span className="font-medium text-right">
+                            {contractSalaryTypeLabel(contract)}
                           </span>
                         </div>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-500 shrink-0">
+                            Rate
+                          </span>
+                          <span className="font-bold text-green-700">
+                            {getSalaryDisplay(contract)}
+                          </span>
+                        </div>
+                        {contract.hasBhatta &&
+                          contract.dailyBhatta > 0 && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-500 shrink-0">
+                                Daily Bhatta
+                              </span>
+                              <span className="font-medium text-right">
+                                ₹{contract.dailyBhatta}/din
+                              </span>
+                            </div>
+                          )}
+                        {contract.hasHourlyBonus &&
+                          contract.salaryPerHour > 0 && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-500 shrink-0">
+                                Hourly Bonus
+                              </span>
+                              <span className="font-medium text-right">
+                                ₹{contract.salaryPerHour}/ghanta
+                              </span>
+                            </div>
+                          )}
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
                             Duration
@@ -323,7 +399,10 @@ const ActiveJob = () => {
                             Total Kamayi
                           </span>
                           <span className="font-bold text-green-700">
-                            ₹{totalKamayi}
+                            {typeof getTotalKamayi(contract) ===
+                            'string'
+                              ? getTotalKamayi(contract)
+                              : `₹${getTotalKamayi(contract)}`}
                           </span>
                         </div>
                       </div>
@@ -402,11 +481,39 @@ const ActiveJob = () => {
                         din
                       </div>
                       <div className="mb-3">
-                        <strong>Salary:</strong> ₹{salary}/din
+                        <strong>Salary Type:</strong>{' '}
+                        {contractSalaryTypeLabel(contract)}
                       </div>
                       <div className="mb-3">
-                        <strong>Total Kamayi:</strong> ₹
-                        {totalKamayi}
+                        <strong>Rate:</strong>{' '}
+                        {getSalaryDisplay(contract)}
+                      </div>
+                      {contract.hasBhatta &&
+                        contract.dailyBhatta > 0 && (
+                          <div className="mb-3">
+                            <span>
+                              <strong>Daily Bhatta:</strong>
+                            </span>{' '}
+                            <span>₹{contract.dailyBhatta}/din</span>
+                          </div>
+                        )}
+                      {contract.hasHourlyBonus &&
+                        contract.salaryPerHour > 0 && (
+                          <div className="mb-3">
+                            <span>
+                              <strong>Hourly Bonus:</strong>
+                            </span>{' '}
+                            <span>
+                              ₹{contract.salaryPerHour}/ghanta
+                            </span>
+                          </div>
+                        )}
+                      <div className="mb-3">
+                        <strong>Total Kamayi:</strong>{' '}
+                        {typeof getTotalKamayi(contract) ===
+                        'string'
+                          ? getTotalKamayi(contract)
+                          : `₹${getTotalKamayi(contract)}`}
                       </div>
 
                       <div className="mt-4 pt-4 border-t border-gray-200">
@@ -503,7 +610,10 @@ const ActiveJob = () => {
                     </div>
                     <div className="text-left sm:text-right">
                       <div className="text-2xl font-bold text-green-700">
-                        ₹{totalKamayi}
+                        {typeof getTotalKamayi(contract) ===
+                        'string'
+                          ? getTotalKamayi(contract)
+                          : `₹${getTotalKamayi(contract)}`}
                       </div>
                       <div className="text-xs text-green-600">
                         Total Kamayi
@@ -535,12 +645,42 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Salary
+                            Salary Type
                           </span>
-                          <span className="font-bold text-green-700">
-                            ₹{salary}/din
+                          <span className="font-medium text-right">
+                            {contractSalaryTypeLabel(contract)}
                           </span>
                         </div>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-500 shrink-0">
+                            Rate
+                          </span>
+                          <span className="font-bold text-green-700">
+                            {getSalaryDisplay(contract)}
+                          </span>
+                        </div>
+                        {contract.hasBhatta &&
+                          contract.dailyBhatta > 0 && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-500 shrink-0">
+                                Daily Bhatta
+                              </span>
+                              <span className="font-medium text-right">
+                                ₹{contract.dailyBhatta}/din
+                              </span>
+                            </div>
+                          )}
+                        {contract.hasHourlyBonus &&
+                          contract.salaryPerHour > 0 && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-500 shrink-0">
+                                Hourly Bonus
+                              </span>
+                              <span className="font-medium text-right">
+                                ₹{contract.salaryPerHour}/ghanta
+                              </span>
+                            </div>
+                          )}
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
                             Duration
@@ -647,15 +787,43 @@ const ActiveJob = () => {
                         {formatDate(contract.startDate)}
                       </div>
                       <div className="mb-2">
-                        <strong>Salary:</strong> ₹{salary}/din
-                      </div>
-                      <div className="mb-2">
                         <strong>Duration:</strong> {duration}{' '}
                         din
                       </div>
                       <div className="mb-2">
-                        <strong>Total Kamayi:</strong> ₹
-                        {totalKamayi}
+                        <strong>Salary Type:</strong>{' '}
+                        {contractSalaryTypeLabel(contract)}
+                      </div>
+                      <div className="mb-2">
+                        <strong>Rate:</strong>{' '}
+                        {getSalaryDisplay(contract)}
+                      </div>
+                      {contract.hasBhatta &&
+                        contract.dailyBhatta > 0 && (
+                          <div className="mb-2">
+                            <span>
+                              <strong>Daily Bhatta:</strong>
+                            </span>{' '}
+                            <span>₹{contract.dailyBhatta}/din</span>
+                          </div>
+                        )}
+                      {contract.hasHourlyBonus &&
+                        contract.salaryPerHour > 0 && (
+                          <div className="mb-2">
+                            <span>
+                              <strong>Hourly Bonus:</strong>
+                            </span>{' '}
+                            <span>
+                              ₹{contract.salaryPerHour}/ghanta
+                            </span>
+                          </div>
+                        )}
+                      <div className="mb-2">
+                        <strong>Total Kamayi:</strong>{' '}
+                        {typeof getTotalKamayi(contract) ===
+                        'string'
+                          ? getTotalKamayi(contract)
+                          : `₹${getTotalKamayi(contract)}`}
                       </div>
                       <div className="mt-4 pt-3 border-t border-gray-200">
                         <strong>Shartein:</strong>

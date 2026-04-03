@@ -59,7 +59,9 @@ const DriverDashboard = () => {
     user != null && user.isProfileComplete !== true
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0FDF4' }}
+    >
       <div className="p-4 md:p-6">
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-gray-800">

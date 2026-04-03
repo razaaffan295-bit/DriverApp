@@ -101,7 +101,9 @@ const PostJob = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0F4FF' }}
+    >
         <div className="p-4 md:p-6">
           <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
               {vehiclesLoading ? (

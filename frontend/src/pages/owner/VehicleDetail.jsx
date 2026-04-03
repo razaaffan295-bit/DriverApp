@@ -118,7 +118,9 @@ const VehicleDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0F4FF' }}
+    >
         <div className="mx-auto max-w-3xl px-4 py-6">
           <button
             type="button"

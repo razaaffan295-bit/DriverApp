@@ -167,7 +167,9 @@ const AdminComplaints = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F5F3FF' }}
+    >
       <aside className="fixed left-0 top-0 z-30 hidden h-screen w-64 flex-col bg-gradient-to-b from-violet-900 to-purple-950 shadow-xl md:flex">
         <div className="border-b border-white/10 px-6 py-5">
           <span className="text-lg font-bold text-white">

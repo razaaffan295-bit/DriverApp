@@ -145,7 +145,9 @@ const JobDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0FDF4' }}
+    >
         <div className="p-4 md:p-6">
           <button
             type="button"

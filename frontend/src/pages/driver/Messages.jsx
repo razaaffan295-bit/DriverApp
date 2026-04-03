@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
@@ -35,6 +35,7 @@ const DriverMessages = () => {
   const [showJobDetail, setShowJobDetail] = useState(false)
   const [jobDetailData, setJobDetailData] = useState(null)
   const [profileLoading, setProfileLoading] = useState(false)
+  const [view, setView] = useState('list')
 
   const messagesEndRef = useRef(null)
   const pollRef = useRef(null)
@@ -131,6 +132,7 @@ const DriverMessages = () => {
         : { otherUserId: ownerId }
     )
 
+    setView('chat')
     setSelectedConv(conv)
     setMsgLoading(true)
     setMessages([])
@@ -196,6 +198,7 @@ const DriverMessages = () => {
       lastMessage: '',
       unreadCount: 0,
     }
+    setView('chat')
     setSelectedConv(synthetic)
     setMsgLoading(false)
     silentFetchMessages(synthetic)
@@ -285,19 +288,6 @@ const DriverMessages = () => {
     }
   }
 
-  const formatDate = (date) => {
-    try {
-      return new Date(date).toLocaleDateString('en-IN', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      })
-    } catch {
-      return ''
-    }
-  }
-
   const getInitials = (name) => {
     if (!name) return '?'
     return name
@@ -313,15 +303,6 @@ const DriverMessages = () => {
     const senderId = msg.senderId?._id || msg.senderId
     return String(senderId) === String(myId)
   }
-
-  const groupedMessages = useMemo(() => {
-    return messages.reduce((groups, msg) => {
-      const date = new Date(msg.createdAt).toDateString()
-      if (!groups[date]) groups[date] = []
-      groups[date].push(msg)
-      return groups
-    }, {})
-  }, [messages])
 
   const fetchOwnerProfile = async () => {
     try {
@@ -387,209 +368,479 @@ const DriverMessages = () => {
     ''
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem-4rem)] min-h-0 flex-col overflow-hidden bg-gray-50 md:h-[calc(100dvh)]">
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-            <div className="flex w-full flex-col border-r border-gray-100 bg-white md:w-80 md:shrink-0">
-              <div className="border-b border-gray-100 p-4">
-                <h2 className="font-semibold text-gray-700">
-                  Conversations
-                </h2>
+    <div
+      className="min-h-0 w-full overflow-hidden md:h-[calc(100dvh-4rem)]"
+      style={{
+        height: 'calc(100dvh - 116px)',
+        display: 'flex',
+        flexDirection: 'column',
+        background: '#F0FDF4',
+      }}
+    >
+      <div
+        className="flex min-h-0 flex-1 overflow-hidden"
+        style={{ display: 'flex', overflow: 'hidden' }}
+      >
+        <style>{`
+          @media (min-width: 768px) {
+            .driver-conv-list {
+              width: 320px !important;
+              max-width: 320px;
+              flex-shrink: 0;
+            }
+          }
+        `}</style>
+
+        <div
+          className={`driver-conv-list min-h-0 w-full border-r border-[#E5E7EB] bg-white ${
+            view === 'list' ? 'flex flex-col' : 'hidden'
+          } md:flex md:flex-col`}
+          style={{ overflow: 'hidden' }}
+        >
+          <div
+            style={{
+              padding: '16px',
+              borderBottom: '1px solid #F3F4F6',
+              fontWeight: '700',
+              fontSize: '18px',
+              flexShrink: 0,
+            }}
+          >
+            Messages
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {convLoading ? (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '24px',
+                  color: '#9CA3AF',
+                  fontSize: '14px',
+                }}
+              >
+                Load ho raha hai...
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                {convLoading ? (
-                  <div className="p-4 text-center text-sm text-gray-400">
-                    Load ho raha hai...
+            ) : (
+              conversations.map((conv) => {
+                const otherId = String(
+                  conv.otherUser?._id ||
+                    conv.otherUserId ||
+                    conv.otherUser ||
+                    ''
+                )
+                const selOther = String(
+                  selectedConv?.otherUser?._id ||
+                    selectedConv?.otherUserId ||
+                    selectedConv?.otherUser ||
+                    ''
+                )
+                const convJob = String(
+                  conv.jobId?._id || conv.jobId || ''
+                )
+                const selJob = String(
+                  selectedConv?.jobId?._id ||
+                    selectedConv?.jobId ||
+                    ''
+                )
+                const isSelected =
+                  otherId === selOther && convJob === selJob
+                const displayName =
+                  conv.otherUserName ||
+                  conv.otherUser?.name ||
+                  'Owner'
+
+                return (
+                  <button
+                    key={`${conv.jobId?._id ?? conv.jobId ?? 'no-job'}_${conv.otherUserId ?? otherId}`}
+                    type="button"
+                    onClick={() => selectConversation(conv)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '14px 16px',
+                      cursor: 'pointer',
+                      border: 'none',
+                      borderBottom: '1px solid #F9FAFB',
+                      background: isSelected ? '#F0FDF4' : 'white',
+                      width: '100%',
+                      textAlign: 'left',
+                    }}
+                    className="hover:bg-gray-50"
+                  >
+                    <div
+                      style={{
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '50%',
+                        background: '#DCFCE7',
+                        color: '#16A34A',
+                        fontWeight: '700',
+                        fontSize: '18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {(displayName || 'O')
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: '600',
+                          fontSize: '14px',
+                          color: '#111827',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {displayName}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: '#9CA3AF',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          marginTop: '2px',
+                        }}
+                      >
+                        {lastPreview(conv) || '...'}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {conv.unreadCount > 0 && (
+                        <div
+                          style={{
+                            background: '#16A34A',
+                            color: 'white',
+                            borderRadius: '50%',
+                            minWidth: '20px',
+                            height: '20px',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '0 4px',
+                          }}
+                        >
+                          {conv.unreadCount > 9
+                            ? '9+'
+                            : conv.unreadCount}
+                        </div>
+                      )}
+                      <span
+                        style={{
+                          color: '#D1D5DB',
+                          fontSize: '18px',
+                        }}
+                      >
+                        ›
+                      </span>
+                    </div>
+                  </button>
+                )
+              })
+            )}
+            {!convLoading && conversations.length === 0 && (
+              <div
+                style={{
+                  padding: '48px 16px',
+                  textAlign: 'center',
+                  color: '#9CA3AF',
+                }}
+              >
+                <div
+                  style={{ fontSize: '36px', marginBottom: '8px' }}
+                >
+                  💬
+                </div>
+                Koi conversation nahi
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div
+          className={`min-h-0 flex-1 flex-col overflow-hidden bg-[#F9FAFB] ${
+            view === 'chat' ? 'flex' : 'hidden'
+          } md:flex`}
+        >
+          {selectedConv ? (
+            <>
+              <div
+                style={{
+                  padding: '12px 16px',
+                  background: 'white',
+                  borderBottom: '1px solid #E5E7EB',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  flexShrink: 0,
+                }}
+              >
+                <button
+                  type="button"
+                  className="md:hidden"
+                  onClick={() => setView('list')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#16A34A',
+                    padding: '4px',
+                    flexShrink: 0,
+                  }}
+                  aria-label="Wapas"
+                >
+                  ← Wapas
+                </button>
+                <button
+                  type="button"
+                  onClick={fetchOwnerProfile}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    background: '#DCFCE7',
+                    color: '#16A34A',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                  title="Profile dekho"
+                >
+                  {(chatHeaderName || 'O')
+                    .charAt(0)
+                    .toUpperCase()}
+                </button>
+                <div
+                  style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}
+                >
+                  <button
+                    type="button"
+                    onClick={fetchOwnerProfile}
+                    style={{
+                      fontWeight: '600',
+                      fontSize: '15px',
+                      color: '#111827',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      display: 'block',
+                      width: '100%',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title="Profile dekho"
+                  >
+                    {profileLoading
+                      ? 'Load ho raha hai...'
+                      : chatHeaderName}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fetchJobDetail}
+                    style={{
+                      fontSize: '12px',
+                      color: '#9CA3AF',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      marginTop: '2px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      display: 'block',
+                      width: '100%',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title="Job detail dekho"
+                  >
+                    {chatHeaderJobTitle || '\u00a0'}
+                  </button>
+                </div>
+              </div>
+
+              <div
+                className="min-h-0 flex-1 overflow-y-auto"
+                style={{
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                {msgLoading ? (
+                  <div
+                    style={{
+                      textAlign: 'center',
+                      padding: '32px',
+                      color: '#9CA3AF',
+                    }}
+                  >
+                    <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
                   </div>
-                ) : conversations.length === 0 ? (
-                  <div className="p-6 text-center text-sm text-gray-400">
-                    Koi conversation nahi
+                ) : messages.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: 'center',
+                      padding: '32px',
+                      color: '#9CA3AF',
+                    }}
+                  >
+                    Pehla message bhejo!
                   </div>
                 ) : (
-                  conversations.map((conv) => {
-                    const otherId = String(
-                      conv.otherUser?._id ||
-                        conv.otherUserId ||
-                        conv.otherUser ||
-                        ''
-                    )
-                    const selOther = String(
-                      selectedConv?.otherUser?._id ||
-                        selectedConv?.otherUserId ||
-                        selectedConv?.otherUser ||
-                        ''
-                    )
-                    const convJob = String(
-                      conv.jobId?._id || conv.jobId || ''
-                    )
-                    const selJob = String(
-                      selectedConv?.jobId?._id ||
-                        selectedConv?.jobId ||
-                        ''
-                    )
-                    const isSelected =
-                      otherId === selOther && convJob === selJob
-
+                  messages.map((msg, i) => {
+                    const isMe = isMyMessage(msg)
                     return (
-                      <button
-                        key={`${conv.jobId?._id ?? conv.jobId ?? 'no-job'}_${conv.otherUserId ?? otherId}`}
-                        type="button"
-                        onClick={() => selectConversation(conv)}
-                        className={`flex w-full cursor-pointer items-center gap-3 border-b border-gray-50 p-4 text-left hover:bg-gray-50 ${
-                          isSelected ? 'bg-green-50' : ''
-                        }`}
+                      <div
+                        key={msg._id || i}
+                        style={{
+                          display: 'flex',
+                          justifyContent: isMe
+                            ? 'flex-end'
+                            : 'flex-start',
+                        }}
                       >
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 text-sm font-semibold text-green-700">
-                          {getInitials(
-                            conv.otherUser?.name || 'O'
-                          )}
+                        <div
+                          style={{
+                            maxWidth: '70%',
+                            padding: '10px 14px',
+                            borderRadius: isMe
+                              ? '18px 18px 4px 18px'
+                              : '18px 18px 18px 4px',
+                            background: isMe ? '#16A34A' : 'white',
+                            color: isMe ? 'white' : '#111827',
+                            fontSize: '14px',
+                            boxShadow:
+                              '0 1px 2px rgba(0,0,0,0.08)',
+                          }}
+                        >
+                          {msg.message}
+                          <div
+                            style={{
+                              fontSize: '10px',
+                              marginTop: '4px',
+                              opacity: 0.7,
+                              textAlign: 'right',
+                            }}
+                          >
+                            {formatTime(msg.createdAt)}
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="truncate text-sm font-medium text-gray-800">
-                              {conv.otherUser?.name || 'Owner'}
-                            </span>
-                            {conv.unreadCount > 0 && (
-                              <span className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-600 text-xs text-white">
-                                {conv.unreadCount}
-                              </span>
-                            )}
-                          </div>
-                          <div className="truncate text-xs text-gray-500">
-                            {conv.jobId?.title ||
-                              conv.jobId ||
-                              'Job'}
-                          </div>
-                          <div className="mt-0.5 truncate text-xs text-gray-400">
-                            {lastPreview(conv)}
-                          </div>
-                        </div>
-                      </button>
+                      </div>
                     )
                   })
                 )}
+                <div ref={messagesEndRef} />
               </div>
+
+              <div
+                style={{
+                  padding: '12px 16px',
+                  background: 'white',
+                  borderTop: '1px solid #E5E7EB',
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) =>
+                    setNewMessage(e.target.value)
+                  }
+                  onKeyDown={handleKeyDown}
+                  placeholder="Message likhein..."
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    padding: '10px 14px',
+                    borderRadius: '24px',
+                    border: '1px solid #E5E7EB',
+                    outline: 'none',
+                    fontSize: '14px',
+                    background: '#F9FAFB',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={!newMessage.trim() || sending}
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background:
+                      sending || !newMessage.trim()
+                        ? '#86EFAC'
+                        : '#16A34A',
+                    border: 'none',
+                    cursor: sending ? 'default' : 'pointer',
+                    color: 'white',
+                    fontSize: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                  aria-label="Send"
+                >
+                  ➤
+                </button>
+              </div>
+            </>
+          ) : (
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#9CA3AF',
+                flexDirection: 'column',
+                gap: '8px',
+              }}
+            >
+              <div style={{ fontSize: '48px' }}>💬</div>
+              <div>Kisi se baat karein</div>
             </div>
-
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gray-50">
-              {!selectedConv ? (
-                <div className="flex flex-1 items-center justify-center text-gray-400">
-                  Conversation select karein
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-3 border-b border-gray-100 bg-white px-6 py-4">
-                    <button
-                      type="button"
-                      onClick={fetchOwnerProfile}
-                      className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-green-100 text-sm font-semibold text-green-700 transition-colors hover:bg-green-200"
-                      title="Profile dekho"
-                    >
-                      {getInitials(
-                        selectedConv?.otherUser?.name || 'O'
-                      )}
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <button
-                        type="button"
-                        onClick={fetchOwnerProfile}
-                        className="block w-full text-left font-semibold text-gray-800 hover:text-green-700 hover:underline"
-                        title="Profile dekho"
-                      >
-                        {profileLoading
-                          ? 'Load ho raha hai...'
-                          : chatHeaderName}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={fetchJobDetail}
-                        className="mt-0.5 block w-full text-left text-xs text-green-600 hover:underline"
-                        title="Job detail dekho"
-                      >
-                        {chatHeaderJobTitle || 'Job detail dekho →'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                    {msgLoading ? (
-                      <div className="flex h-32 items-center justify-center">
-                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
-                      </div>
-                    ) : messages.length === 0 ? (
-                      <div className="mt-16 text-center text-sm text-gray-400">
-                        Pehla message bhejo!
-                      </div>
-                    ) : (
-                      Object.entries(groupedMessages).map(
-                        ([date, msgs]) => (
-                          <div key={date}>
-                            <div className="my-4 text-center text-xs text-gray-400">
-                              {formatDate(msgs[0].createdAt)}
-                            </div>
-                            {msgs.map((msg, i) => (
-                              <div
-                                key={msg._id || i}
-                                className={`mb-3 flex ${
-                                  isMyMessage(msg)
-                                    ? 'justify-end'
-                                    : 'justify-start'
-                                }`}
-                              >
-                                <div
-                                  className={`max-w-xs rounded-2xl px-4 py-2 text-sm ${
-                                    isMyMessage(msg)
-                                      ? 'rounded-br-none bg-green-600 text-white'
-                                      : 'rounded-bl-none border border-gray-100 bg-white text-gray-800'
-                                  }`}
-                                >
-                                  <div>{msg.message}</div>
-                                  <div
-                                    className={`mt-1 text-xs ${
-                                      isMyMessage(msg)
-                                        ? 'text-green-100'
-                                        : 'text-gray-400'
-                                    }`}
-                                  >
-                                    {formatTime(msg.createdAt)}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )
-                      )
-                    )}
-                    <div ref={messagesEndRef} />
-                  </div>
-
-                  <div className="border-t border-gray-100 bg-white p-4">
-                    <div className="flex gap-3">
-                      <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) =>
-                          setNewMessage(e.target.value)
-                        }
-                        onKeyDown={handleKeyDown}
-                        placeholder="Message likhein..."
-                        className="flex-1 rounded-xl border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSend}
-                        disabled={
-                          sending || !newMessage.trim()
-                        }
-                        className="rounded-xl bg-green-600 px-6 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-                      >
-                        {sending ? '...' : 'Send'}
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+          )}
+        </div>
+      </div>
 
       {showOwnerProfile && ownerProfileData && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black bg-opacity-50">

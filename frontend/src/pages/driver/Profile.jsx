@@ -184,7 +184,9 @@ const DriverProfile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      style={{ minHeight: '100vh', background: '#F0FDF4' }}
+    >
       <div className="p-4 md:p-6 pb-8">
         {loading ? (
           <p className="text-sm text-gray-500">Loading...</p>

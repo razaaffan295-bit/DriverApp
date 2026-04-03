@@ -23,22 +23,29 @@ const calculateDaySalary = (contract, status, hours) => {
 
   if (status === "present") {
     if (salaryType === "hourly") {
-      salary = (Number(hours) || 0) * (Number(salaryPerHour) || 0);
+      salary =
+        (Number(hours) || 0) * (Number(salaryPerHour) || 0);
     } else {
       salary = daysBase;
     }
     salary += Number(dailyBhatta) || 0;
   } else if (status === "half_day") {
     if (salaryType === "hourly") {
-      salary = (Number(hours) || 0) * (Number(salaryPerHour) || 0);
+      salary =
+        (Number(hours) || 0) * (Number(salaryPerHour) || 0);
     } else {
       salary = daysBase / 2;
     }
     salary += (Number(dailyBhatta) || 0) / 2;
   }
 
-  if (hasHourlyBonus && salaryType !== "hourly" && status === "present") {
-    salary += (Number(hours) || 0) * (Number(salaryPerHour) || 0);
+  if (
+    hasHourlyBonus &&
+    salaryType !== "hourly" &&
+    status !== "absent"
+  ) {
+    salary +=
+      (Number(hours) || 0) * (Number(salaryPerHour) || 0);
   }
 
   return Math.round(salary);
@@ -46,7 +53,10 @@ const calculateDaySalary = (contract, status, hours) => {
 
 const driverAddRecord = async (req, res) => {
   try {
-    const { date, status, hoursWorked, note } = req.body;
+    const { date, status, note } = req.body;
+
+    const hoursWorked =
+      Number(req.body.hoursWorked) || 0;
 
     if (!date || !status) {
       return res.status(400).json({
@@ -73,7 +83,18 @@ const driverAddRecord = async (req, res) => {
     const existing = await DriverAttendance.findOne({
       contractId: contract._id,
       driverId: req.user.id,
-      date: recordDate,
+      date: {
+        $gte: new Date(
+          recordDate.getFullYear(),
+          recordDate.getMonth(),
+          recordDate.getDate()
+        ),
+        $lt: new Date(
+          recordDate.getFullYear(),
+          recordDate.getMonth(),
+          recordDate.getDate() + 1
+        ),
+      },
     });
 
     if (existing) {
@@ -86,7 +107,7 @@ const driverAddRecord = async (req, res) => {
     const salaryForDay = calculateDaySalary(
       contract,
       status,
-      Number(hoursWorked) || 0
+      hoursWorked
     );
 
     const record = await DriverAttendance.create({
@@ -97,7 +118,7 @@ const driverAddRecord = async (req, res) => {
       month: recordDate.getMonth() + 1,
       year: recordDate.getFullYear(),
       status,
-      hoursWorked: Number(hoursWorked) || 0,
+      hoursWorked: Number(req.body.hoursWorked) || 0,
       note: note || "",
       salaryForDay,
     });

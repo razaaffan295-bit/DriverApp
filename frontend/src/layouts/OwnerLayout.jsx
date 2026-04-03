@@ -450,7 +450,10 @@ const OwnerLayout = () => {
       </div>
 
       {/* ═══ PAGE CONTENT ═══ */}
-      <div className="min-h-screen md:ml-64">
+      <div
+        className="md:ml-64"
+        style={{ minHeight: '100vh', background: '#F0F4FF' }}
+      >
         <div className="pt-14 pb-[60px] md:pt-0 md:pb-0">
           <Outlet />
         </div>
