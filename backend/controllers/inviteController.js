@@ -266,7 +266,7 @@ const acceptInvite = async (req, res) => {
       title: 'Driver ne Invite Accept Kiya!',
       message: `${req.user.name} ne aapka invite accept kar liya. Kaam shuru ho gaya!`,
       type: 'application_accepted',
-      link: '/owner/drivers',
+      link: '/owner/applications',
       isRead: false,
     })
 
@@ -310,7 +310,7 @@ const rejectInvite = async (req, res) => {
       title: 'Driver ne Invite Reject Kiya',
       message: `${req.user.name} ne invite reject kar diya. ${reason || ''}`,
       type: 'application_accepted',
-      link: '/owner/drivers',
+      link: '/owner/applications',
       isRead: false,
     })
 

@@ -511,7 +511,7 @@ const createRepairRequest = async (req, res) => {
       title: 'Repair Request Aayi!',
       message: `Driver ne ₹${amount} repair request ki: ${description}`,
       type: 'payment_received',
-      link: '/owner/repairs',
+      link: '/owner/trips',
       isRead: false,
     })
 

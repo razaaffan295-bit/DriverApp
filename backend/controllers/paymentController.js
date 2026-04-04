@@ -5,6 +5,7 @@ const Contract = require("../models/Contract");
 const DriverAttendance = require("../models/DriverAttendance");
 const Notification = require("../models/Notification");
 const DriverProfile = require("../models/DriverProfile");
+const TripRecord = require("../models/TripRecord");
 
 const uidFromReq = (req) => req.user._id || req.user.id;
 
@@ -1031,8 +1032,6 @@ const createTripPaymentRequest = async (req, res) => {
         message: "tripId zaroori hai",
       });
     }
-
-    const TripRecord = require("../models/TripRecord");
 
     const trip = await TripRecord.findById(tripId);
     if (!trip) {

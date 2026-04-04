@@ -34,6 +34,7 @@ const notificationSchema = new mongoose.Schema({
   },
   link: {
     type: String,
+    default: "",
   },
   createdAt: {
     type: Date,

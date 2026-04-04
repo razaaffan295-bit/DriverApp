@@ -15,13 +15,14 @@ import {
   handleAdvance as handleAdvanceApi,
 } from '../../api/paymentAPI'
 
-const TABS = [
-  { id: 'summary', label: 'Summary' },
-  { id: 'pay', label: 'Payment Karo' },
-  { id: 'trip', label: 'Trip Earnings' },
-  { id: 'history', label: 'History' },
-  { id: 'advance', label: 'Advance Requests' },
-]
+const isTransportContract = (contract) => {
+  return (
+    contract?.vehicleCategory === 'transport' ||
+    contract?.transportType === 'company_trip' ||
+    contract?.transportType === 'malik_trip' ||
+    contract?.jobId?.vehicleCategory === 'transport'
+  )
+}
 
 const MONTH_NAMES = [
   'January',
@@ -121,6 +122,20 @@ const OwnerPayments = () => {
   const [printTrip, setPrintTrip] = useState(null)
 
   const cid = selectedContract?._id
+  const selectedIsTransport = isTransportContract(selectedContract)
+
+  const tabs = useMemo(
+    () => [
+      { id: 'summary', label: 'Summary' },
+      { id: 'payment', label: 'Payment Karo' },
+      ...(selectedIsTransport
+        ? [{ id: 'trip', label: 'Trip Earnings' }]
+        : []),
+      { id: 'history', label: 'History' },
+      { id: 'advance', label: 'Advance Requests' },
+    ],
+    [selectedIsTransport]
+  )
 
   const loadContracts = useCallback(async () => {
     const res = await getOwnerContracts()
@@ -255,7 +270,7 @@ const OwnerPayments = () => {
       setLoading(true)
       try {
         if (tab === 'summary') await loadSummary()
-        else if (tab === 'pay') {
+        else if (tab === 'payment') {
           await Promise.all([
             loadSummary(),
             loadAdvances(),
@@ -278,12 +293,29 @@ const OwnerPayments = () => {
   }, [cid, tab, loadSummary, loadHistory, loadAdvances])
 
   useEffect(() => {
-    if (tab !== 'trip' || !contractsReady) return
+    if (
+      tab !== 'trip' ||
+      !contractsReady ||
+      !selectedIsTransport
+    ) {
+      return
+    }
     loadOwnerTripEarnings()
-  }, [tab, contractsReady, loadOwnerTripEarnings])
+  }, [
+    tab,
+    contractsReady,
+    selectedIsTransport,
+    loadOwnerTripEarnings,
+  ])
 
   useEffect(() => {
-    if (tab !== 'pay') setTripPayContext(null)
+    if (!selectedIsTransport && tab === 'trip') {
+      setTab('summary')
+    }
+  }, [selectedIsTransport, tab])
+
+  useEffect(() => {
+    if (tab !== 'payment') setTripPayContext(null)
   }, [tab])
 
   const driverName =
@@ -613,7 +645,7 @@ const OwnerPayments = () => {
     if (amt > 0) setAmount(String(amt))
     if (req?.month) setPayMonth(Number(req.month))
     if (req?.year) setPayYear(Number(req.year))
-    setTab('pay')
+    setTab('payment')
   }
 
   const openPayTabForTrip = (req) => {
@@ -623,7 +655,7 @@ const OwnerPayments = () => {
       0
     if (amt > 0) setAmount(String(amt))
     setTripPayContext(req)
-    setTab('pay')
+    setTab('payment')
   }
 
   const getTripPaid = (tripId) => {
@@ -674,7 +706,10 @@ const OwnerPayments = () => {
                 {contracts.map((c) => (
                   <option key={c._id} value={c._id}>
                     {c.driverId?.name || 'Driver'} —{' '}
-                    {c.jobId?.title || 'Job'}
+                    {c.jobId?.title || 'Job'} —{' '}
+                    {c.jobId?.vehicleCategory === 'transport'
+                      ? '🚛 Transport'
+                      : '🔧 Normal'}
                   </option>
                 ))}
               </select>
@@ -682,7 +717,7 @@ const OwnerPayments = () => {
           )}
 
           <div className="mb-6 flex flex-wrap gap-2">
-            {TABS.map(({ id, label }) => (
+            {tabs.map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
@@ -984,7 +1019,7 @@ const OwnerPayments = () => {
                 Summary load nahi hui
               </p>
             )
-          ) : tab === 'pay' ? (
+          ) : tab === 'payment' ? (
             <>
               {s ? (
                 <>
@@ -1480,6 +1515,7 @@ const OwnerPayments = () => {
             </form>
             </>
           ) : tab === 'trip' ? (
+            selectedIsTransport ? (
             <div>
               <p className="mb-3 text-sm text-gray-600">
                 Sab drivers ke owner-approved trips — salary alag
@@ -1744,6 +1780,7 @@ const OwnerPayments = () => {
                 })
               )}
             </div>
+            ) : null
           ) : tab === 'history' ? (
             payments.length === 0 ? (
               <p className="text-gray-500">Koi payment nahi</p>

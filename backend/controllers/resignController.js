@@ -158,7 +158,7 @@ const handleResign = async (req, res) => {
             title: "Gadi Mein Driver Nahi!",
             message: `${resign.driverId.name} ke resign ke baad aapki ${vehicle?.vehicleType || "gadi"} (${vehicle?.vehicleNumber || ""}) mein koi driver nahi hai. Naya driver hire karein.`,
             type: "new_application",
-            link: "/owner/post-job",
+            link: "/owner/drivers",
             isRead: false,
           });
         }

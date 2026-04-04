@@ -78,7 +78,34 @@ const DriverLayout = () => {
     if (type === 'application_accepted') return '✅'
     if (type === 'complaint_update') return '⚠️'
     if (type === 'new_application') return '🎯'
+    if (type === 'trip_submitted' || type === 'trip_update') return '🚛'
     return '🔔'
+  }
+
+  const getNotifLink = (notif) => {
+    if (notif?.link && String(notif.link).trim()) {
+      return String(notif.link).trim()
+    }
+    switch (notif?.type) {
+      case 'new_message':
+        return '/driver/messages'
+      case 'payment_received':
+      case 'payment_request':
+        return '/driver/payments'
+      case 'application_accepted':
+        return '/driver/active-job'
+      case 'application_rejected':
+        return '/driver/applications'
+      case 'complaint_update':
+        return '/driver/complaints'
+      case 'trip_submitted':
+      case 'trip_update':
+        return '/driver/trips'
+      case 'new_application':
+        return '/driver/invites'
+      default:
+        return '/driver/dashboard'
+    }
   }
 
   const BellButton = () => (
@@ -405,10 +432,17 @@ const DriverLayout = () => {
               notifications.map((notif, i) => (
                 <div
                   key={notif._id || i}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
                     setShowNotif(false)
-                    if (notif.link) {
-                      navigate(notif.link)
+                    navigate(getNotifLink(notif))
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setShowNotif(false)
+                      navigate(getNotifLink(notif))
                     }
                   }}
                   style={{
@@ -417,8 +451,7 @@ const DriverLayout = () => {
                       i < notifications.length - 1
                       ? '1px solid #F9FAFB'
                       : 'none',
-                    cursor: notif.link
-                      ? 'pointer' : 'default',
+                    cursor: 'pointer',
                     background: notif.isRead
                       ? 'white' : '#F0FDF4',
                     display: 'flex',

@@ -19,6 +19,7 @@ import OwnerProfile from
 import Vehicles from './pages/owner/Vehicles'
 import PostJob from './pages/owner/PostJob'
 import OwnerJobs from './pages/owner/Jobs'
+import OwnerJobDetail from './pages/owner/JobDetail'
 import OwnerApplications from 
   './pages/owner/Applications'
 import OwnerMessages from 
@@ -114,6 +115,7 @@ function App() {
           <Route path="/owner/vehicles" element={<Vehicles />} />
           <Route path="/owner/vehicles/:id" element={<VehicleDetail />} />
           <Route path="/owner/post-job" element={<PostJob />} />
+          <Route path="/owner/jobs/:id" element={<OwnerJobDetail />} />
           <Route path="/owner/jobs" element={<OwnerJobs />} />
           <Route path="/owner/applications" element={<OwnerApplications />} />
           <Route path="/owner/messages" element={<OwnerMessages />} />

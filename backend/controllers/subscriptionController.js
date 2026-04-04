@@ -111,6 +111,10 @@ const verifyPayment = async (req, res) => {
       title: "Subscription Active!",
       message: `Aapka ₹${amount}/month subscription active ho gaya. 30 din valid hai.`,
       type: "payment_received",
+      link:
+        user.role === "owner"
+          ? "/owner/post-job"
+          : "/driver/jobs",
       isRead: false,
     });
 

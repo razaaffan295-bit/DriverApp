@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
@@ -14,13 +14,14 @@ import {
 } from '../../api/paymentAPI'
 import { getDriverTrips } from '../../api/tripAPI'
 
-const TABS = [
-  { id: 'summary', label: 'Summary' },
-  { id: 'trip', label: 'Trip Earnings' },
-  { id: 'history', label: 'History' },
-  { id: 'advance', label: 'Advance' },
-  { id: 'request', label: 'Request Advance' },
-]
+const isTransportContract = (contract) => {
+  return (
+    contract?.vehicleCategory === 'transport' ||
+    contract?.transportType === 'company_trip' ||
+    contract?.transportType === 'malik_trip' ||
+    contract?.jobId?.vehicleCategory === 'transport'
+  )
+}
 
 const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
@@ -210,9 +211,18 @@ const DriverPayments = () => {
     refreshTab()
   }, [refreshTab])
 
+  const isTransport = isTransportContract(summary?.contract)
+
   useEffect(() => {
+    if (!isTransport && tab === 'trip') {
+      setTab('summary')
+    }
+  }, [isTransport, tab])
+
+  useEffect(() => {
+    if (tab !== 'trip' || !isTransport) return
     loadTripEarnings()
-  }, [loadTripEarnings])
+  }, [tab, isTransport, loadTripEarnings])
 
   useEffect(() => {
     if (summary) {
@@ -361,6 +371,19 @@ const DriverPayments = () => {
     (summary?.totalSalaryEarned || 0) -
     (summary?.totalPaid || 0)
 
+  const driverTabs = useMemo(
+    () => [
+      { id: 'summary', label: 'Summary' },
+      ...(isTransport
+        ? [{ id: 'trip', label: 'Trip Earnings' }]
+        : []),
+      { id: 'history', label: 'History' },
+      { id: 'advance', label: 'Advance' },
+      { id: 'request', label: 'Request Advance' },
+    ],
+    [isTransport]
+  )
+
   const filteredHistory =
     historyFilter === 'salary'
       ? payments.filter((p) => !isTripPaymentRow(p))
@@ -424,7 +447,7 @@ const DriverPayments = () => {
     >
       <div className="mx-auto max-w-2xl px-4 py-6 pb-6 md:pb-8">
           <div className="mb-6 flex flex-wrap gap-2">
-            {TABS.map(({ id, label }) => (
+            {driverTabs.map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
@@ -733,6 +756,7 @@ const DriverPayments = () => {
               </>
             )
           ) : tab === 'trip' ? (
+            isTransport ? (
             <div>
               <p className="mb-3 text-sm text-gray-600">
                 Sirf owner-approved trips — alag salary se
@@ -1049,6 +1073,7 @@ const DriverPayments = () => {
                 })
               )}
             </div>
+            ) : null
           ) : tab === 'history' ? (
             payments.length === 0 ? (
               <p className="text-gray-500">Koi history nahi</p>

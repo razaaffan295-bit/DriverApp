@@ -207,6 +207,10 @@ const blockUser = async (req, res) => {
       message:
         reason || "Aapka account block kar diya gaya hai.",
       type: "complaint_update",
+      link:
+        user.role === "owner"
+          ? "/owner/complaints"
+          : "/driver/complaints",
       isRead: false,
     });
 
@@ -226,6 +230,8 @@ const unblockUser = async (req, res) => {
   try {
     const { userId } = req.body;
 
+    const unblockedUser = await User.findById(userId).select("role");
+
     await User.findByIdAndUpdate(userId, {
       isBlocked: false,
       blockReason: "",
@@ -237,6 +243,10 @@ const unblockUser = async (req, res) => {
       title: "Account Unblock Ho Gaya",
       message: "Aapka account unblock kar diya gaya hai.",
       type: "complaint_update",
+      link:
+        unblockedUser?.role === "owner"
+          ? "/owner/complaints"
+          : "/driver/complaints",
       isRead: false,
     });
 
@@ -305,7 +315,7 @@ const resolveComplaint = async (req, res) => {
 
     const complaint = await Complaint.findById(complaintId)
       .populate("raisedBy", "name")
-      .populate("againstUser", "name");
+      .populate("againstUser", "name role");
 
     if (!complaint) {
       return res.status(404).json({
@@ -322,6 +332,10 @@ const resolveComplaint = async (req, res) => {
 
     const note = complaint.adminNote;
     const targetUser = complaint.againstUser;
+    const targetComplaintLink =
+      targetUser?.role === "owner"
+        ? "/owner/complaints"
+        : "/driver/complaints";
 
     if (action && action !== "no_action" && targetUser) {
       if (action === "warning") {
@@ -330,6 +344,7 @@ const resolveComplaint = async (req, res) => {
           title: "Admin Warning",
           message: `Aapke khilaf complaint resolve hui. Admin ne warning di hai. ${note}`,
           type: "complaint_update",
+          link: targetComplaintLink,
           isRead: false,
         });
       }
@@ -353,6 +368,7 @@ const resolveComplaint = async (req, res) => {
           title: `Account ${days} Din ke liye Block`,
           message: `Complaint ke baad aapka account ${days} din ke liye block. ${note}`,
           type: "complaint_update",
+          link: targetComplaintLink,
           isRead: false,
         });
       }
@@ -370,6 +386,7 @@ const resolveComplaint = async (req, res) => {
           title: "Account Permanently Ban",
           message: `Aapka account permanently ban ho gaya. ${note}`,
           type: "complaint_update",
+          link: targetComplaintLink,
           isRead: false,
         });
       }
@@ -431,6 +448,8 @@ const verifyUser = async (req, res) => {
   try {
     const { userId } = req.body;
 
+    const verifiedUser = await User.findById(userId).select("role");
+
     await User.findByIdAndUpdate(userId, { isVerified: true });
 
     await Notification.create({
@@ -439,6 +458,10 @@ const verifyUser = async (req, res) => {
       message:
         "Aapka account verify ho gaya. Ab Verified badge milega.",
       type: "complaint_update",
+      link:
+        verifiedUser?.role === "owner"
+          ? "/owner/complaints"
+          : "/driver/complaints",
       isRead: false,
     });
 

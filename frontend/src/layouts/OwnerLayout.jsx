@@ -7,7 +7,32 @@ const notifTypeIcon = (type) => {
   if (type === 'payment_received') return '💰'
   if (type === 'application_accepted') return '✅'
   if (type === 'complaint_update') return '⚠️'
+  if (type === 'trip_submitted' || type === 'trip_update') return '🚛'
   return '🔔'
+}
+
+const getNotifLink = (notif) => {
+  if (notif?.link && String(notif.link).trim()) {
+    return String(notif.link).trim()
+  }
+  switch (notif?.type) {
+    case 'new_message':
+      return '/owner/messages'
+    case 'payment_received':
+    case 'payment_request':
+      return '/owner/payments'
+    case 'new_application':
+    case 'application_accepted':
+    case 'application_rejected':
+      return '/owner/applications'
+    case 'complaint_update':
+      return '/owner/complaints'
+    case 'trip_submitted':
+    case 'trip_update':
+      return '/owner/trips'
+    default:
+      return '/owner/dashboard'
+  }
 }
 
 const OwnerLayout = () => {
@@ -536,28 +561,23 @@ const OwnerLayout = () => {
               notifications.map((notif) => (
                 <div
                   key={notif._id}
-                  role={notif.link ? 'button' : undefined}
-                  tabIndex={notif.link ? 0 : undefined}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
                     setShowNotif(false)
-                    if (notif.link) {
-                      navigate(notif.link)
-                    }
+                    navigate(getNotifLink(notif))
                   }}
                   onKeyDown={(e) => {
-                    if (
-                      notif.link &&
-                      (e.key === 'Enter' || e.key === ' ')
-                    ) {
+                    if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
                       setShowNotif(false)
-                      navigate(notif.link)
+                      navigate(getNotifLink(notif))
                     }
                   }}
                   style={{
                     padding: '14px 16px',
                     borderBottom: '1px solid #F9FAFB',
-                    cursor: notif.link ? 'pointer' : 'default',
+                    cursor: 'pointer',
                     background: notif.isRead ? 'white' : '#EFF6FF',
                     display: 'flex',
                     gap: '12px',

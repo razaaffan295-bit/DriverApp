@@ -137,7 +137,15 @@ const OwnerJobs = () => {
                 return (
                   <li
                     key={j._id}
-                    className="mb-4 rounded-2xl border border-gray-100 bg-white p-5 transition-colors hover:border-blue-200"
+                    role="presentation"
+                    onClick={() => navigate(`/owner/jobs/${j._id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        navigate(`/owner/jobs/${j._id}`)
+                      }
+                    }}
+                    className="mb-4 cursor-pointer rounded-2xl border border-gray-100 bg-white p-5 transition-colors hover:border-blue-200"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
@@ -174,11 +182,10 @@ const OwnerJobs = () => {
                         </span>
                         <button
                           type="button"
-                          onClick={() =>
-                            toast('Applications feature abhi available nahi hai', {
-                              icon: 'ℹ️',
-                            })
-                          }
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/owner/jobs/${j._id}`)
+                          }}
                           className="rounded-lg border border-blue-700 px-3 py-1 text-sm text-blue-700"
                         >
                           Dekho
@@ -187,7 +194,10 @@ const OwnerJobs = () => {
                           <button
                             type="button"
                             disabled={closeLoadingId === j._id}
-                            onClick={() => handleClose(j._id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleClose(j._id)
+                            }}
                             className="text-sm font-medium text-red-500 hover:text-red-600 disabled:opacity-50"
                           >
                             {closeLoadingId === j._id

@@ -33,6 +33,9 @@ export const closeJob = (id) =>
 export const getOwnerApplications = () =>
   API.get('/api/applications/my-applications')
 
+export const getJobApplications = (jobId) =>
+  API.get(`/api/applications/job/${jobId}`)
+
 export const acceptApplication = (id) =>
   API.put(`/api/applications/${id}/accept`)
 

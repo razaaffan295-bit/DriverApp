@@ -239,7 +239,7 @@ const acceptApplication = async (req, res) => {
       title: "Application Accept Ho Gayi!",
       message: `${owner?.name || "Owner"} ne aapki application accept kar li. Joining letter ka wait karein.`,
       type: "application_accepted",
-      link: "/driver/applications",
+      link: "/driver/active-job",
       isRead: false,
     });
 
