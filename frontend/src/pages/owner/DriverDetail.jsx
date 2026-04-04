@@ -3,6 +3,21 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getDriverDetail } from '../../api/ownerAPI'
 
+const isPdf = (url) =>
+  url &&
+  (url.toLowerCase().includes('.pdf') || url.toLowerCase().includes('/pdf'))
+
+const getThumbUrl = (url) => {
+  if (!url) return ''
+  if (url.includes('cloudinary.com')) {
+    return url.replace(
+      '/upload/',
+      '/upload/w_200,h_200,c_fill,q_auto/'
+    )
+  }
+  return url
+}
+
 const DriverDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -81,6 +96,8 @@ const DriverDetail = () => {
     return `/owner/messages?driverId=${driverId}`
   })()
 
+  const driverProfile = profile
+
   return (
     <div
       style={{ minHeight: '100vh', background: '#F0F4FF' }}
@@ -102,8 +119,17 @@ const DriverDetail = () => {
             <>
               <div className="bg-white rounded-2xl p-6 mb-6 border border-gray-100">
                 <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-full bg-blue-100 text-blue-700 text-3xl font-bold flex items-center justify-center">
-                    {(driver?.name || 'D').slice(0, 1).toUpperCase()}
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-3xl font-bold text-blue-700">
+                    {driver?.profilePhoto ? (
+                      <img
+                        src={getThumbUrl(driver.profilePhoto)}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        style={{ cursor: 'pointer' }}
+                      />
+                    ) : (
+                      (driver?.name || 'D').slice(0, 1).toUpperCase()
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="text-2xl font-bold text-gray-900 truncate">{driver?.name}</div>
@@ -153,6 +179,131 @@ const DriverDetail = () => {
                 <div className="text-sm text-gray-500">
                   {profile?.licenseType || '—'} — {profile?.licenseNumber || '—'}
                 </div>
+
+                {driverProfile?.documents &&
+                Object.values(driverProfile.documents).some((v) => v) ? (
+                  <div
+                    style={{
+                      marginTop: '16px',
+                      padding: '16px',
+                      background: '#F9FAFB',
+                      borderRadius: '12px',
+                    }}
+                  >
+                    <h3
+                      style={{
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        color: '#111827',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      Documents
+                    </h3>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '12px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      {[
+                        {
+                          key: 'license',
+                          label: 'License',
+                          url: driverProfile.documents.license,
+                        },
+                        {
+                          key: 'aadhar',
+                          label: 'Aadhar',
+                          url: driverProfile.documents.aadhar,
+                        },
+                        {
+                          key: 'photo',
+                          label: 'Photo',
+                          url: driverProfile.documents.photo,
+                        },
+                        {
+                          key: 'other',
+                          label: 'Other',
+                          url: driverProfile.documents.other,
+                        },
+                      ]
+                        .filter((d) => d.url)
+                        .map((doc) => (
+                          <a
+                            key={doc.key}
+                            href={doc.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '4px',
+                              textDecoration: 'none',
+                            }}
+                          >
+                            {isPdf(doc.url) ? (
+                              <div
+                                style={{
+                                  width: '70px',
+                                  height: '70px',
+                                  background: '#FEF2F2',
+                                  borderRadius: '8px',
+                                  border: '1px solid #FECACA',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '4px',
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: '24px',
+                                  }}
+                                >
+                                  📄
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    color: '#EF4444',
+                                    fontWeight: '600',
+                                  }}
+                                >
+                                  PDF
+                                </span>
+                              </div>
+                            ) : (
+                              <img
+                                src={getThumbUrl(doc.url)}
+                                alt={doc.label}
+                                style={{
+                                  width: '70px',
+                                  height: '70px',
+                                  objectFit: 'cover',
+                                  borderRadius: '8px',
+                                  border: '1px solid #E5E7EB',
+                                }}
+                              />
+                            )}
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                color: '#6B7280',
+                                fontWeight: '500',
+                              }}
+                            >
+                              {doc.label}
+                            </span>
+                          </a>
+                        ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="mt-4 flex flex-col sm:flex-row gap-3">
                   <button

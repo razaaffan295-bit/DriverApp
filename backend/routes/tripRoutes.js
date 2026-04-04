@@ -1,5 +1,6 @@
 const express = require('express')
 const router = express.Router()
+const { upload } = require('../config/cloudinary')
 const {
   createTrip,
   addExpense,
@@ -22,10 +23,28 @@ const {
 
 router.post('/create', verifyToken, isDriver, createTrip)
 
-router.post('/add-expense', verifyToken, isDriver, addExpense)
-router.post('/expense/add', verifyToken, isDriver, addExpense)
+router.post(
+  '/add-expense',
+  verifyToken,
+  isDriver,
+  upload.single('image'),
+  addExpense
+)
+router.post(
+  '/expense/add',
+  verifyToken,
+  isDriver,
+  upload.single('image'),
+  addExpense
+)
 
-router.post('/add-repair', verifyToken, isDriver, addRepair)
+router.post(
+  '/add-repair',
+  verifyToken,
+  isDriver,
+  upload.single('image'),
+  addRepair
+)
 
 router.post('/complete', verifyToken, isDriver, completeTrip)
 router.post('/submit', verifyToken, isDriver, submitTrip)

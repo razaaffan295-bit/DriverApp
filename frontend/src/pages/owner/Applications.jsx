@@ -193,6 +193,7 @@ const OwnerApplications = () => {
         licenseNumber: p.licenseNumber,
         licenseExpiry: p.licenseExpiry,
         about: p.about,
+        documents: p.documents,
       })
       setDriverProfileData({
         avgRating: res.data?.avgRating ?? 0,

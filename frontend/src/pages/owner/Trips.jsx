@@ -17,6 +17,22 @@ const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
 const tripCargo = (t) => t.cargo || t.description || ''
 
+const isPdf = (url) =>
+  url &&
+  (url.toLowerCase().includes('.pdf') ||
+    url.toLowerCase().includes('/pdf'))
+
+const getThumbUrl = (url) => {
+  if (!url) return ''
+  if (url.includes('cloudinary.com')) {
+    return url.replace(
+      '/upload/',
+      '/upload/w_150,h_150,c_fill,q_auto/'
+    )
+  }
+  return url
+}
+
 const OwnerTrips = () => {
   const [user, setUser] = useState(null)
   const [tab, setTab] = useState('pending')
@@ -254,11 +270,58 @@ const OwnerTrips = () => {
                                       </p>
                                     ) : null}
                                     {(ex.image || ex.photo) && (
-                                      <img
-                                        src={ex.image || ex.photo}
-                                        alt=""
-                                        className="mt-2 max-h-36 rounded-lg object-contain"
-                                      />
+                                      <a
+                                        href={ex.image || ex.photo}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        style={{
+                                          marginTop: '6px',
+                                          display: 'block',
+                                        }}
+                                      >
+                                        {isPdf(ex.image || ex.photo) ? (
+                                          <div
+                                            style={{
+                                              width: '60px',
+                                              height: '60px',
+                                              background: '#FEF2F2',
+                                              borderRadius: '8px',
+                                              border: '1px solid #FECACA',
+                                              display: 'flex',
+                                              flexDirection: 'column',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                            }}
+                                          >
+                                            <span style={{ fontSize: '20px' }}>
+                                              📄
+                                            </span>
+                                            <span
+                                              style={{
+                                                fontSize: '9px',
+                                                color: '#EF4444',
+                                              }}
+                                            >
+                                              PDF
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <img
+                                            src={getThumbUrl(
+                                              ex.image || ex.photo
+                                            )}
+                                            alt="expense proof"
+                                            style={{
+                                              width: '60px',
+                                              height: '60px',
+                                              objectFit: 'cover',
+                                              borderRadius: '8px',
+                                              border: '1px solid #E5E7EB',
+                                              cursor: 'pointer',
+                                            }}
+                                          />
+                                        )}
+                                      </a>
                                     )}
                                   </div>
                                 ))}
@@ -289,11 +352,56 @@ const OwnerTrips = () => {
                                       <span>{fmtMoney(r.amount)}</span>
                                     </div>
                                     {r.image ? (
-                                      <img
-                                        src={r.image}
-                                        alt=""
-                                        className="mt-2 max-h-36 rounded-lg"
-                                      />
+                                      <a
+                                        href={r.image}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        style={{
+                                          marginTop: '6px',
+                                          display: 'block',
+                                        }}
+                                      >
+                                        {isPdf(r.image) ? (
+                                          <div
+                                            style={{
+                                              width: '60px',
+                                              height: '60px',
+                                              background: '#FEF2F2',
+                                              borderRadius: '8px',
+                                              border: '1px solid #FECACA',
+                                              display: 'flex',
+                                              flexDirection: 'column',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                            }}
+                                          >
+                                            <span style={{ fontSize: '20px' }}>
+                                              📄
+                                            </span>
+                                            <span
+                                              style={{
+                                                fontSize: '9px',
+                                                color: '#EF4444',
+                                              }}
+                                            >
+                                              PDF
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <img
+                                            src={getThumbUrl(r.image)}
+                                            alt="repair proof"
+                                            style={{
+                                              width: '60px',
+                                              height: '60px',
+                                              objectFit: 'cover',
+                                              borderRadius: '8px',
+                                              border: '1px solid #E5E7EB',
+                                              cursor: 'pointer',
+                                            }}
+                                          />
+                                        )}
+                                      </a>
                                     ) : null}
                                   </div>
                                 ))}

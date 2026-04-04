@@ -206,7 +206,7 @@ const makePayment = async (req, res) => {
       amount,
       paymentType,
       utrNumber,
-      paymentPhoto,
+      paymentPhoto: paymentPhotoBody,
       witnessName,
       note,
       advanceDeduction: advanceDeductionBody,
@@ -214,6 +214,17 @@ const makePayment = async (req, res) => {
       month,
       year,
     } = req.body;
+
+    let paymentPhoto =
+      paymentPhotoBody != null &&
+      String(paymentPhotoBody).trim() !== ""
+        ? String(paymentPhotoBody).trim()
+        : "";
+    if (req.file) {
+      const u =
+        req.file.path || req.file.secure_url || req.file.url || "";
+      if (u) paymentPhoto = u;
+    }
 
     const pm = paymentType === "cash" ? "cash" : "upi";
 

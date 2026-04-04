@@ -691,6 +691,36 @@ const DriverPayments = () => {
                           Note: {p.note}
                         </p>
                       ) : null}
+                      {(p.paymentPhoto || p.proofPhoto) && (
+                        <div style={{ marginTop: '8px' }}>
+                          <p
+                            style={{
+                              fontSize: '12px',
+                              color: '#6B7280',
+                              marginBottom: '4px',
+                            }}
+                          >
+                            Owner ka proof:
+                          </p>
+                          <a
+                            href={p.paymentPhoto || p.proofPhoto}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <img
+                              src={p.paymentPhoto || p.proofPhoto}
+                              alt="proof"
+                              style={{
+                                width: '100px',
+                                height: '100px',
+                                objectFit: 'cover',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                              }}
+                            />
+                          </a>
+                        </div>
+                      )}
                       {Number(p.advanceDeduction) > 0 && (
                         <p className="text-sm text-amber-600">
                           Advance kata:{' '}
@@ -1164,6 +1194,37 @@ const DriverPayments = () => {
                           Reason: {p.driverRejectionReason}
                         </p>
                       )}
+                    {(p.paymentPhoto || p.proofPhoto) && (
+                      <div style={{ marginTop: '8px' }}>
+                        <p
+                          style={{
+                            fontSize: '12px',
+                            color: '#6B7280',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          Payment Proof:
+                        </p>
+                        <a
+                          href={p.paymentPhoto || p.proofPhoto}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <img
+                            src={p.paymentPhoto || p.proofPhoto}
+                            alt="payment proof"
+                            style={{
+                              width: '80px',
+                              height: '80px',
+                              objectFit: 'cover',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              border: '1px solid #E5E7EB',
+                            }}
+                          />
+                        </a>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => handlePrintReceipt(p)}

@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { upload } = require("../config/cloudinary");
 const {
   createComplaint,
   getMyComplaints,
@@ -8,7 +9,11 @@ const {
 const { verifyToken } = require("../middleware/authMiddleware");
 
 router.use(verifyToken);
-router.post("/", createComplaint);
+router.post(
+  "/",
+  upload.array("evidence", 5),
+  createComplaint
+);
 router.get("/my", getMyComplaints);
 router.get("/:id", getComplaintById);
 

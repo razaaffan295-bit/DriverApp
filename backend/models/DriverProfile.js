@@ -23,8 +23,10 @@ const driverProfileSchema = new mongoose.Schema({
   licenseExpiry: { type: Date },
   about: { type: String },
   documents: {
-    license: { type: String },
-    aadhar: { type: String },
+    license: { type: String, default: "" },
+    aadhar: { type: String, default: "" },
+    photo: { type: String, default: "" },
+    other: { type: String, default: "" },
   },
   bankDetails: {
     accountName: { type: String },

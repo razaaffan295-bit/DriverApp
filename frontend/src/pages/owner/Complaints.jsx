@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'react-hot-toast'
+import API from '../../api/axios'
 import { getOwnerContracts } from '../../api/contractAPI'
-import { getMyComplaints, createComplaint } from '../../api/complaintAPI'
+import { getMyComplaints } from '../../api/complaintAPI'
 
 const OWNER_TYPES = [
   { value: 'part_chori', label: 'Part Chori' },
@@ -23,18 +24,6 @@ const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN', {
     day: 'numeric', month: 'short', year: 'numeric',
   }) : '-'
-
-const readFilesAsDataUrls = (fileList) =>
-  Promise.all(
-    [...fileList].map(
-      (f) => new Promise((resolve, reject) => {
-        const r = new FileReader()
-        r.onload = () => resolve(String(r.result || ''))
-        r.onerror = reject
-        r.readAsDataURL(f)
-      })
-    )
-  )
 
 const OwnerComplaints = () => {
   const [tab, setTab] = useState('mine')
@@ -114,19 +103,35 @@ const OwnerComplaints = () => {
     }
     try {
       setSubmitting(true)
-      let evidence = []
+
+      const formData = new FormData()
+      formData.append(
+        'againstUserId',
+        String(againstUserId)
+      )
+      formData.append('type', complaintType)
+      formData.append('description', description.trim())
+
+      const jid =
+        selectedContract.jobId?._id ||
+        selectedContract.jobId ||
+        ''
+      if (jid) formData.append('jobId', String(jid))
+      const cid = selectedContract._id || ''
+      if (cid) formData.append('contractId', String(cid))
+
       if (evidenceFiles?.length) {
-        evidence = await readFilesAsDataUrls(evidenceFiles)
+        ;[...evidenceFiles].forEach((f) => {
+          formData.append('evidence', f)
+        })
       }
-      await createComplaint({
-        againstUserId: String(againstUserId),
-        jobId: selectedContract.jobId?._id ||
-          selectedContract.jobId || null,
-        contractId: selectedContract._id || null,
-        type: complaintType,
-        description: description.trim(),
-        evidence,
+
+      await API.post('/api/complaints', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       })
+
       toast.success('Complaint darj ho gayi!')
       setDescription('')
       setComplaintType('')
@@ -214,6 +219,22 @@ const OwnerComplaints = () => {
                     <p className="mt-2 rounded-lg bg-green-50 p-2 text-xs text-green-900">
                       Admin: {c.adminNote}
                     </p>
+                  ) : null}
+                  {Array.isArray(c.evidence) &&
+                  c.evidence.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {c.evidence.map((url, i) => (
+                        <a
+                          key={i}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-medium text-blue-700 underline"
+                        >
+                          Proof {i + 1}
+                        </a>
+                      ))}
+                    </div>
                   ) : null}
                 </li>
               ))}
@@ -309,7 +330,7 @@ const OwnerComplaints = () => {
               </label>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,application/pdf"
                 multiple
                 onChange={(e) => setEvidenceFiles(e.target.files)}
                 className="mt-2 w-full text-sm"

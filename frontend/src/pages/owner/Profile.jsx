@@ -6,6 +6,7 @@ import {
 import { toast } from 'react-hot-toast'
 import { getUser, setAuth, getToken } from '../../utils/helpers'
 import { STATES, VEHICLE_TYPES } from '../../utils/constants'
+import API from '../../api/axios'
 import {
   getOwnerProfile,
   updateOwnerProfile,
@@ -47,7 +48,6 @@ const OwnerProfile = () => {
   const [name, setName] = useState('')
   const [stateVal, setStateVal] = useState('')
   const [districtVal, setDistrictVal] = useState('')
-  const [photoDataUrl, setPhotoDataUrl] = useState(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -66,7 +66,6 @@ const OwnerProfile = () => {
       setName(u?.name ?? '')
       setStateVal(u?.location?.state ?? '')
       setDistrictVal(u?.location?.district ?? '')
-      setPhotoDataUrl(null)
       setVehicles(vRes.data?.vehicles ?? [])
     } catch (e) {
       toast.error(
@@ -91,20 +90,45 @@ const OwnerProfile = () => {
       .slice(0, 2)
       .toUpperCase() || 'O'
 
-  const displayPhoto = photoDataUrl || user?.profilePhoto
+  const displayPhoto = user?.profilePhoto
 
-  const handlePhotoChange = (e) => {
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) {
       toast.error('Sirf image file chuniye')
+      e.target.value = ''
       return
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      setPhotoDataUrl(reader.result)
+    try {
+      const formData = new FormData()
+      formData.append('photo', file)
+
+      const res = await API.post(
+        '/api/owner/profile/photo',
+        formData
+      )
+
+      if (res.data?.success) {
+        toast.success('Photo upload ho gayi!')
+        const url = res.data.photo
+        setUser((u) =>
+          u ? { ...u, profilePhoto: url } : u
+        )
+        const stored = getUser()
+        if (stored) {
+          setAuth(getToken(), {
+            ...stored,
+            profilePhoto: url,
+          })
+        }
+      }
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message ||
+          'Photo upload nahi hui'
+      )
     }
-    reader.readAsDataURL(file)
     e.target.value = ''
   }
 
@@ -123,7 +147,6 @@ const OwnerProfile = () => {
         state: stateVal,
         district: districtVal,
       }
-      if (photoDataUrl) payload.profilePhoto = photoDataUrl
 
       const { data } = await updateOwnerProfile(payload)
       const nextUser = {
@@ -258,7 +281,7 @@ const OwnerProfile = () => {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={handlePhotoChange}
+                        onChange={handlePhotoUpload}
                       />
                     </label>
                   </div>

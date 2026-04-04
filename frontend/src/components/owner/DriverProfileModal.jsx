@@ -23,6 +23,21 @@ const initialsFrom = (name) =>
     .slice(0, 2)
     .toUpperCase() || 'D'
 
+const isPdf = (url) =>
+  url &&
+  (url.toLowerCase().includes('.pdf') || url.toLowerCase().includes('/pdf'))
+
+const getThumbUrl = (url) => {
+  if (!url) return ''
+  if (url.includes('cloudinary.com')) {
+    return url.replace(
+      '/upload/',
+      '/upload/w_200,h_200,c_fill,q_auto/'
+    )
+  }
+  return url
+}
+
 const DriverProfileModal = ({
   driver,
   driverProfileData,
@@ -46,6 +61,12 @@ const DriverProfileModal = ({
     applicationStatus ?? selectedApplication?.status
   const canMessage =
     !selectedApplication || status !== 'rejected'
+
+  const documentsObj =
+    driver?.documents || driver?.profile?.documents
+  const driverProfile = documentsObj
+    ? { documents: documentsObj }
+    : null
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -75,8 +96,17 @@ const DriverProfileModal = ({
 
         <div className="flex-1 overflow-y-auto px-4 pb-32 pt-6">
           <div className="flex flex-col items-center text-center">
-            <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-2xl font-bold text-green-700">
-              {initialsFrom(name)}
+            <div className="mb-3 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-green-100 text-2xl font-bold text-green-700">
+              {driver.profilePhoto ? (
+                <img
+                  src={getThumbUrl(driver.profilePhoto)}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  style={{ cursor: 'pointer' }}
+                />
+              ) : (
+                initialsFrom(name)
+              )}
             </div>
             <h2 className="text-xl font-bold text-gray-900">{name}</h2>
             <p className="text-sm text-gray-500">
@@ -143,6 +173,131 @@ const DriverProfileModal = ({
               {driver.about || '—'}
             </p>
           </div>
+
+          {driverProfile?.documents &&
+          Object.values(driverProfile.documents).some((v) => v) ? (
+            <div
+              style={{
+                marginTop: '16px',
+                padding: '16px',
+                background: '#F9FAFB',
+                borderRadius: '12px',
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#111827',
+                  marginBottom: '12px',
+                }}
+              >
+                Documents
+              </h3>
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                {[
+                  {
+                    key: 'license',
+                    label: 'License',
+                    url: driverProfile.documents.license,
+                  },
+                  {
+                    key: 'aadhar',
+                    label: 'Aadhar',
+                    url: driverProfile.documents.aadhar,
+                  },
+                  {
+                    key: 'photo',
+                    label: 'Photo',
+                    url: driverProfile.documents.photo,
+                  },
+                  {
+                    key: 'other',
+                    label: 'Other',
+                    url: driverProfile.documents.other,
+                  },
+                ]
+                  .filter((d) => d.url)
+                  .map((doc) => (
+                    <a
+                      key={doc.key}
+                      href={doc.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '4px',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      {isPdf(doc.url) ? (
+                        <div
+                          style={{
+                            width: '70px',
+                            height: '70px',
+                            background: '#FEF2F2',
+                            borderRadius: '8px',
+                            border: '1px solid #FECACA',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: '24px',
+                            }}
+                          >
+                            📄
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              color: '#EF4444',
+                              fontWeight: '600',
+                            }}
+                          >
+                            PDF
+                          </span>
+                        </div>
+                      ) : (
+                        <img
+                          src={getThumbUrl(doc.url)}
+                          alt={doc.label}
+                          style={{
+                            width: '70px',
+                            height: '70px',
+                            objectFit: 'cover',
+                            borderRadius: '8px',
+                            border: '1px solid #E5E7EB',
+                          }}
+                        />
+                      )}
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: '#6B7280',
+                          fontWeight: '500',
+                        }}
+                      >
+                        {doc.label}
+                      </span>
+                    </a>
+                  ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="mb-5 mt-6">
             <h4 className="mb-3 font-semibold text-gray-700">

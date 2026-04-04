@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const ownerProfileSchema = new mongoose.Schema({
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", unique: true, required: true },
+  profilePhoto: { type: String, default: "" },
   companyName: { type: String },
   about: { type: String },
   totalVehicles: { type: Number },

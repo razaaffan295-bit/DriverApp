@@ -8,12 +8,40 @@ const createComplaint = async (req, res) => {
   try {
     const {
       againstUserId,
-      jobId,
-      contractId,
+      jobId: jobIdRaw,
+      contractId: contractIdRaw,
       type,
       description,
-      evidence,
+      evidence: evidenceRaw,
     } = req.body;
+
+    const jobId =
+      jobIdRaw && String(jobIdRaw).trim() ? jobIdRaw : null;
+    const contractId =
+      contractIdRaw && String(contractIdRaw).trim()
+        ? contractIdRaw
+        : null;
+
+    let evidenceUrls = [];
+    if (req.files && req.files.length > 0) {
+      evidenceUrls = req.files
+        .map((f) => f.path || f.secure_url || f.url || "")
+        .filter(Boolean);
+    } else if (evidenceRaw != null && evidenceRaw !== "") {
+      try {
+        const parsed =
+          typeof evidenceRaw === "string"
+            ? JSON.parse(evidenceRaw)
+            : evidenceRaw;
+        if (Array.isArray(parsed)) {
+          evidenceUrls = parsed.filter(
+            (u) => typeof u === "string" && u.trim()
+          );
+        }
+      } catch {
+        /* ignore invalid JSON */
+      }
+    }
 
     if (!againstUserId || !type || !description) {
       return res.status(400).json({
@@ -45,7 +73,7 @@ const createComplaint = async (req, res) => {
       raisedByRole: req.user.role,
       type,
       description: String(description).trim(),
-      evidence: Array.isArray(evidence) ? evidence : [],
+      evidence: evidenceUrls,
       location: {
         state: req.user.location?.state,
         district: req.user.location?.district,

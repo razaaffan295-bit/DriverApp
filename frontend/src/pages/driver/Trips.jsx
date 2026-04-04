@@ -2,11 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
+import API from '../../api/axios'
 import {
   getDriverTrips,
   createTrip,
-  addExpense,
-  addRepair,
   completeTrip,
 } from '../../api/tripAPI'
 
@@ -51,14 +50,16 @@ const DriverTrips = () => {
     type: 'diesel',
     amount: '',
     note: '',
-    image: '',
   })
+
+  const [expenseImage, setExpenseImage] = useState(null)
 
   const [repairForm, setRepairForm] = useState({
     description: '',
     amount: '',
-    image: '',
   })
+
+  const [repairImage, setRepairImage] = useState(null)
 
   useEffect(() => {
     setUser(getUser())
@@ -100,16 +101,6 @@ const DriverTrips = () => {
     [trips]
   )
 
-  const readImage = (file, setter) => {
-    if (!file) {
-      setter('')
-      return
-    }
-    const r = new FileReader()
-    r.onload = () => setter(String(r.result || ''))
-    r.readAsDataURL(file)
-  }
-
   const transportTypeLabel =
     contract?.transportType === 'company_trip'
       ? 'Company Trip'
@@ -121,6 +112,82 @@ const DriverTrips = () => {
 
   const grandTotal = (t) =>
     (Number(t.totalExpenses) || 0) + (Number(t.totalRepairs) || 0)
+
+  const handleAddExpense = async () => {
+    if (!activeTrip?._id) return
+    try {
+      setSaving(true)
+      const formData = new FormData()
+      formData.append('tripId', activeTrip._id)
+      formData.append('type', expenseForm.type)
+      formData.append('amount', expenseForm.amount)
+      formData.append('note', expenseForm.note || '')
+      if (expenseImage) {
+        formData.append('image', expenseImage)
+      }
+
+      await API.post(
+        '/api/trips/add-expense',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      )
+      toast.success('Expense add ho gaya!')
+      setExpenseForm((f) => ({
+        ...f,
+        amount: '',
+        note: '',
+      }))
+      setExpenseImage(null)
+      await load()
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || 'Expense nahi gaya'
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAddRepair = async () => {
+    if (!activeTrip?._id) return
+    try {
+      setSaving(true)
+      const formData = new FormData()
+      formData.append('tripId', activeTrip._id)
+      formData.append('description', repairForm.description)
+      formData.append('amount', repairForm.amount)
+      if (repairImage) {
+        formData.append('image', repairImage)
+      }
+
+      await API.post(
+        '/api/trips/add-repair',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      )
+      toast.success('Repair record ho gaya!')
+      setRepairForm({
+        description: '',
+        amount: '',
+      })
+      setRepairImage(null)
+      await load()
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || 'Repair nahi gaya'
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const handleTripReceipt = useCallback((trip) => {
     setPrintTrip(trip)
@@ -369,56 +436,49 @@ const DriverTrips = () => {
                             placeholder="Note (optional)"
                             className="input-field w-full"
                           />
-                          <label className="text-xs text-gray-600">
-                            Photo (optional)
-                          </label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) =>
-                              readImage(
-                                e.target.files?.[0],
-                                (v) =>
-                                  setExpenseForm((f) => ({
-                                    ...f,
-                                    image: v,
-                                  }))
-                              )
-                            }
-                            className="text-sm"
-                          />
+                          <div style={{ marginTop: '8px' }}>
+                            <label
+                              style={{
+                                fontSize: '13px',
+                                color: '#374151',
+                                fontWeight: '500',
+                              }}
+                            >
+                              Photo (optional)
+                            </label>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                setExpenseImage(
+                                  e.target.files?.[0] || null
+                                )
+                                e.target.value = ''
+                              }}
+                              style={{
+                                display: 'block',
+                                marginTop: '4px',
+                                fontSize: '13px',
+                              }}
+                            />
+                            {expenseImage ? (
+                              <p
+                                style={{
+                                  fontSize: '12px',
+                                  color: '#16A34A',
+                                  marginTop: '4px',
+                                }}
+                              >
+                                ✅ {expenseImage.name}
+                              </p>
+                            ) : null}
+                          </div>
                           <button
                             type="button"
                             disabled={
                               saving || !expenseForm.amount
                             }
-                            onClick={async () => {
-                              try {
-                                setSaving(true)
-                                await addExpense({
-                                  tripId: activeTrip._id,
-                                  type: expenseForm.type,
-                                  amount: expenseForm.amount,
-                                  note: expenseForm.note,
-                                  image: expenseForm.image || '',
-                                })
-                                toast.success('Expense add ho gaya!')
-                                setExpenseForm((f) => ({
-                                  ...f,
-                                  amount: '',
-                                  note: '',
-                                  image: '',
-                                }))
-                                await load()
-                              } catch (e) {
-                                toast.error(
-                                  e.response?.data?.message ||
-                                    'Expense add nahi hua'
-                                )
-                              } finally {
-                                setSaving(false)
-                              }
-                            }}
+                            onClick={() => void handleAddExpense()}
                             className="w-full rounded-xl bg-green-600 py-3 text-sm font-semibold text-white disabled:opacity-60"
                           >
                             Expense add karo
@@ -518,21 +578,43 @@ const DriverTrips = () => {
                             className="min-w-0 flex-1 border-0 px-3 py-2 text-sm focus:ring-0"
                           />
                         </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) =>
-                            readImage(
-                              e.target.files?.[0],
-                              (v) =>
-                                setRepairForm((f) => ({
-                                  ...f,
-                                  image: v,
-                                }))
-                            )
-                          }
-                          className="text-sm"
-                        />
+                        <div style={{ marginTop: '8px' }}>
+                          <label
+                            style={{
+                              fontSize: '13px',
+                              color: '#374151',
+                              fontWeight: '500',
+                            }}
+                          >
+                            Photo (optional)
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              setRepairImage(
+                                e.target.files?.[0] || null
+                              )
+                              e.target.value = ''
+                            }}
+                            style={{
+                              display: 'block',
+                              marginTop: '4px',
+                              fontSize: '13px',
+                            }}
+                          />
+                          {repairImage ? (
+                            <p
+                              style={{
+                                fontSize: '12px',
+                                color: '#16A34A',
+                                marginTop: '4px',
+                              }}
+                            >
+                              ✅ {repairImage.name}
+                            </p>
+                          ) : null}
+                        </div>
                         <button
                           type="button"
                           disabled={
@@ -540,33 +622,7 @@ const DriverTrips = () => {
                             !repairForm.description ||
                             !repairForm.amount
                           }
-                          onClick={async () => {
-                            try {
-                              setSaving(true)
-                              await addRepair({
-                                tripId: activeTrip._id,
-                                description: repairForm.description,
-                                amount: repairForm.amount,
-                                image: repairForm.image || '',
-                              })
-                              toast.success(
-                                'Repair record save ho gaya!'
-                              )
-                              setRepairForm({
-                                description: '',
-                                amount: '',
-                                image: '',
-                              })
-                              await load()
-                            } catch (e) {
-                              toast.error(
-                                e.response?.data?.message ||
-                                  'Repair save nahi hua'
-                              )
-                            } finally {
-                              setSaving(false)
-                            }
-                          }}
+                          onClick={() => void handleAddRepair()}
                           className="w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white disabled:opacity-60"
                         >
                           Repair record karo

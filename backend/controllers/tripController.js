@@ -141,7 +141,12 @@ const addExpense = async (req, res) => {
         : description != null
           ? String(description)
           : ''
-    const imgVal = image || photo || ''
+    let uploadUrl = ''
+    if (req.file) {
+      uploadUrl =
+        req.file.path || req.file.secure_url || req.file.url || ''
+    }
+    const imgVal = uploadUrl || image || photo || ''
 
     trip.expenses.push({
       type: expType,
@@ -190,11 +195,17 @@ const addRepair = async (req, res) => {
       })
     }
 
+    let imageUrl = ''
+    if (req.file) {
+      imageUrl =
+        req.file.path || req.file.secure_url || req.file.url || ''
+    }
+
     trip.repairs = trip.repairs || []
     trip.repairs.push({
       description: description != null ? String(description) : '',
       amount: Number(amount) || 0,
-      image: image || '',
+      image: imageUrl || image || '',
       addedAt: new Date(),
     })
     trip.totalRepairs = recalcRepairTotal(trip)

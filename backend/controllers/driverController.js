@@ -36,6 +36,43 @@ const getDriverProfile = async (req, res) => {
   }
 };
 
+const uploadProfilePhoto = async (req, res) => {
+  try {
+    const driverId = driverIdFromReq(req);
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Photo select karo",
+      });
+    }
+
+    const photoUrl =
+      req.file.path || req.file.secure_url || req.file.url || "";
+    if (!photoUrl) {
+      return res.status(500).json({
+        success: false,
+        message: "Upload URL nahi mila",
+      });
+    }
+
+    await User.findByIdAndUpdate(driverId, {
+      profilePhoto: photoUrl,
+    });
+
+    return res.json({
+      success: true,
+      message: "Photo upload ho gayi!",
+      photo: photoUrl,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Server error",
+    });
+  }
+};
+
 const updateDriverProfile = async (req, res) => {
   try {
     const driverId = driverIdFromReq(req);
@@ -343,7 +380,7 @@ const getPublicDriverProfile = async (req, res) => {
       driverId: req.params.id,
     })
       .select(
-        "skills experience licenseNumber licenseType licenseExpiry about isProfileComplete"
+        "skills experience licenseNumber licenseType licenseExpiry about isProfileComplete documents"
       )
       .lean();
 
@@ -385,6 +422,70 @@ const getPublicDriverProfile = async (req, res) => {
   }
 };
 
+const uploadDocuments = async (req, res) => {
+  try {
+    const driverId = driverIdFromReq(req);
+
+    let profile = await DriverProfile.findOne({ driverId });
+
+    if (!profile) {
+      profile = new DriverProfile({
+        driverId,
+        skills: [],
+      });
+    }
+
+    const fileUrl = (f) =>
+      f?.path || f?.secure_url || f?.url || "";
+
+    const docs = {};
+
+    if (req.files?.license?.[0]) {
+      const u = fileUrl(req.files.license[0]);
+      if (u) docs.license = u;
+    }
+    if (req.files?.aadhar?.[0]) {
+      const u = fileUrl(req.files.aadhar[0]);
+      if (u) docs.aadhar = u;
+    }
+    if (req.files?.photo?.[0]) {
+      const u = fileUrl(req.files.photo[0]);
+      if (u) docs.photo = u;
+    }
+    if (req.files?.other?.[0]) {
+      const u = fileUrl(req.files.other[0]);
+      if (u) docs.other = u;
+    }
+
+    if (Object.keys(docs).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Koi valid file upload nahi hui",
+      });
+    }
+
+    const prev =
+      profile.documents &&
+      typeof profile.documents.toObject === "function"
+        ? profile.documents.toObject()
+        : { ...(profile.documents || {}) };
+    profile.documents = { ...prev, ...docs };
+
+    await profile.save();
+
+    return res.json({
+      success: true,
+      message: "Documents upload ho gaye!",
+      documents: profile.documents,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Server error",
+    });
+  }
+};
+
 const getDriverApplications = async (req, res) => {
   try {
     const driverId = driverIdFromReq(req);
@@ -413,6 +514,8 @@ module.exports = {
   getPublicDriverProfile,
   getDriverProfile,
   updateDriverProfile,
+  uploadProfilePhoto,
+  uploadDocuments,
   searchJobs,
   getJobDetail,
   applyJob,

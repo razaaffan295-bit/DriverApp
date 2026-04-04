@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { upload } = require("../config/cloudinary");
 const {
   getPaymentSummary,
   makePayment,
@@ -19,7 +20,13 @@ const {
 } = require("../middleware/authMiddleware");
 
 router.get("/summary", verifyToken, getPaymentSummary);
-router.post("/make", verifyToken, isOwner, makePayment);
+router.post(
+  "/make",
+  verifyToken,
+  isOwner,
+  upload.single("proofPhoto"),
+  makePayment
+);
 router.put("/confirm", verifyToken, isDriver, confirmPayment);
 router.put("/reject", verifyToken, isDriver, rejectPayment);
 router.get("/history", verifyToken, getPayments);

@@ -9,7 +9,6 @@ import { getOwnerTrips } from '../../api/tripAPI'
 import API from '../../api/axios'
 import {
   getPaymentSummary,
-  makePayment as makePaymentApi,
   getPayments,
   getAdvances,
   handleAdvance as handleAdvanceApi,
@@ -97,7 +96,7 @@ const OwnerPayments = () => {
   const [utr, setUtr] = useState('')
   const [witness, setWitness] = useState('')
   const [note, setNote] = useState('')
-  const [photo, setPhoto] = useState('')
+  const [proofPhoto, setProofPhoto] = useState(null)
   const [deductAdvance, setDeductAdvance] = useState(false)
   const [deductAmt, setDeductAmt] = useState('')
   const [submittingPay, setSubmittingPay] = useState(false)
@@ -392,39 +391,51 @@ const OwnerPayments = () => {
     setSubmittingPay(true)
     let didTripPayment = false
     try {
+      const fd = new FormData()
       if (tripPayContext) {
         didTripPayment = true
-        await makePaymentApi({
-          paymentId: tripPayContext._id,
-          contractId: cid,
-          driverId: driverIdVal,
-          amount: amt,
-          paymentType: payType,
-          utrNumber: payType === 'upi' ? utr.trim() : '',
-          paymentPhoto: photo || '',
-          witnessName: witness,
-          note,
-        })
+        fd.append('paymentId', String(tripPayContext._id))
+      }
+      fd.append('contractId', String(cid))
+      fd.append('driverId', String(driverIdVal))
+      fd.append('amount', String(amt))
+      fd.append('paymentType', payType)
+      fd.append(
+        'utrNumber',
+        payType === 'upi' ? utr.trim() : ''
+      )
+      if (witness.trim()) {
+        fd.append('witnessName', witness.trim())
+      }
+      if (note.trim()) {
+        fd.append('note', note.trim())
+      }
+      if (!tripPayContext) {
+        fd.append('month', String(payMonth))
+        fd.append('year', String(payYear))
+        if (ded > 0) {
+          fd.append('advanceDeduction', String(ded))
+          if (openAdvance?._id) {
+            fd.append('advanceId', String(openAdvance._id))
+          }
+        }
+      }
+      if (proofPhoto) {
+        fd.append('proofPhoto', proofPhoto)
+      }
+
+      await API.post('/api/payments/make', fd, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+
+      if (didTripPayment) {
         toast.success(
           'Trip payment mark ho gayi! Driver confirm karega.'
         )
         setTripPayContext(null)
       } else {
-        await makePaymentApi({
-          contractId: cid,
-          driverId: driverIdVal,
-          amount: amt,
-          paymentType: payType,
-          utrNumber: payType === 'upi' ? utr.trim() : '',
-          paymentPhoto: photo || '',
-          witnessName: witness,
-          note,
-          month: payMonth,
-          year: payYear,
-          advanceDeduction: ded,
-          advanceId:
-            ded > 0 && openAdvance ? openAdvance._id : undefined,
-        })
         toast.success(
           'Payment mark ho gayi! Driver confirm karega.'
         )
@@ -433,7 +444,7 @@ const OwnerPayments = () => {
       setUtr('')
       setWitness('')
       setNote('')
-      setPhoto('')
+      setProofPhoto(null)
       setDeductAdvance(false)
       setDeductAmt('')
       await loadSummary()
@@ -1414,23 +1425,80 @@ const OwnerPayments = () => {
                   <p className="mt-1 text-xs text-gray-500">
                     Bank app mein transaction ID milegi
                   </p>
+                  <div style={{ marginTop: '12px' }}>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        color: '#374151',
+                        marginBottom: '6px',
+                      }}
+                    >
+                      Payment Proof Photo (optional)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        setProofPhoto(
+                          e.target.files?.[0] || null
+                        )
+                        e.target.value = ''
+                      }}
+                      style={{ fontSize: '13px' }}
+                    />
+                    {proofPhoto ? (
+                      <p
+                        style={{
+                          fontSize: '12px',
+                          color: '#16A34A',
+                          marginTop: '4px',
+                        }}
+                      >
+                        ✅ {proofPhoto.name}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               ) : (
-                <div className="mt-4">
-                  <label className="text-sm font-medium text-gray-700">
-                    Cash ki Photo (optional)
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) =>
-                      readPhoto(
-                        e.target.files?.[0],
-                        setPhoto
-                      )
-                    }
-                    className="mt-1 w-full text-sm"
-                  />
+                <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-3 text-sm text-gray-600">
+                  Cash payment — UTR ki zaroorat nahi.
+                  <div style={{ marginTop: '12px' }}>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        color: '#374151',
+                        marginBottom: '6px',
+                      }}
+                    >
+                      Payment Proof Photo (optional)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        setProofPhoto(
+                          e.target.files?.[0] || null
+                        )
+                        e.target.value = ''
+                      }}
+                      style={{ fontSize: '13px' }}
+                    />
+                    {proofPhoto ? (
+                      <p
+                        style={{
+                          fontSize: '12px',
+                          color: '#16A34A',
+                          marginTop: '4px',
+                        }}
+                      >
+                        ✅ {proofPhoto.name}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               )}
 

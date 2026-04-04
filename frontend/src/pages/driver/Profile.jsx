@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'react-hot-toast'
 import { getUser, setAuth, getToken } from '../../utils/helpers'
 import { STATES, VEHICLE_TYPES } from '../../utils/constants'
+import API from '../../api/axios'
 import {
   getDriverProfile,
   updateDriverProfile,
@@ -26,10 +27,20 @@ const DriverProfile = () => {
   const [bankIfsc, setBankIfsc] = useState('')
   const [bankUpi, setBankUpi] = useState('')
   const [bankUpiQr, setBankUpiQr] = useState('')
-  const [photoDataUrl, setPhotoDataUrl] = useState(null)
-  const [docLicenseName, setDocLicenseName] = useState('')
-  const [docAadharName, setDocAadharName] = useState('')
-  const [documents, setDocuments] = useState({ license: '', aadhar: '' })
+  const [docFiles, setDocFiles] = useState({
+    license: null,
+    aadhar: null,
+    photo: null,
+    other: null,
+  })
+  const [docUploading, setDocUploading] = useState(false)
+  const [docUploadProgress, setDocUploadProgress] = useState(0)
+  const [documents, setDocuments] = useState({
+    license: '',
+    aadhar: '',
+    photo: '',
+    other: '',
+  })
 
   const loadProfile = useCallback(async () => {
     setLoading(true)
@@ -59,10 +70,15 @@ const DriverProfile = () => {
       setDocuments({
         license: p?.documents?.license ?? '',
         aadhar: p?.documents?.aadhar ?? '',
+        photo: p?.documents?.photo ?? '',
+        other: p?.documents?.other ?? '',
       })
-      setPhotoDataUrl(null)
-      setDocLicenseName('')
-      setDocAadharName('')
+      setDocFiles({
+        license: null,
+        aadhar: null,
+        photo: null,
+        other: null,
+      })
     } catch (e) {
       toast.error(
         e.response?.data?.message || 'Profile load nahi ho paya.'
@@ -86,7 +102,7 @@ const DriverProfile = () => {
       .slice(0, 2)
       .toUpperCase() || 'D'
 
-  const displayPhoto = photoDataUrl || user?.profilePhoto
+  const displayPhoto = user?.profilePhoto
 
   const toggleSkill = (t) => {
     setSkills((prev) =>
@@ -94,17 +110,42 @@ const DriverProfile = () => {
     )
   }
 
-  const handlePhotoChange = (e) => {
-    const file = e.target.files?.[0]
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) {
-      toast.error('Sirf image file chuniye')
-      return
+
+    try {
+      const formData = new FormData()
+      formData.append('photo', file)
+
+      const res = await API.post(
+        '/api/driver/profile/photo',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      )
+
+      if (res.data.success) {
+        toast.success('Photo upload ho gayi!')
+        setUser((prev) =>
+          prev ? { ...prev, profilePhoto: res.data.photo } : prev
+        )
+        const stored = getUser()
+        if (stored) {
+          setAuth(getToken(), {
+            ...stored,
+            profilePhoto: res.data.photo,
+          })
+        }
+      }
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || 'Photo upload nahi hui'
+      )
     }
-    const reader = new FileReader()
-    reader.onload = () => setPhotoDataUrl(reader.result)
-    reader.readAsDataURL(file)
-    e.target.value = ''
   }
 
   const handleUpiQrChange = (e) => {
@@ -120,15 +161,63 @@ const DriverProfile = () => {
     e.target.value = ''
   }
 
-  const handleDocPick = (kind, e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (kind === 'license') setDocLicenseName(file.name)
-    else setDocAadharName(file.name)
-    toast('Cloudinary configure hone ke baad upload hoga', {
-      icon: 'ℹ️',
-    })
-    e.target.value = ''
+  const handleDocUpload = async () => {
+    try {
+      setDocUploading(true)
+      setDocUploadProgress(0)
+
+      const formData = new FormData()
+
+      if (docFiles.license) {
+        formData.append('license', docFiles.license)
+      }
+      if (docFiles.aadhar) {
+        formData.append('aadhar', docFiles.aadhar)
+      }
+      if (docFiles.photo) {
+        formData.append('photo', docFiles.photo)
+      }
+      if (docFiles.other) {
+        formData.append('other', docFiles.other)
+      }
+
+      const hasFiles =
+        docFiles.license ||
+        docFiles.aadhar ||
+        docFiles.photo ||
+        docFiles.other
+
+      if (!hasFiles) {
+        toast.error('Koi file select nahi ki')
+        return
+      }
+
+      await API.post('/api/driver/documents', formData, {
+        onUploadProgress: (ev) => {
+          if (ev.total) {
+            setDocUploadProgress(
+              Math.round((ev.loaded * 100) / ev.total)
+            )
+          }
+        },
+      })
+
+      toast.success('Documents upload ho gaye!')
+      setDocFiles({
+        license: null,
+        aadhar: null,
+        photo: null,
+        other: null,
+      })
+      await loadProfile()
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || 'Upload nahi hua'
+      )
+    } finally {
+      setDocUploading(false)
+      setDocUploadProgress(0)
+    }
   }
 
   const handleSave = async (e) => {
@@ -161,7 +250,6 @@ const DriverProfile = () => {
           upiQrCode: bankUpiQr.trim(),
         },
       }
-      if (photoDataUrl) payload.profilePhoto = photoDataUrl
 
       await updateDriverProfile(payload)
       const fresh = await getDriverProfile()
@@ -172,7 +260,6 @@ const DriverProfile = () => {
       }
       setUser(nextUser)
       setAuth(getToken(), nextUser)
-      setPhotoDataUrl(null)
       toast.success('Profile save ho gaya!')
     } catch (err) {
       toast.error(
@@ -242,7 +329,7 @@ const DriverProfile = () => {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={handlePhotoChange}
+                        onChange={handlePhotoUpload}
                       />
                     </label>
                   </div>
@@ -515,55 +602,251 @@ const DriverProfile = () => {
               )}
 
               {activeTab === 'documents' && (
-                <div className="space-y-8">
+                <div className="space-y-6">
+                  {documents.license ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px',
+                        background: '#F0FDF4',
+                        borderRadius: '8px',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      <span>✅</span>
+                      <span style={{ fontSize: '13px' }}>
+                        License uploaded
+                      </span>
+                      <a
+                        href={documents.license}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          fontSize: '12px',
+                          color: '#1D4ED8',
+                          marginLeft: 'auto',
+                        }}
+                      >
+                        View
+                      </a>
+                    </div>
+                  ) : null}
+                  {documents.aadhar ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px',
+                        background: '#F0FDF4',
+                        borderRadius: '8px',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      <span>✅</span>
+                      <span style={{ fontSize: '13px' }}>
+                        Aadhar uploaded
+                      </span>
+                      <a
+                        href={documents.aadhar}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          fontSize: '12px',
+                          color: '#1D4ED8',
+                          marginLeft: 'auto',
+                        }}
+                      >
+                        View
+                      </a>
+                    </div>
+                  ) : null}
+                  {documents.photo ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px',
+                        background: '#F0FDF4',
+                        borderRadius: '8px',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      <span>✅</span>
+                      <span style={{ fontSize: '13px' }}>
+                        Document photo uploaded
+                      </span>
+                      <a
+                        href={documents.photo}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          fontSize: '12px',
+                          color: '#1D4ED8',
+                          marginLeft: 'auto',
+                        }}
+                      >
+                        View
+                      </a>
+                    </div>
+                  ) : null}
+                  {documents.other ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px',
+                        background: '#F0FDF4',
+                        borderRadius: '8px',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      <span>✅</span>
+                      <span style={{ fontSize: '13px' }}>
+                        Other document uploaded
+                      </span>
+                      <a
+                        href={documents.other}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          fontSize: '12px',
+                          color: '#1D4ED8',
+                          marginLeft: 'auto',
+                        }}
+                      >
+                        View
+                      </a>
+                    </div>
+                  ) : null}
+
                   <div>
-                    <p className="mb-2 text-sm font-medium text-gray-800">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Driving License
-                    </p>
-                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-600 hover:border-green-400">
-                      <span>Click karke upload karein</span>
-                      <span className="mt-1 text-xs text-gray-400">
-                        image/*, application/pdf
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        className="hidden"
-                        onChange={(e) => handleDocPick('license', e)}
-                      />
                     </label>
-                    {(documents.license || docLicenseName) && (
-                      <p className="mt-2 text-sm text-green-700">
-                        {documents.license
-                          ? 'Uploaded (server)'
-                          : docLicenseName}
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="w-full text-sm"
+                      onChange={(e) =>
+                        setDocFiles((prev) => ({
+                          ...prev,
+                          license: e.target.files?.[0] || null,
+                        }))
+                      }
+                    />
+                    {docFiles.license ? (
+                      <p className="mt-1 text-xs text-gray-600">
+                        Selected: {docFiles.license.name}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                   <div>
-                    <p className="mb-2 text-sm font-medium text-gray-800">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Aadhar Card
-                    </p>
-                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-600 hover:border-green-400">
-                      <span>Click karke upload karein</span>
-                      <span className="mt-1 text-xs text-gray-400">
-                        image/*, application/pdf
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        className="hidden"
-                        onChange={(e) => handleDocPick('aadhar', e)}
-                      />
                     </label>
-                    {(documents.aadhar || docAadharName) && (
-                      <p className="mt-2 text-sm text-green-700">
-                        {documents.aadhar
-                          ? 'Uploaded (server)'
-                          : docAadharName}
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="w-full text-sm"
+                      onChange={(e) =>
+                        setDocFiles((prev) => ({
+                          ...prev,
+                          aadhar: e.target.files?.[0] || null,
+                        }))
+                      }
+                    />
+                    {docFiles.aadhar ? (
+                      <p className="mt-1 text-xs text-gray-600">
+                        Selected: {docFiles.aadhar.name}
                       </p>
-                    )}
+                    ) : null}
                   </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Photo
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="w-full text-sm"
+                      onChange={(e) =>
+                        setDocFiles((prev) => ({
+                          ...prev,
+                          photo: e.target.files?.[0] || null,
+                        }))
+                      }
+                    />
+                    {docFiles.photo ? (
+                      <p className="mt-1 text-xs text-gray-600">
+                        Selected: {docFiles.photo.name}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Other document
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="w-full text-sm"
+                      onChange={(e) =>
+                        setDocFiles((prev) => ({
+                          ...prev,
+                          other: e.target.files?.[0] || null,
+                        }))
+                      }
+                    />
+                    {docFiles.other ? (
+                      <p className="mt-1 text-xs text-gray-600">
+                        Selected: {docFiles.other.name}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {docUploading ? (
+                    <div>
+                      <div className="mb-1 flex justify-between text-xs text-gray-600">
+                        <span>Upload ho raha hai...</span>
+                        <span>{docUploadProgress}%</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                        <div
+                          className="h-full rounded-full bg-green-600 transition-all duration-150"
+                          style={{
+                            width: `${Math.max(2, docUploadProgress)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={handleDocUpload}
+                    disabled={docUploading}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: docUploading ? '#9CA3AF' : '#16A34A',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '12px',
+                      cursor: docUploading ? 'not-allowed' : 'pointer',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                    }}
+                  >
+                    {docUploading
+                      ? 'Upload ho raha hai...'
+                      : '📄 Documents Upload Karo'}
+                  </button>
+
                   <p className="text-sm text-gray-500">
                     Documents verify hone ke baad Verified badge milega
                   </p>

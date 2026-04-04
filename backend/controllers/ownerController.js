@@ -36,6 +36,52 @@ const getOwnerProfile = async (req, res) => {
   }
 };
 
+const uploadProfilePhoto = async (req, res) => {
+  try {
+    const ownerId = req.user._id || req.user.id;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Photo select karo",
+      });
+    }
+
+    const photoUrl =
+      req.file.path || req.file.secure_url || req.file.url || "";
+    if (!photoUrl) {
+      return res.status(500).json({
+        success: false,
+        message: "Upload URL nahi mila",
+      });
+    }
+
+    await User.findByIdAndUpdate(ownerId, {
+      profilePhoto: photoUrl,
+    });
+
+    await OwnerProfile.findOneAndUpdate(
+      { ownerId },
+      {
+        $set: { profilePhoto: photoUrl },
+        $setOnInsert: { ownerId, isProfileComplete: false },
+      },
+      { upsert: true, new: true }
+    );
+
+    return res.json({
+      success: true,
+      message: "Photo upload ho gayi!",
+      photo: photoUrl,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Server error",
+    });
+  }
+};
+
 const updateOwnerProfile = async (req, res) => {
   try {
     const ownerId = req.user._id;
@@ -444,6 +490,7 @@ const getDriverDetail = async (req, res) => {
 module.exports = {
   getOwnerProfile,
   updateOwnerProfile,
+  uploadProfilePhoto,
   addVehicle,
   getVehicles,
   getVehicleDetail,
