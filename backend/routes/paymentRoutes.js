@@ -7,6 +7,7 @@ const {
   rejectPayment,
   getPayments,
   requestPayment,
+  createTripPaymentRequest,
   requestAdvance,
   handleAdvance,
   getAdvances,
@@ -23,6 +24,12 @@ router.put("/confirm", verifyToken, isDriver, confirmPayment);
 router.put("/reject", verifyToken, isDriver, rejectPayment);
 router.get("/history", verifyToken, getPayments);
 router.post("/request", verifyToken, isDriver, requestPayment);
+router.post(
+  "/trip-request",
+  verifyToken,
+  isDriver,
+  createTripPaymentRequest
+);
 router.post("/advance/request", verifyToken, isDriver, requestAdvance);
 router.put("/advance/handle", verifyToken, isOwner, handleAdvance);
 router.get("/advances", verifyToken, getAdvances);

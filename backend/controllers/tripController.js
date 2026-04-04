@@ -1,400 +1,595 @@
+const tripUid = (req) => req.user._id || req.user.id
+
+const ACTIVE_STATUSES = ['draft', 'active']
+
+const recalcExpenseTotal = (trip) =>
+  (trip.expenses || []).reduce(
+    (sum, e) => sum + (Number(e.amount) || 0),
+    0
+  )
+
+const recalcRepairTotal = (trip) =>
+  (trip.repairs || []).reduce(
+    (sum, r) => sum + (Number(r.amount) || 0),
+    0
+  )
+
+const normalizeExpenseType = (body) => {
+  const raw = body.type || body.category || 'other'
+  const allowed = new Set([
+    'diesel',
+    'toll',
+    'police',
+    'khana',
+    'repair',
+    'other',
+  ])
+  return allowed.has(String(raw)) ? String(raw) : 'other'
+}
+
 const createTrip = async (req, res) => {
   try {
-    const TripRecord =
-      require('../models/TripRecord')
-    const Contract =
-      require('../models/Contract')
+    const TripRecord = require('../models/TripRecord')
+    const Contract = require('../models/Contract')
 
-    const { tripDate, fromLocation,
-      toLocation, description } = req.body
+    const {
+      tripDate,
+      fromLocation,
+      toLocation,
+      from,
+      to,
+      cargo,
+      description,
+    } = req.body
+
+    const uid = tripUid(req)
 
     const contract = await Contract.findOne({
-      driverId: req.user.id,
+      driverId: uid,
       status: 'active',
-      vehicleCategory: 'transport'
+      vehicleCategory: 'transport',
     })
 
     if (!contract) {
       return res.status(400).json({
         success: false,
-        message: 'Koi active transport \n          contract nahi'
+        message: 'Koi active transport contract nahi',
       })
     }
 
+    const openTrip = await TripRecord.findOne({
+      contractId: contract._id,
+      driverId: uid,
+      status: { $in: ACTIVE_STATUSES },
+    })
+    if (openTrip) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pehle se ek active trip hai — use complete karein',
+      })
+    }
+
+    const fromVal = fromLocation || from || ''
+    const toVal = toLocation || to || ''
+    const cargoVal = cargo || ''
+
     const trip = await TripRecord.create({
       contractId: contract._id,
-      driverId: req.user.id,
+      driverId: uid,
       ownerId: contract.ownerId,
       transportType: contract.transportType,
-      tripDate: new Date(tripDate),
-      fromLocation: fromLocation || '',
-      toLocation: toLocation || '',
-      description: description || '',
+      tripDate: new Date(tripDate || Date.now()),
+      fromLocation: fromVal,
+      toLocation: toVal,
+      from: fromVal,
+      to: toVal,
+      cargo: cargoVal,
+      description: description || cargoVal || '',
       expenses: [],
+      repairs: [],
       totalExpenses: 0,
-      status: 'draft'
+      totalRepairs: 0,
+      status: 'active',
     })
 
     res.json({
-      success: true, trip,
-      message: 'Trip start ho gaya!'
+      success: true,
+      trip,
+      message: 'Trip start ho gaya!',
     })
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     })
   }
 }
 
 const addExpense = async (req, res) => {
   try {
-    const TripRecord =
-      require('../models/TripRecord')
+    const TripRecord = require('../models/TripRecord')
 
-    const { tripId, category,
-      amount, description } = req.body
+    const { tripId, amount, note, image, photo, description } =
+      req.body
+
+    const uid = tripUid(req)
 
     const trip = await TripRecord.findOne({
       _id: tripId,
-      driverId: req.user.id,
-      status: 'draft'
+      driverId: uid,
+      status: { $in: ACTIVE_STATUSES },
     })
 
     if (!trip) {
       return res.status(404).json({
         success: false,
-        message: 'Trip nahi mili ya \n          already submitted hai'
+        message: 'Active trip nahi mili',
       })
     }
 
     if (trip.transportType !== 'malik_trip') {
       return res.status(400).json({
         success: false,
-        message: 'Company trip mein \n          expense nahi hota'
+        message: 'Company trip mein expense nahi hota',
       })
     }
 
+    const expType = normalizeExpenseType(req.body)
+    const noteVal =
+      note != null && note !== ''
+        ? String(note)
+        : description != null
+          ? String(description)
+          : ''
+    const imgVal = image || photo || ''
+
     trip.expenses.push({
-      category,
-      amount: Number(amount),
-      description: description || ''
+      type: expType,
+      category: expType,
+      amount: Number(amount) || 0,
+      note: noteVal,
+      description: noteVal,
+      image: imgVal,
+      photo: imgVal,
+      addedAt: new Date(),
     })
 
-    trip.totalExpenses = trip.expenses
-      .reduce((sum, e) =>
-        sum + (e.amount || 0), 0)
-
+    trip.totalExpenses = recalcExpenseTotal(trip)
     await trip.save()
 
     res.json({
-      success: true, trip,
-      message: 'Expense add ho gaya!'
+      success: true,
+      message: 'Expense add ho gaya',
+      trip,
     })
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     })
   }
 }
 
-const submitTrip = async (req, res) => {
+const addRepair = async (req, res) => {
   try {
-    const TripRecord =
-      require('../models/TripRecord')
-    const Notification =
-      require('../models/Notification')
+    const TripRecord = require('../models/TripRecord')
 
-    const { tripId } = req.body
+    const { tripId, description, amount, image } = req.body
+    const uid = tripUid(req)
 
     const trip = await TripRecord.findOne({
       _id: tripId,
-      driverId: req.user.id,
-      status: 'draft'
+      driverId: uid,
+      status: { $in: ACTIVE_STATUSES },
     })
 
     if (!trip) {
       return res.status(404).json({
         success: false,
-        message: 'Trip nahi mili'
+        message: 'Active trip nahi mili',
       })
     }
 
-    trip.status = 'submitted'
-    trip.submittedAt = new Date()
-    await trip.save()
-
-    await Notification.create({
-      userId: trip.ownerId,
-      title: 'Trip Request Aayi!',
-      message: trip.transportType ===
-        'malik_trip'
-        ? `Driver ne trip complete ki. \n           ₹${trip.totalExpenses} expenses \n           verify karein.`
-        : `Driver ne trip complete ki.`,
-      type: 'payment_received',
-      link: '/owner/trips',
-      isRead: false
+    trip.repairs = trip.repairs || []
+    trip.repairs.push({
+      description: description != null ? String(description) : '',
+      amount: Number(amount) || 0,
+      image: image || '',
+      addedAt: new Date(),
     })
+    trip.totalRepairs = recalcRepairTotal(trip)
+    await trip.save()
 
     res.json({
       success: true,
-      message: 'Trip submit ho gayi! \n        Owner verify karega.'
+      message: 'Repair record add ho gaya',
+      trip,
     })
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
+    })
+  }
+}
+
+const completeTrip = async (req, res) => {
+  try {
+    const TripRecord = require('../models/TripRecord')
+    const Notification = require('../models/Notification')
+    const Contract = require('../models/Contract')
+
+    const { tripId } = req.body
+    const uid = tripUid(req)
+
+    const trip = await TripRecord.findOne({
+      _id: tripId,
+      driverId: uid,
+      status: { $in: ACTIVE_STATUSES },
+    })
+      .populate('driverId', 'name')
+      .populate('contractId')
+
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: 'Trip nahi mili',
+      })
+    }
+
+    const totalExpenses = recalcExpenseTotal(trip)
+    const totalRepairs = recalcRepairTotal(trip)
+    trip.totalExpenses = totalExpenses
+    trip.totalRepairs = totalRepairs
+    trip.status = 'submitted'
+    trip.submittedAt = new Date()
+    await trip.save()
+
+    const contract = await Contract.findById(trip.contractId)
+    const ownerRef = contract?.ownerId || trip.ownerId
+    const fromLabel =
+      trip.fromLocation || trip.from || '—'
+    const toLabel = trip.toLocation || trip.to || '—'
+
+    if (ownerRef) {
+      await Notification.create({
+        userId: ownerRef,
+        title: 'Trip Submit Ho Gayi!',
+        message: `${trip.driverId?.name || 'Driver'} ne trip submit ki. ${fromLabel} → ${toLabel}. Total kharcha: ₹${totalExpenses}`,
+        type: 'trip_submitted',
+        link: '/owner/trips',
+        isRead: false,
+      })
+    }
+
+    res.json({
+      success: true,
+      message: 'Trip submit ho gayi! Owner review karega.',
+      trip,
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    })
+  }
+}
+
+const getActiveTrip = async (req, res) => {
+  try {
+    const TripRecord = require('../models/TripRecord')
+    const uid = tripUid(req)
+
+    const trip = await TripRecord.findOne({
+      driverId: uid,
+      status: { $in: ACTIVE_STATUSES },
+    }).sort({ createdAt: -1 })
+
+    res.json({
+      success: true,
+      trip: trip || null,
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
     })
   }
 }
 
 const getDriverTrips = async (req, res) => {
   try {
-    const TripRecord =
-      require('../models/TripRecord')
-    const Contract =
-      require('../models/Contract')
+    const TripRecord = require('../models/TripRecord')
+    const Contract = require('../models/Contract')
+    const uid = tripUid(req)
 
     const contract = await Contract.findOne({
-      driverId: req.user.id,
+      driverId: uid,
       status: 'active',
-      vehicleCategory: 'transport'
+      vehicleCategory: 'transport',
     })
 
     if (!contract) {
       return res.json({
         success: true,
         trips: [],
-        contract: null
+        contract: null,
       })
     }
 
-    const trips = await TripRecord
-      .find({
-        contractId: contract._id,
-        driverId: req.user.id
-      })
+    const trips = await TripRecord.find({
+      contractId: contract._id,
+      driverId: uid,
+    })
+      .populate('ownerId', 'name phone')
       .sort({ createdAt: -1 })
 
     res.json({
-      success: true, trips, contract
+      success: true,
+      trips,
+      contract,
     })
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     })
   }
 }
 
 const getOwnerTrips = async (req, res) => {
   try {
-    const TripRecord =
-      require('../models/TripRecord')
-    const { contractId } = req.query
+    const TripRecord = require('../models/TripRecord')
+    const uid = tripUid(req)
 
-    const query = {
-      ownerId: req.user.id,
-      status: 'submitted'
-    }
-    if (contractId)
-      query.contractId = contractId
-
-    const trips = await TripRecord
-      .find(query)
+    const trips = await TripRecord.find({
+      ownerId: uid,
+      status: {
+        $in: [
+          'submitted',
+          'approved',
+          'rejected',
+          'partial',
+        ],
+      },
+    })
       .populate('driverId', 'name phone')
-      .sort({ createdAt: -1 })
+      .sort({ submittedAt: -1, createdAt: -1 })
 
-    res.json({ success: true, trips })
+    res.json({
+      success: true,
+      trips,
+    })
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     })
   }
 }
 
-const reviewTrip = async (req, res) => {
+const assertOwnerTrip = async (trip, ownerUid) => {
+  const Contract = require('../models/Contract')
+  const contract = await Contract.findById(trip.contractId)
+  if (!contract || String(contract.ownerId) !== String(ownerUid)) {
+    return false
+  }
+  return true
+}
+
+const handleTrip = async (req, res) => {
   try {
-    const TripRecord =
-      require('../models/TripRecord')
-    const Notification =
-      require('../models/Notification')
+    const TripRecord = require('../models/TripRecord')
+    const Notification = require('../models/Notification')
 
-    const { tripId, action,
-      approvedExpenses, ownerNote } = req.body
+    const {
+      tripId,
+      action,
+      approvedAmount,
+      approvedExpenses,
+      note,
+      ownerNote,
+    } = req.body
+    const uid = tripUid(req)
 
-    const trip = await TripRecord.findOne({
-      _id: tripId,
-      ownerId: req.user.id,
-      status: 'submitted'
-    })
+    const trip = await TripRecord.findById(tripId).populate(
+      'driverId',
+      'name'
+    )
 
     if (!trip) {
       return res.status(404).json({
         success: false,
-        message: 'Trip nahi mili'
+        message: 'Trip nahi mili',
       })
     }
 
-    trip.status = action
-    trip.approvedExpenses =
-      approvedExpenses || 0
-    trip.ownerNote = ownerNote || ''
+    if (!(await assertOwnerTrip(trip, uid))) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access nahi hai',
+      })
+    }
+
+    if (trip.status !== 'submitted') {
+      return res.status(400).json({
+        success: false,
+        message: 'Yeh trip ab review ke liye pending nahi hai',
+      })
+    }
+
+    const act = action === 'approved' ? 'approved' : 'rejected'
+    trip.status = act
+    trip.ownerNote = String(note ?? ownerNote ?? '').trim()
+
+    const approvedNum =
+      act === 'approved'
+        ? Number(approvedAmount ?? approvedExpenses) ||
+          trip.totalExpenses ||
+          0
+        : 0
+    trip.approvedAmount = approvedNum
+    trip.approvedExpenses = approvedNum
+    trip.handledAt = new Date()
     trip.reviewedAt = new Date()
     await trip.save()
 
-    await Notification.create({
-      userId: trip.driverId,
-      title: action === 'approved'
-        ? 'Trip Approve Ho Gayi!'
-        : 'Trip Review Ho Gayi',
-      message: action === 'approved'
-        ? `₹${approvedExpenses} expenses \n           approve ho gaye.`
-        : `Owner ne trip review ki. \n           Note: ${ownerNote}`,
-      type: 'payment_received',
-      link: '/driver/trips',
-      isRead: false
-    })
+    const driverRef = trip.driverId?._id || trip.driverId
+    if (driverRef) {
+      await Notification.create({
+        userId: driverRef,
+        title:
+          act === 'approved'
+            ? 'Trip Approve Ho Gayi!'
+            : 'Trip Reject Ho Gayi',
+        message:
+          act === 'approved'
+            ? `Aapki trip approve ho gayi. Amount: ₹${trip.approvedAmount}`
+            : `Aapki trip reject ho gayi. ${trip.ownerNote || ''}`,
+        type: 'trip_update',
+        link: '/driver/trips',
+        isRead: false,
+      })
+    }
 
     res.json({
       success: true,
-      message: `Trip ${action} ho gayi!`
+      message: `Trip ${act} ho gayi`,
+      trip,
     })
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     })
   }
 }
 
-const createRepairRequest =
-  async (req, res) => {
-    try {
-      const RepairRequest =
-        require('../models/RepairRequest')
-      const Contract =
-        require('../models/Contract')
-      const Notification =
-        require('../models/Notification')
+const submitTrip = completeTrip
 
-      const { description, amount } = req.body
+const reviewTrip = handleTrip
 
-      if (!description || !amount) {
-        return res.status(400).json({
-          success: false,
-          message: 'Description aur amount \n          required hai'
-        })
-      }
+const createRepairRequest = async (req, res) => {
+  try {
+    const RepairRequest = require('../models/RepairRequest')
+    const Contract = require('../models/Contract')
+    const Notification = require('../models/Notification')
 
-      const contract = await Contract.findOne({
-        driverId: req.user.id,
-        status: 'active'
-      })
+    const { description, amount } = req.body
+    const uid = tripUid(req)
 
-      if (!contract) {
-        return res.status(400).json({
-          success: false,
-          message: 'Koi active contract nahi'
-        })
-      }
-
-      const repair = await RepairRequest.create({
-        contractId: contract._id,
-        driverId: req.user.id,
-        ownerId: contract.ownerId,
-        description,
-        amount: Number(amount),
-        status: 'pending'
-      })
-
-      await Notification.create({
-        userId: contract.ownerId,
-        title: 'Repair Request Aayi!',
-        message: `Driver ne ₹${amount} \n        repair request ki: ${description}`,
-        type: 'payment_received',
-        link: '/owner/repairs',
-        isRead: false
-      })
-
-      res.json({
-        success: true,
-        repair,
-        message: 'Repair request bhej di!'
-      })
-    } catch (error) {
-      res.status(500).json({
+    if (!description || !amount) {
+      return res.status(400).json({
         success: false,
-        message: error.message
+        message: 'Description aur amount required hai',
       })
     }
+
+    const contract = await Contract.findOne({
+      driverId: uid,
+      status: 'active',
+    })
+
+    if (!contract) {
+      return res.status(400).json({
+        success: false,
+        message: 'Koi active contract nahi',
+      })
+    }
+
+    const repair = await RepairRequest.create({
+      contractId: contract._id,
+      driverId: uid,
+      ownerId: contract.ownerId,
+      description,
+      amount: Number(amount),
+      status: 'pending',
+    })
+
+    await Notification.create({
+      userId: contract.ownerId,
+      title: 'Repair Request Aayi!',
+      message: `Driver ne ₹${amount} repair request ki: ${description}`,
+      type: 'payment_received',
+      link: '/owner/repairs',
+      isRead: false,
+    })
+
+    res.json({
+      success: true,
+      repair,
+      message: 'Repair request bhej di!',
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    })
   }
+}
 
-const reviewRepairRequest =
-  async (req, res) => {
-    try {
-      const RepairRequest =
-        require('../models/RepairRequest')
-      const Notification =
-        require('../models/Notification')
+const reviewRepairRequest = async (req, res) => {
+  try {
+    const RepairRequest = require('../models/RepairRequest')
+    const Notification = require('../models/Notification')
 
-      const { repairId, action, ownerNote } =
-        req.body
+    const { repairId, action, ownerNote } = req.body
+    const uid = tripUid(req)
 
-      const repair = await RepairRequest
-        .findOne({
-          _id: repairId,
-          ownerId: req.user.id,
-          status: 'pending'
-        })
+    const repair = await RepairRequest.findOne({
+      _id: repairId,
+      ownerId: uid,
+      status: 'pending',
+    })
 
-      if (!repair) {
-        return res.status(404).json({
-          success: false,
-          message: 'Request nahi mili'
-        })
-      }
+    if (!repair) {
+      return res.status(404).json({
+        success: false,
+        message: 'Request nahi mili',
+      })
+    }
 
-      repair.status = action
-      repair.ownerNote = ownerNote || ''
-      repair.reviewedAt = new Date()
-      await repair.save()
+    repair.status = action
+    repair.ownerNote = ownerNote || ''
+    repair.reviewedAt = new Date()
+    await repair.save()
 
-      await Notification.create({
-        userId: repair.driverId,
-        title: action === 'approved'
-          ? 'Repair Approved!'
-          : 'Repair Reject Ho Gayi',
-        message: action === 'approved'
-          ? `₹${repair.amount} repair \n           approve ho gayi.`
+    await Notification.create({
+      userId: repair.driverId,
+      title:
+        action === 'approved' ? 'Repair Approved!' : 'Repair Reject Ho Gayi',
+      message:
+        action === 'approved'
+          ? `₹${repair.amount} repair approve ho gayi.`
           : `Repair reject: ${ownerNote}`,
-        type: 'payment_received',
-        link: '/driver/trips',
-        isRead: false
-      })
+      type: 'payment_received',
+      link: '/driver/trips',
+      isRead: false,
+    })
 
-      res.json({
-        success: true,
-        message: `Repair ${action} ho gayi!`
-      })
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: error.message
-      })
-    }
+    res.json({
+      success: true,
+      message: `Repair ${action} ho gayi!`,
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    })
   }
+}
 
 module.exports = {
   createTrip,
   addExpense,
+  addRepair,
+  completeTrip,
   submitTrip,
+  getActiveTrip,
   getDriverTrips,
   getOwnerTrips,
+  handleTrip,
   reviewTrip,
   createRepairRequest,
-  reviewRepairRequest
+  reviewRepairRequest,
 }
-

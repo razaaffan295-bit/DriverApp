@@ -18,6 +18,9 @@ export const getPayments = (params) =>
 export const requestPayment = (data) =>
   API.post('/api/payments/request', data)
 
+export const requestTripPayment = (data) =>
+  API.post('/api/payments/trip-request', data)
+
 export const requestAdvance = (data) =>
   API.post('/api/payments/advance/request', data)
 

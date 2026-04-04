@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
+import { getUser } from '../../utils/helpers'
 import {
   getPaymentSummary,
   getPayments,
@@ -9,14 +10,30 @@ import {
   rejectPayment as rejectPaymentApi,
   requestAdvance as requestAdvanceApi,
   requestPayment as requestPaymentApi,
+  requestTripPayment,
 } from '../../api/paymentAPI'
+import { getDriverTrips } from '../../api/tripAPI'
 
 const TABS = [
   { id: 'summary', label: 'Summary' },
+  { id: 'trip', label: 'Trip Earnings' },
   { id: 'history', label: 'History' },
   { id: 'advance', label: 'Advance' },
   { id: 'request', label: 'Request Advance' },
 ]
+
+const tripFrom = (t) => t.fromLocation || t.from || ''
+const tripTo = (t) => t.toLocation || t.to || ''
+const tripCargo = (t) => t.cargo || t.description || ''
+const expenseLabelTrip = (ex) => ex.type || ex.category || 'other'
+const grandTotalTrip = (t) =>
+  (Number(t.totalExpenses) || 0) + (Number(t.totalRepairs) || 0)
+
+/** Backend may set approvedAmount to 0 while approvedExpenses holds the value — avoid `0 ?? x` */
+const tripApprovedAmount = (t) =>
+  Number(t.approvedAmount) ||
+  Number(t.approvedExpenses) ||
+  0
 
 const MONTH_NAMES = [
   'January',
@@ -53,32 +70,6 @@ const lastFourMonthYearOptions = () => {
 const fmtMoney = (n) =>
   `₹${Number.isFinite(Number(n)) ? Number(n) : 0}`
 
-const netDueUi = (netDueRaw) => {
-  const n = Number(netDueRaw) || 0
-  if (n < 0) {
-    return {
-      amount: fmtMoney(Math.abs(n)),
-      label: 'Advance zyada diya gaya',
-      colorClass: 'text-red-500',
-      subClass: 'text-red-600',
-    }
-  }
-  if (n > 0) {
-    return {
-      amount: fmtMoney(n),
-      label: 'Abhi milna chahiye',
-      colorClass: 'text-purple-600',
-      subClass: 'text-purple-700',
-    }
-  }
-  return {
-    amount: '₹0',
-    label: 'Sab barabar hai',
-    colorClass: 'text-green-600',
-    subClass: 'text-green-700',
-  }
-}
-
 const fmtDate = (d) =>
   d
     ? new Date(d).toLocaleDateString('en-IN', {
@@ -87,6 +78,21 @@ const fmtDate = (d) =>
         year: 'numeric',
       })
     : '—'
+
+const isTripPaymentRow = (p) =>
+  p.paymentType === 'trip' ||
+  p.requestKind === 'trip' ||
+  (p.tripId != null && p.tripId !== '')
+
+const payoutMethodOf = (p) => {
+  if (p.payoutMethod === 'cash' || p.payoutMethod === 'upi') {
+    return p.payoutMethod
+  }
+  if (p.paymentType === 'cash' || p.paymentType === 'upi') {
+    return p.paymentType
+  }
+  return 'upi'
+}
 
 const DriverPayments = () => {
   const [tab, setTab] = useState('summary')
@@ -105,8 +111,18 @@ const DriverPayments = () => {
     return `${d.getMonth() + 1}-${d.getFullYear()}`
   })
   const [reqPayNote, setReqPayNote] = useState('')
-  const [submittingPayReq, setSubmittingPayReq] = useState(false)
+  const [requesting, setRequesting] = useState(false)
   const [printPayment, setPrintPayment] = useState(null)
+  const [historyFilter, setHistoryFilter] = useState('sab')
+  const [requestAmount, setRequestAmount] = useState(0)
+  const [tripEarnings, setTripEarnings] = useState([])
+  const [tripPaymentsList, setTripPaymentsList] = useState([])
+  const [tripTotal, setTripTotal] = useState(0)
+  const [tripPaid, setTripPaid] = useState(0)
+  const [tripNetDue, setTripNetDue] = useState(0)
+  const [tripLoading, setTripLoading] = useState(false)
+  const [tripRequestingId, setTripRequestingId] = useState(null)
+  const [printTrip, setPrintTrip] = useState(null)
 
   const navigate = useNavigate()
 
@@ -125,7 +141,53 @@ const DriverPayments = () => {
     setAdvances(res.data?.advances ?? [])
   }, [])
 
+  const loadTripEarnings = useCallback(async () => {
+    try {
+      setTripLoading(true)
+      const [tripsRes, paymentsRes] = await Promise.all([
+        getDriverTrips(),
+        getPayments(),
+      ])
+
+      const trips = tripsRes.data?.trips || []
+      const approved = trips.filter((t) => t.status === 'approved')
+
+      const allPayments = paymentsRes.data?.payments || []
+      const tripPayments = allPayments.filter(
+        (p) =>
+          (p.paymentType === 'trip' || p.requestKind === 'trip') &&
+          p.driverConfirmed === true
+      )
+
+      const totalApproved = approved.reduce(
+        (sum, t) => sum + tripApprovedAmount(t),
+        0
+      )
+
+      const totalTripPaid = tripPayments.reduce(
+        (sum, p) => sum + (Number(p.amount) || 0),
+        0
+      )
+
+      const netDueTrips = totalApproved - totalTripPaid
+
+      setTripEarnings(approved)
+      setTripPaymentsList(tripPayments)
+      setTripTotal(totalApproved)
+      setTripPaid(totalTripPaid)
+      setTripNetDue(netDueTrips)
+    } catch (err) {
+      console.error(err)
+      toast.error(
+        err.response?.data?.message || 'Trips load nahi hue'
+      )
+    } finally {
+      setTripLoading(false)
+    }
+  }, [])
+
   const refreshTab = useCallback(async () => {
+    if (tab === 'trip') return
     setLoading(true)
     try {
       if (tab === 'summary') {
@@ -148,6 +210,23 @@ const DriverPayments = () => {
     refreshTab()
   }, [refreshTab])
 
+  useEffect(() => {
+    loadTripEarnings()
+  }, [loadTripEarnings])
+
+  useEffect(() => {
+    if (summary) {
+      const due =
+        (summary.totalSalaryEarned || 0) -
+        (summary.totalPaid || 0)
+      if (due > 0) {
+        setRequestAmount(due)
+      } else {
+        setRequestAmount(0)
+      }
+    }
+  }, [summary])
+
   const pendingPayments = payments.filter(
     (p) =>
       p.ownerMarkedPaid &&
@@ -164,48 +243,47 @@ const DriverPayments = () => {
     .split('-')
     .map((x) => Number(x))
 
-  const currentMonthSalary =
-    summary?.attendance?.find(
-      (row) =>
-        Number(row.month) === reqPayMonth &&
-        Number(row.year) === reqPayYear
-    )?.totalSalaryEarned ?? 0
-
   const upiFromProfile = summary?.driverBankDetails?.upiId?.trim()
   const hasUpi = Boolean(upiFromProfile)
 
-  const pendingPayForSelection = (
-    summary?.pendingRequests || []
-  ).find(
-    (pr) =>
-      Number(pr.month) === reqPayMonth &&
-      Number(pr.year) === reqPayYear
-  )
+  const handleRequest = async () => {
+    const due =
+      (summary?.totalSalaryEarned || 0) -
+      (summary?.totalPaid || 0)
 
-  const anyPendingPayRequest = (
-    summary?.pendingRequests || []
-  ).some((pr) => pr.ownerMarkedPaid === false)
+    if (due <= 0) {
+      toast.error('Koi payment baaki nahi hai')
+      return
+    }
 
-  const onRequestSalaryPayment = async () => {
-    setSubmittingPayReq(true)
+    const amt = Number(requestAmount) || 0
+    if (amt <= 0 || amt > due) {
+      toast.error(
+        amt > due
+          ? 'Amount net due se zyada nahi ho sakta'
+          : 'Amount likhein'
+      )
+      return
+    }
+
     try {
+      setRequesting(true)
       await requestPaymentApi({
+        amount: amt,
         month: reqPayMonth,
         year: reqPayYear,
-        note: reqPayNote,
+        note: reqPayNote || '',
       })
-      toast.success(
-        'Payment request bhej di! Owner pay karega jaldi.'
-      )
+      toast.success('Payment request bhej di!')
       setReqPayNote('')
       await loadSummary()
       await loadHistory()
-    } catch (e) {
+    } catch (err) {
       toast.error(
-        e.response?.data?.message || 'Request nahi gayi'
+        err.response?.data?.message || 'Request nahi gayi'
       )
     } finally {
-      setSubmittingPayReq(false)
+      setRequesting(false)
     }
   }
 
@@ -279,7 +357,57 @@ const DriverPayments = () => {
   }
 
   const s = summary
-  const netDueStyle = s ? netDueUi(s.netDue) : null
+  const netDue =
+    (summary?.totalSalaryEarned || 0) -
+    (summary?.totalPaid || 0)
+
+  const filteredHistory =
+    historyFilter === 'salary'
+      ? payments.filter((p) => !isTripPaymentRow(p))
+      : historyFilter === 'trip'
+        ? payments.filter((p) => isTripPaymentRow(p))
+        : payments
+
+  const getTripPaidAmount = (tripId) =>
+    tripPaymentsList
+      .filter(
+        (p) =>
+          String(p.tripId?._id ?? p.tripId) === String(tripId)
+      )
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+
+  const handleTripPaymentRequest = async (trip) => {
+    const approvedAmt = tripApprovedAmount(trip)
+    const paidSoFar = getTripPaidAmount(trip._id)
+    const baaki = Math.max(0, approvedAmt - paidSoFar)
+    if (!baaki) {
+      toast.error('Abhi koi baaki amount nahi')
+      return
+    }
+    setTripRequestingId(trip._id)
+    try {
+      await requestTripPayment({
+        tripId: trip._id,
+        amount: baaki,
+      })
+      toast.success('Trip payment request bhej di!')
+      await loadTripEarnings()
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || 'Request nahi gayi'
+      )
+    } finally {
+      setTripRequestingId(null)
+    }
+  }
+
+  const handleTripReceipt = (trip) => {
+    setPrintTrip(trip)
+    setTimeout(() => {
+      window.print()
+    }, 300)
+  }
+
   const repayPct =
     s && s.totalAdvance > 0
       ? Math.min(
@@ -300,7 +428,10 @@ const DriverPayments = () => {
               <button
                 key={id}
                 type="button"
-                onClick={() => setTab(id)}
+                onClick={() => {
+                  setTab(id)
+                  if (id === 'trip') loadTripEarnings()
+                }}
                 className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
                   tab === id
                     ? 'bg-green-600 text-white'
@@ -312,7 +443,7 @@ const DriverPayments = () => {
             ))}
           </div>
 
-          {loading ? (
+          {loading && tab !== 'trip' ? (
             <div className="flex justify-center py-16">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
             </div>
@@ -323,16 +454,16 @@ const DriverPayments = () => {
               </p>
             ) : (
               <>
-                <div className="mb-6 grid grid-cols-2 gap-3">
+                <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
                     <p className="text-xs text-green-800">
-                      Total Salary Earned
+                      Total Earned
                     </p>
                     <p className="text-xl font-bold text-green-900">
                       {fmtMoney(s.totalSalaryEarned)}
                     </p>
                     <p className="mt-1 text-[10px] text-green-700">
-                      Attendance se calculate
+                      Attendance se total
                     </p>
                   </div>
                   <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
@@ -343,33 +474,24 @@ const DriverPayments = () => {
                       {fmtMoney(s.totalPaid)}
                     </p>
                     <p className="mt-1 text-[10px] text-blue-700">
-                      Sirf driver confirm ke baad
+                      Confirmed payments
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-yellow-100 bg-yellow-50 p-4">
-                    <p className="text-xs text-yellow-800">
-                      Advance Remaining
-                    </p>
-                    <p className="text-xl font-bold text-yellow-900">
-                      {fmtMoney(s.totalAdvanceRemaining)}
-                    </p>
-                    <p className="mt-1 text-[10px] text-yellow-700">
-                      Wapas karna hai
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-purple-100 bg-purple-50 p-4">
-                    <p className="text-xs text-purple-800">
-                      Net Due
-                    </p>
+                  <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                    <p className="text-xs text-gray-800">Net Due</p>
                     <p
-                      className={`text-xl font-bold ${netDueStyle.colorClass}`}
+                      className={`text-xl font-bold ${
+                        netDue > 0
+                          ? 'text-red-600'
+                          : netDue === 0
+                            ? 'text-green-600'
+                            : 'text-red-500'
+                      }`}
                     >
-                      {netDueStyle.amount}
+                      {fmtMoney(netDue)}
                     </p>
-                    <p
-                      className={`mt-1 text-[10px] ${netDueStyle.subClass}`}
-                    >
-                      {netDueStyle.label}
+                    <p className="mt-1 text-[10px] text-gray-600">
+                      Baaki lena hai
                     </p>
                   </div>
                 </div>
@@ -378,118 +500,124 @@ const DriverPayments = () => {
                   <h2 className="text-lg font-semibold text-green-900">
                     Salary Payment Request Karo
                   </h2>
-                  <p className="mt-2 text-sm text-green-800">
-                    Is mahine salary bani:{' '}
-                    <span className="font-bold">
-                      {fmtMoney(currentMonthSalary)}
-                    </span>
-                  </p>
+                  {netDue <= 0 ? (
+                    <p className="mt-3 text-sm text-green-800">
+                      Abhi koi payment baaki nahi
+                    </p>
+                  ) : (
+                    <>
+                      <div className="mt-3 text-sm text-green-900">
+                        Baaki lena hai:{' '}
+                        <strong>
+                          ₹{Math.max(0, netDue)}
+                        </strong>
+                      </div>
 
-                  {!hasUpi && (
-                    <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
-                      <p className="text-sm font-medium text-yellow-900">
-                        ⚠️ Pehle apna UPI ID set karein!
-                      </p>
+                      <label className="mt-4 block text-sm font-medium text-gray-800">
+                        Kitna payment mangna hai? (max ₹
+                        {Math.max(0, Math.floor(netDue))})
+                      </label>
+                      <div className="mt-1 flex items-center rounded-xl border border-green-200 bg-white px-3">
+                        <span className="text-gray-500">₹</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={Math.max(1, netDue)}
+                          step={1}
+                          value={
+                            requestAmount === 0 ? '' : requestAmount
+                          }
+                          onChange={(e) => {
+                            const raw = e.target.value
+                            if (raw === '') {
+                              setRequestAmount(0)
+                              return
+                            }
+                            const v = Number(raw)
+                            if (!Number.isFinite(v)) return
+                            const cap = Math.max(0, netDue)
+                            setRequestAmount(
+                              Math.min(
+                                Math.max(0, v),
+                                cap || 0
+                              )
+                            )
+                          }}
+                          className="w-full border-0 py-2 pl-1 text-sm focus:ring-0"
+                        />
+                      </div>
+
+                      {!hasUpi && (
+                        <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+                          <p className="text-sm font-medium text-yellow-900">
+                            ⚠️ Pehle apna UPI ID set karein!
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => navigate('/driver/profile')}
+                            className="mt-3 rounded-xl bg-yellow-600 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-700"
+                          >
+                            Profile Update Karo
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="mt-4 text-sm text-gray-700">
+                        <span className="text-gray-500">Aapka UPI ID:</span>{' '}
+                        {hasUpi ? (
+                          <span className="font-medium text-gray-900">
+                            {upiFromProfile}
+                          </span>
+                        ) : (
+                          <span className="text-amber-700">
+                            UPI ID set nahi hai
+                          </span>
+                        )}
+                      </div>
+
+                      <label className="mt-4 block text-sm font-medium text-gray-800">
+                        Kaunsa mahina?
+                      </label>
+                      <select
+                        value={reqPayKey}
+                        onChange={(e) => setReqPayKey(e.target.value)}
+                        className="mt-1 w-full rounded-xl border border-green-200 bg-white px-3 py-2 text-sm"
+                      >
+                        {lastFourMonthYearOptions().map((o) => (
+                          <option key={o.key} value={o.key}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      <label className="mt-4 block text-sm font-medium text-gray-800">
+                        Owner ko note (optional)
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={reqPayNote}
+                        onChange={(e) => setReqPayNote(e.target.value)}
+                        placeholder="Owner ko kuch batana ho..."
+                        className="mt-1 w-full rounded-xl border border-green-200 bg-white p-3 text-sm"
+                      />
+
                       <button
                         type="button"
-                        onClick={() => navigate('/driver/profile')}
-                        className="mt-3 rounded-xl bg-yellow-600 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-700"
+                        disabled={
+                          requesting ||
+                          netDue <= 0 ||
+                          Number(requestAmount) <= 0 ||
+                          Number(requestAmount) > netDue
+                        }
+                        onClick={handleRequest}
+                        className="mt-4 w-full rounded-xl bg-green-600 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
                       >
-                        Profile Update Karo
+                        {requesting
+                          ? 'Bhej rahe hain...'
+                          : 'Payment Request Bhejo'}
                       </button>
-                    </div>
+                    </>
                   )}
-
-                  <div className="mt-4 text-sm text-gray-700">
-                    <span className="text-gray-500">Aapka UPI ID:</span>{' '}
-                    {hasUpi ? (
-                      <span className="font-medium text-gray-900">
-                        {upiFromProfile}
-                      </span>
-                    ) : (
-                      <span className="text-amber-700">
-                        UPI ID set nahi hai
-                      </span>
-                    )}
-                  </div>
-
-                  {anyPendingPayRequest && pendingPayForSelection && (
-                    <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
-                      <p className="font-semibold text-yellow-900">
-                        ⏳ Payment request pending hai
-                      </p>
-                      <p className="text-sm text-yellow-800">
-                        Owner pay karega — wait karein
-                      </p>
-                      <p className="mt-2 text-sm">
-                        Amount: {fmtMoney(pendingPayForSelection.amount)}
-                      </p>
-                      <p className="text-xs text-yellow-700">
-                        Requested on:{' '}
-                        {fmtDate(
-                          pendingPayForSelection.driverRequestedAt ||
-                            pendingPayForSelection.createdAt
-                        )}
-                      </p>
-                    </div>
-                  )}
-
-                  {anyPendingPayRequest && !pendingPayForSelection && (
-                    <p className="mt-3 text-sm text-amber-800">
-                      Koi aur mahine ki request pending hai — neeche
-                      month check karein.
-                    </p>
-                  )}
-
-                  <label className="mt-4 block text-sm font-medium text-gray-800">
-                    Kaunsa mahina?
-                  </label>
-                  <select
-                    value={reqPayKey}
-                    onChange={(e) => setReqPayKey(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-green-200 bg-white px-3 py-2 text-sm"
-                  >
-                    {lastFourMonthYearOptions().map((o) => (
-                      <option key={o.key} value={o.key}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <label className="mt-4 block text-sm font-medium text-gray-800">
-                    Owner ko note (optional)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={reqPayNote}
-                    onChange={(e) => setReqPayNote(e.target.value)}
-                    placeholder="Owner ko kuch batana ho..."
-                    className="mt-1 w-full rounded-xl border border-green-200 bg-white p-3 text-sm"
-                  />
-
-                  <button
-                    type="button"
-                    disabled={
-                      submittingPayReq ||
-                      !hasUpi ||
-                      Number(currentMonthSalary) <= 0 ||
-                      Boolean(pendingPayForSelection) ||
-                      Boolean(
-                        payments.some(
-                          (p) =>
-                            Number(p.month) === reqPayMonth &&
-                            Number(p.year) === reqPayYear &&
-                            ['pending', 'paid'].includes(p.status)
-                        )
-                      )
-                    }
-                    onClick={onRequestSalaryPayment}
-                    className="mt-4 w-full rounded-xl bg-green-600 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
-                  >
-                    {submittingPayReq
-                      ? 'Bhej rahe hain...'
-                      : 'Payment Request Bhejo'}
-                  </button>
                 </div>
 
                 <h2 className="mb-3 mt-8 font-semibold text-gray-800">
@@ -513,21 +641,21 @@ const DriverPayments = () => {
                       </p>
                       <span
                         className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          p.paymentType === 'upi'
+                          payoutMethodOf(p) === 'upi'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-green-100 text-green-700'
                         }`}
                       >
-                        {p.paymentType === 'upi'
+                        {payoutMethodOf(p) === 'upi'
                           ? 'UPI'
                           : 'Cash'}
                       </span>
-                      {p.paymentType === 'upi' && p.utrNumber && (
+                      {payoutMethodOf(p) === 'upi' && p.utrNumber && (
                         <p className="mt-2 text-sm text-gray-600">
                           UTR: {p.utrNumber}
                         </p>
                       )}
-                      {p.paymentType === 'cash' && (
+                      {payoutMethodOf(p) === 'cash' && (
                         <p className="mt-2 text-sm text-gray-600">
                           Cash payment
                           {p.witnessName
@@ -604,12 +732,353 @@ const DriverPayments = () => {
                 )}
               </>
             )
+          ) : tab === 'trip' ? (
+            <div>
+              <p className="mb-3 text-sm text-gray-600">
+                Sirf owner-approved trips — alag salary se
+              </p>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gap: '12px',
+                  marginBottom: '20px',
+                }}
+              >
+                <div
+                  style={{
+                    background: '#F0FDF4',
+                    borderRadius: '14px',
+                    padding: '16px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '20px',
+                      fontWeight: '700',
+                      color: '#16A34A',
+                    }}
+                  >
+                    ₹{tripTotal}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      color: '#6B7280',
+                      marginTop: '4px',
+                    }}
+                  >
+                    Total Approved
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: '#EFF6FF',
+                    borderRadius: '14px',
+                    padding: '16px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '20px',
+                      fontWeight: '700',
+                      color: '#1D4ED8',
+                    }}
+                  >
+                    ₹{tripPaid}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      color: '#6B7280',
+                      marginTop: '4px',
+                    }}
+                  >
+                    Total Mila
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background:
+                      tripNetDue > 0 ? '#FEF2F2' : '#F0FDF4',
+                    borderRadius: '14px',
+                    padding: '16px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '20px',
+                      fontWeight: '700',
+                      color:
+                        tripNetDue > 0 ? '#EF4444' : '#16A34A',
+                    }}
+                  >
+                    ₹{Math.max(0, tripNetDue)}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      color: '#6B7280',
+                      marginTop: '4px',
+                    }}
+                  >
+                    Baaki Milna Hai
+                  </div>
+                </div>
+              </div>
+
+              {tripLoading ? (
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '32px',
+                    color: '#9CA3AF',
+                  }}
+                >
+                  Loading...
+                </div>
+              ) : tripEarnings.length === 0 ? (
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '32px',
+                    color: '#9CA3AF',
+                  }}
+                >
+                  <div
+                    style={{ fontSize: '32px', marginBottom: '8px' }}
+                  >
+                    🚛
+                  </div>
+                  Koi approved trip nahi
+                </div>
+              ) : (
+                tripEarnings.map((trip, i) => {
+                  const paidForTrip = getTripPaidAmount(trip._id)
+                  const approvedForTrip = tripApprovedAmount(trip)
+                  const baakiForTrip = Math.max(
+                    0,
+                    approvedForTrip - paidForTrip
+                  )
+                  return (
+                    <div
+                      key={trip._id || i}
+                      style={{
+                        background: 'white',
+                        borderRadius: '16px',
+                        padding: '16px',
+                        marginBottom: '12px',
+                        border: '1px solid #E5E7EB',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: '600',
+                              fontSize: '15px',
+                              color: '#111827',
+                            }}
+                          >
+                            {tripFrom(trip) || '—'} →{' '}
+                            {tripTo(trip) || '—'}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: '#9CA3AF',
+                              marginTop: '4px',
+                            }}
+                          >
+                            {new Date(
+                              trip.tripDate || trip.createdAt
+                            ).toLocaleDateString('en-IN')}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: '#6B7280',
+                              marginTop: '2px',
+                            }}
+                          >
+                            Cargo: {tripCargo(trip) || '—'}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div
+                            style={{
+                              fontWeight: '700',
+                              fontSize: '18px',
+                              color: '#16A34A',
+                            }}
+                          >
+                            ₹{approvedForTrip}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '11px',
+                              color: '#9CA3AF',
+                            }}
+                          >
+                            Approved
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          marginTop: '8px',
+                          fontSize: '13px',
+                          flexWrap: 'wrap',
+                          gap: '6px',
+                        }}
+                      >
+                        <span style={{ color: '#6B7280' }}>
+                          Approved: ₹{approvedForTrip}
+                        </span>
+                        <span style={{ color: '#1D4ED8' }}>
+                          Mila: ₹{paidForTrip}
+                        </span>
+                        <span
+                          style={{
+                            color:
+                              baakiForTrip > 0
+                                ? '#EF4444'
+                                : '#16A34A',
+                            fontWeight: '600',
+                          }}
+                        >
+                          Baaki: ₹{baakiForTrip}
+                        </span>
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: '12px',
+                          display: 'flex',
+                          gap: '8px',
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                        }}
+                      >
+                        {baakiForTrip > 0 &&
+                        !trip.paymentRequested ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleTripPaymentRequest(trip)
+                            }
+                            disabled={
+                              tripRequestingId === trip._id
+                            }
+                            style={{
+                              padding: '8px 16px',
+                              background: '#16A34A',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              fontSize: '13px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              opacity:
+                                tripRequestingId === trip._id
+                                  ? 0.6
+                                  : 1,
+                            }}
+                          >
+                            {tripRequestingId === trip._id
+                              ? '…'
+                              : '💰 Payment Request Bhejo'}
+                          </button>
+                        ) : baakiForTrip <= 0 ? (
+                          <span
+                            style={{
+                              padding: '8px 16px',
+                              color: '#16A34A',
+                              fontSize: '13px',
+                              fontWeight: '600',
+                            }}
+                          >
+                            ✅ Poora Mil Gaya
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              padding: '8px 16px',
+                              background: '#F3F4F6',
+                              color: '#9CA3AF',
+                              borderRadius: '8px',
+                              fontSize: '13px',
+                            }}
+                          >
+                            ✅ Request Bhej Di
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleTripReceipt(trip)}
+                          style={{
+                            padding: '8px 16px',
+                            background: '#F3F4F6',
+                            color: '#374151',
+                            border: '1px solid #E5E7EB',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          📄 Receipt
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
           ) : tab === 'history' ? (
             payments.length === 0 ? (
               <p className="text-gray-500">Koi history nahi</p>
             ) : (
+              <>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {[
+                    { id: 'sab', label: 'Sab' },
+                    { id: 'salary', label: 'Salary' },
+                    { id: 'trip', label: 'Trip' },
+                  ].map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setHistoryFilter(id)}
+                      className={`rounded-xl px-4 py-2 text-sm font-medium ${
+                        historyFilter === id
+                          ? 'bg-green-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {filteredHistory.length === 0 ? (
+                  <p className="text-gray-500">Is filter mein kuch nahi</p>
+                ) : (
               <ul className="space-y-3">
-                {payments.map((p) => (
+                {filteredHistory.map((p) => (
                   <li
                     key={p._id}
                     className="rounded-2xl border border-gray-100 bg-white p-4"
@@ -622,6 +1091,11 @@ const DriverPayments = () => {
                             (net {fmtMoney(p.netAmount)})
                           </span>
                         </p>
+                        <span className="mt-1 mr-2 inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                          {isTripPaymentRow(p)
+                            ? '🚛 Trip'
+                            : '💰 Salary'}
+                        </span>
                         <span
                           className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
                             p.status === 'paid'
@@ -643,7 +1117,7 @@ const DriverPayments = () => {
                       </p>
                     </div>
                     <p className="mt-2 text-xs text-gray-600">
-                      {p.paymentType === 'upi' ? 'UPI' : 'Cash'}
+                      {payoutMethodOf(p) === 'upi' ? 'UPI' : 'Cash'}
                       {p.utrNumber
                         ? ` · UTR: ${p.utrNumber}`
                         : ''}
@@ -655,7 +1129,9 @@ const DriverPayments = () => {
                       </p>
                     )}
                     <p className="text-xs text-gray-500">
-                      Month {p.month}/{p.year}
+                      {isTripPaymentRow(p)
+                        ? 'Trip payment'
+                        : `Month ${p.month}/${p.year}`}
                     </p>
                     {p.status === 'rejected' &&
                       p.driverRejectionReason && (
@@ -683,6 +1159,8 @@ const DriverPayments = () => {
                   </li>
                 ))}
               </ul>
+                )}
+              </>
             )
           ) : tab === 'advance' ? (
             <>
@@ -846,9 +1324,18 @@ const DriverPayments = () => {
             </div>
 
             <div className="print-row">
-              <span>Payment Type:</span>
+              <span>Category:</span>
               <span>
-                {printPayment.paymentType === 'upi'
+                {isTripPaymentRow(printPayment)
+                  ? 'Trip'
+                  : 'Salary'}
+              </span>
+            </div>
+
+            <div className="print-row">
+              <span>Payout:</span>
+              <span>
+                {payoutMethodOf(printPayment) === 'upi'
                   ? 'UPI/Bank Transfer'
                   : 'Cash'}
               </span>
@@ -971,6 +1458,135 @@ const DriverPayments = () => {
               style={{
                 marginTop: '24px',
                 textAlign: 'center',
+                fontSize: '11px',
+                color: '#666',
+                borderTop: '1px solid #eee',
+                paddingTop: '8px',
+              }}
+            >
+              Generated by DriverApp —{' '}
+              {new Date().toLocaleDateString('en-IN')}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="print-area" style={{ display: 'none' }}>
+        {printTrip && (
+          <div>
+            <div className="print-heading">TRIP RECEIPT</div>
+
+            <div className="print-row">
+              <span>Route:</span>
+              <span>
+                {tripFrom(printTrip)} → {tripTo(printTrip)}
+              </span>
+            </div>
+
+            <div className="print-row">
+              <span>Cargo:</span>
+              <span>{tripCargo(printTrip) || '—'}</span>
+            </div>
+
+            <div className="print-row">
+              <span>Date:</span>
+              <span>
+                {new Date(
+                  printTrip.createdAt || printTrip.tripDate
+                ).toLocaleDateString('en-IN')}
+              </span>
+            </div>
+
+            <br />
+            <strong>Expenses:</strong>
+            {(printTrip.expenses || []).map((e, i) => (
+              <div key={i} className="print-row">
+                <span>
+                  {expenseLabelTrip(e)}{' '}
+                  {e.note ? `— ${e.note}` : ''}
+                </span>
+                <span>₹{e.amount}</span>
+              </div>
+            ))}
+
+            <br />
+            <strong>Repairs:</strong>
+            {(printTrip.repairs || []).map((r, i) => (
+              <div key={i} className="print-row">
+                <span>{r.description}</span>
+                <span>₹{r.amount}</span>
+              </div>
+            ))}
+
+            <br />
+            <div className="print-row">
+              <strong>Total Expenses:</strong>
+              <strong>₹{printTrip.totalExpenses || 0}</strong>
+            </div>
+
+            <div className="print-row">
+              <strong>Total Repairs:</strong>
+              <strong>₹{printTrip.totalRepairs || 0}</strong>
+            </div>
+
+            <div className="print-row">
+              <strong>Grand Total:</strong>
+              <strong>₹{grandTotalTrip(printTrip)}</strong>
+            </div>
+
+            <div className="print-row">
+              <strong>Approved Amount:</strong>
+              <strong>₹{tripApprovedAmount(printTrip)}</strong>
+            </div>
+
+            {printTrip.ownerNote && (
+              <div className="print-row">
+                <span>Owner Note:</span>
+                <span>{printTrip.ownerNote}</span>
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: '40px',
+                display: 'flex',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                Owner Signature:
+                <div
+                  style={{
+                    borderTop: '1px solid #000',
+                    width: '150px',
+                    marginTop: '30px',
+                    paddingTop: '4px',
+                  }}
+                >
+                  {printTrip.ownerId?.name || 'Owner'}
+                </div>
+              </div>
+              <div>
+                Driver Signature:
+                <div
+                  style={{
+                    borderTop: '1px solid #000',
+                    width: '150px',
+                    marginTop: '30px',
+                    paddingTop: '4px',
+                  }}
+                >
+                  {printTrip.driverId?.name ||
+                    getUser()?.name ||
+                    'Driver'}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                textAlign: 'center',
+                marginTop: '20px',
                 fontSize: '11px',
                 color: '#666',
                 borderTop: '1px solid #eee',

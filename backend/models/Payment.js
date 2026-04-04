@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 
-const paymentSchema = new mongoose.Schema({
+const paymentSchema = new mongoose.Schema(
+  {
   contractId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Contract",
@@ -31,6 +32,11 @@ const paymentSchema = new mongoose.Schema({
     default: 0,
   },
   paymentType: {
+    type: String,
+    enum: ["salary", "trip", "advance", "upi", "cash"],
+    default: "salary",
+  },
+  payoutMethod: {
     type: String,
     enum: ["upi", "cash"],
     default: "upi",
@@ -71,10 +77,21 @@ const paymentSchema = new mongoose.Schema({
     enum: ["pending", "paid", "rejected", "disputed"],
     default: "pending",
   },
+  requestKind: {
+    type: String,
+    enum: ["salary", "trip"],
+    default: "salary",
+  },
+  tripId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "TripRecord",
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
   },
-});
+  }
+);
 
 module.exports = mongoose.model("Payment", paymentSchema);

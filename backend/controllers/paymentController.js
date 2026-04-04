@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Payment = require("../models/Payment");
 const Advance = require("../models/Advance");
 const Contract = require("../models/Contract");
@@ -6,6 +7,12 @@ const Notification = require("../models/Notification");
 const DriverProfile = require("../models/DriverProfile");
 
 const uidFromReq = (req) => req.user._id || req.user.id;
+
+/** Trip settlement — not counted in salary totalPaid / netDue */
+const isTripPaymentDoc = (p) =>
+  p.paymentType === "trip" ||
+  p.requestKind === "trip" ||
+  (p.tripId != null && p.tripId !== "");
 
 const activeContractDriver = (driverId) =>
   Contract.findOne({ driverId, status: "active" }).sort({
@@ -22,6 +29,14 @@ const activeContractOwner = async (ownerId, contractIdQuery) => {
   return Contract.findOne({ ownerId, status: "active" }).sort({
     createdAt: -1,
   });
+};
+
+/** Any contract owned by owner (for payment history / trip totals). */
+const contractOwnedByOwner = async (ownerId, contractId) => {
+  if (!contractId) return null;
+  const c = await Contract.findById(contractId);
+  if (!c || String(c.ownerId) !== String(ownerId)) return null;
+  return c;
 };
 
 const getPaymentSummary = async (req, res) => {
@@ -44,20 +59,31 @@ const getPaymentSummary = async (req, res) => {
     const cid = contract._id;
     const driverIdForAttendance =
       contract.driverId?._id || contract.driverId;
-    const records = await DriverAttendance.find({
-      contractId: cid,
-      driverId: driverIdForAttendance,
+    const cidQuery = mongoose.Types.ObjectId.isValid(cid)
+      ? new mongoose.Types.ObjectId(String(cid))
+      : cid;
+    const didQuery = mongoose.Types.ObjectId.isValid(driverIdForAttendance)
+      ? new mongoose.Types.ObjectId(String(driverIdForAttendance))
+      : driverIdForAttendance;
+
+    const driverRecords = await DriverAttendance.find({
+      contractId: cidQuery,
+      driverId: didQuery,
     })
       .select("month year salaryForDay")
       .lean();
 
-    const totalSalaryEarned = records.reduce(
+    console.log("Records found:", driverRecords.length);
+
+    const totalSalaryEarned = driverRecords.reduce(
       (sum, r) => sum + (Number(r.salaryForDay) || 0),
       0
     );
 
+    console.log("Total earned:", totalSalaryEarned);
+
     const byMonthYear = new Map();
-    for (const r of records) {
+    for (const r of driverRecords) {
       const key = `${r.year}-${r.month}`;
       const prev = byMonthYear.get(key) || {
         month: r.month,
@@ -76,8 +102,11 @@ const getPaymentSummary = async (req, res) => {
       status: "paid",
       driverConfirmed: true,
     });
-    const totalPaid = confirmedPayments.reduce(
-      (sum, p) => sum + (Number(p.netAmount) || 0),
+    const salaryConfirmed = confirmedPayments.filter(
+      (p) => !isTripPaymentDoc(p)
+    );
+    const totalPaid = salaryConfirmed.reduce(
+      (sum, p) => sum + (Number(p.amount) || 0),
       0
     );
 
@@ -100,13 +129,9 @@ const getPaymentSummary = async (req, res) => {
       0
     );
 
-    const netDue =
-      Math.round(
-        (totalSalaryEarned -
-          totalPaid -
-          totalAdvanceRemaining) *
-          100
-      ) / 100;
+    const netDue = Math.round(
+      totalSalaryEarned - Math.round(totalPaid)
+    );
 
     const pendingPayments = await Payment.find({
       contractId: cid,
@@ -117,6 +142,7 @@ const getPaymentSummary = async (req, res) => {
     })
       .sort({ createdAt: -1 })
       .populate("driverId", "name phone")
+      .populate("tripId")
       .lean();
 
     const contractPop = await Contract.findById(cid)
@@ -135,10 +161,11 @@ const getPaymentSummary = async (req, res) => {
     })
       .sort({ createdAt: -1 })
       .populate("driverId", "name phone")
+      .populate("tripId")
       .lean();
 
     const dp = await DriverProfile.findOne({
-      driverId: contract.driverId,
+      driverId: driverIdForAttendance,
     })
       .select("bankDetails")
       .lean();
@@ -172,6 +199,7 @@ const makePayment = async (req, res) => {
   try {
     const ownerId = uidFromReq(req);
     const {
+      paymentId,
       contractId,
       driverId,
       amount,
@@ -180,13 +208,126 @@ const makePayment = async (req, res) => {
       paymentPhoto,
       witnessName,
       note,
-      advanceDeduction,
+      advanceDeduction: advanceDeductionBody,
       advanceId,
       month,
       year,
     } = req.body;
 
-    const amt = Number(amount);
+    const pm = paymentType === "cash" ? "cash" : "upi";
+
+    if (paymentId) {
+      if (!mongoose.Types.ObjectId.isValid(String(paymentId))) {
+        return res.status(400).json({
+          success: false,
+          message: "paymentId galat hai",
+        });
+      }
+      const tripPay = await Payment.findById(paymentId);
+      if (!tripPay) {
+        return res.status(404).json({
+          success: false,
+          message: "Payment nahi mila",
+        });
+      }
+      if (String(tripPay.ownerId) !== String(ownerId)) {
+        return res.status(403).json({
+          success: false,
+          message: "Access nahi hai",
+        });
+      }
+      if (!isTripPaymentDoc(tripPay)) {
+        return res.status(400).json({
+          success: false,
+          message: "Salary payment ke liye month/year wala form use karein",
+        });
+      }
+      if (tripPay.ownerMarkedPaid) {
+        return res.status(400).json({
+          success: false,
+          message: "Pehle se mark ho chuka hai",
+        });
+      }
+      const tripAmt = Math.round(Number(amount));
+      if (!tripAmt || tripAmt <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Amount likhein",
+        });
+      }
+      if (pm === "upi" && (!utrNumber || !String(utrNumber).trim())) {
+        return res.status(400).json({
+          success: false,
+          message: "UPI ke liye UTR zaroori hai",
+        });
+      }
+
+      const tripContract = await Contract.findById(tripPay.contractId);
+      if (
+        !tripContract ||
+        String(tripContract.ownerId) !== String(ownerId)
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "Yeh aapka contract nahi hai",
+        });
+      }
+      if (tripContract.status !== "active") {
+        return res.status(400).json({
+          success: false,
+          message: "Contract active nahi hai",
+        });
+      }
+
+      const ownerNoteTrip =
+        note != null ? String(note).trim() : "";
+      const mergedNoteTrip = [tripPay.note, ownerNoteTrip]
+        .filter(Boolean)
+        .join(" | ");
+
+      tripPay.amount = tripAmt;
+      tripPay.netAmount = tripAmt;
+      tripPay.advanceDeduction = 0;
+      tripPay.advanceId = null;
+      tripPay.payoutMethod = pm;
+      tripPay.paymentType = "trip";
+      tripPay.requestKind = "trip";
+      tripPay.utrNumber =
+        pm === "upi" ? String(utrNumber).trim() : "";
+      tripPay.paymentPhoto = paymentPhoto || "";
+      tripPay.witnessName = witnessName || "";
+      tripPay.note = mergedNoteTrip || tripPay.note || "";
+      tripPay.ownerMarkedPaid = true;
+      tripPay.ownerPaidAt = new Date();
+      tripPay.driverConfirmed = false;
+      tripPay.driverRejected = false;
+      tripPay.status = "pending";
+      await tripPay.save();
+
+      await Notification.create({
+        userId: tripPay.driverId,
+        title: "Trip Payment Aayi Hai!",
+        message: `₹${tripAmt} trip payment mark ki gayi hai. UTR check karke confirm karein.`,
+        type: "payment_received",
+        link: "/driver/payments",
+        isRead: false,
+      });
+
+      const populatedTrip = await Payment.findById(tripPay._id)
+        .populate("contractId", "salaryPerDay jobId")
+        .populate("ownerId", "name phone")
+        .populate("driverId", "name phone")
+        .populate("advanceId")
+        .populate("tripId");
+
+      return res.status(201).json({
+        success: true,
+        payment: populatedTrip,
+        message: "Trip payment mark ho gayi! Driver confirm karega.",
+      });
+    }
+
+    const amt = Math.round(Number(amount));
     if (!contractId || !driverId || !amt || amt <= 0) {
       return res.status(400).json({
         success: false,
@@ -203,8 +344,7 @@ const makePayment = async (req, res) => {
       });
     }
 
-    const pt = paymentType === "cash" ? "cash" : "upi";
-    if (pt === "upi" && (!utrNumber || !String(utrNumber).trim())) {
+    if (pm === "upi" && (!utrNumber || !String(utrNumber).trim())) {
       return res.status(400).json({
         success: false,
         message: "UPI ke liye UTR zaroori hai",
@@ -231,7 +371,9 @@ const makePayment = async (req, res) => {
       });
     }
 
-    const ded = Math.max(0, Number(advanceDeduction) || 0);
+    let ded = Math.round(
+      Math.max(0, Number(advanceDeductionBody) || 0)
+    );
     if (ded > amt) {
       return res.status(400).json({
         success: false,
@@ -253,16 +395,18 @@ const makePayment = async (req, res) => {
           message: "Advance approve nahi hai",
         });
       }
-      const rem = Number(adv.remaining) || 0;
+      const rem = Math.round(Number(adv.remaining) || 0);
       if (ded > rem) {
         return res.status(400).json({
           success: false,
           message: "Advance remaining se zyada nahi kaat sakte",
         });
       }
+      ded = Math.round(Math.min(rem, amt, ded));
     }
 
-    const netAmount = Math.round((amt - ded) * 100) / 100;
+    const advanceDeduction = Math.round(ded);
+    const netAmount = Math.round(amt - advanceDeduction);
 
     let payment = await Payment.findOne({
       contractId,
@@ -272,6 +416,7 @@ const makePayment = async (req, res) => {
       isDriverRequested: true,
       ownerMarkedPaid: false,
       status: "pending",
+      $nor: [{ paymentType: "trip" }, { requestKind: "trip" }],
     });
 
     const ownerNote = note != null ? String(note).trim() : "";
@@ -281,12 +426,14 @@ const makePayment = async (req, res) => {
 
     if (payment) {
       payment.amount = amt;
-      payment.advanceDeduction = ded;
+      payment.advanceDeduction = advanceDeduction;
       payment.advanceId = advanceId || null;
       payment.netAmount = netAmount;
-      payment.paymentType = pt;
+      payment.payoutMethod = pm;
+      payment.paymentType = "salary";
+      payment.requestKind = "salary";
       payment.utrNumber =
-        pt === "upi" ? String(utrNumber).trim() : "";
+        pm === "upi" ? String(utrNumber).trim() : "";
       payment.paymentPhoto = paymentPhoto || "";
       payment.witnessName = witnessName || "";
       payment.note = mergedNote || payment.note || "";
@@ -302,11 +449,13 @@ const makePayment = async (req, res) => {
         ownerId,
         driverId,
         amount: amt,
-        advanceDeduction: ded,
+        advanceDeduction,
         advanceId: advanceId || null,
         netAmount,
-        paymentType: pt,
-        utrNumber: pt === "upi" ? String(utrNumber).trim() : "",
+        paymentType: "salary",
+        requestKind: "salary",
+        payoutMethod: pm,
+        utrNumber: pm === "upi" ? String(utrNumber).trim() : "",
         paymentPhoto: paymentPhoto || "",
         witnessName: witnessName || "",
         note: mergedNote,
@@ -392,24 +541,40 @@ const confirmPayment = async (req, res) => {
       });
     }
 
+    if (isTripPaymentDoc(payment)) {
+      payment.paymentType = "trip";
+      payment.requestKind = "trip";
+    } else if (
+      payment.paymentType === "upi" ||
+      payment.paymentType === "cash"
+    ) {
+      payment.payoutMethod = payment.paymentType;
+      payment.paymentType = "salary";
+      payment.requestKind = "salary";
+    }
+
     payment.driverConfirmed = true;
     payment.driverConfirmedAt = new Date();
     payment.status = "paid";
     await payment.save();
 
-    const ded = Number(payment.advanceDeduction) || 0;
-    if (payment.advanceId && ded > 0) {
+    const advanceDeduction = Math.round(
+      Number(payment.advanceDeduction) || 0
+    );
+    if (payment.advanceId && advanceDeduction > 0) {
       const advance = await Advance.findById(payment.advanceId);
       if (advance) {
-        advance.totalRepaid =
-          (Number(advance.totalRepaid) || 0) + ded;
-        const rem = Number(advance.remaining) || 0;
-        advance.remaining = Math.max(0, rem - ded);
-        if (advance.remaining <= 0) {
-          advance.remaining = 0;
-          advance.isCleared = true;
-        }
-        await advance.save();
+        const totalRepaid = Math.round(
+          (Number(advance.totalRepaid) || 0) + advanceDeduction
+        );
+        const newRemaining = Math.round(
+          (Number(advance.remaining) || 0) - advanceDeduction
+        );
+        await Advance.findByIdAndUpdate(advance._id, {
+          totalRepaid,
+          remaining: Math.max(0, newRemaining),
+          isCleared: newRemaining <= 0,
+        });
       }
     }
 
@@ -510,6 +675,8 @@ const getPayments = async (req, res) => {
     let contract;
     if (req.user.role === "driver") {
       contract = await activeContractDriver(uid);
+    } else if (req.query.contractId) {
+      contract = await contractOwnedByOwner(uid, req.query.contractId);
     } else {
       contract = await activeContractOwner(uid, req.query.contractId);
     }
@@ -517,7 +684,9 @@ const getPayments = async (req, res) => {
     if (!contract) {
       return res.status(400).json({
         success: false,
-        message: "Koi active contract nahi",
+        message: req.user.role === "owner" && req.query.contractId
+          ? "Contract nahi mila"
+          : "Koi active contract nahi",
       });
     }
 
@@ -526,7 +695,8 @@ const getPayments = async (req, res) => {
       .populate("contractId", "salaryPerDay jobId")
       .populate("ownerId", "name phone")
       .populate("driverId", "name phone")
-      .populate("advanceId");
+      .populate("advanceId")
+      .populate("tripId");
 
     return res.json({
       success: true,
@@ -720,7 +890,7 @@ const handleAdvance = async (req, res) => {
 const requestPayment = async (req, res) => {
   try {
     const driverId = uidFromReq(req);
-    const { month, year, note } = req.body;
+    const { month, year, note, amount: amountBody } = req.body;
 
     const m = Number(month);
     const y = Number(year);
@@ -745,37 +915,48 @@ const requestPayment = async (req, res) => {
       });
     }
 
-    const existingPayment = await Payment.findOne({
-      contractId: contract._id,
-      driverId,
-      month: m,
-      year: y,
-      status: { $in: ["pending", "paid"] },
-    });
+    const driverIdForAttendance =
+      contract.driverId?._id || contract.driverId;
 
-    if (existingPayment) {
-      return res.status(400).json({
-        success: false,
-        message: "Is mahine ki payment request pehle se hai",
-      });
-    }
-
-    const monthRecords = await DriverAttendance.find({
+    const attendanceRecords = await DriverAttendance.find({
       contractId: contract._id,
-      month: m,
-      year: y,
-      driverId,
+      driverId: driverIdForAttendance,
     })
       .select("salaryForDay")
       .lean();
 
-    const salaryEarned = monthRecords.reduce((sum, r) => sum + (Number(r.salaryForDay) || 0), 0);
+    const totalSalaryEarned = attendanceRecords.reduce(
+      (sum, r) => sum + (Number(r.salaryForDay) || 0),
+      0
+    );
 
-    if (salaryEarned === 0) {
+    const confirmedPayments = await Payment.find({
+      contractId: contract._id,
+      status: "paid",
+      driverConfirmed: true,
+    });
+
+    const totalPaid = confirmedPayments
+      .filter((p) => !isTripPaymentDoc(p))
+      .reduce((sum, p) => sum + (Number(p.netAmount) || 0), 0);
+
+    const netDue = totalSalaryEarned - totalPaid;
+
+    if (netDue <= 0) {
       return res.status(400).json({
         success: false,
-        message:
-          "Is mahine koi salary nahi bani — attendance mark karein",
+        message: "Koi payment baaki nahi hai",
+      });
+    }
+
+    let requestAmt = Number(amountBody);
+    if (!Number.isFinite(requestAmt) || requestAmt <= 0) {
+      requestAmt = netDue;
+    }
+    if (requestAmt > netDue) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount net due se zyada nahi ho sakta",
       });
     }
 
@@ -790,9 +971,12 @@ const requestPayment = async (req, res) => {
       contractId: contract._id,
       ownerId: ownerIdRef,
       driverId,
-      amount: salaryEarned,
-      netAmount: salaryEarned,
+      amount: requestAmt,
+      netAmount: requestAmt,
       advanceDeduction: 0,
+      paymentType: "salary",
+      requestKind: "salary",
+      payoutMethod: "upi",
       month: m,
       year: y,
       status: "pending",
@@ -811,7 +995,7 @@ const requestPayment = async (req, res) => {
     await Notification.create({
       userId: ownerIdRef,
       title: "Payment Request Aayi!",
-      message: `${req.user.name || "Driver"} ne ₹${salaryEarned} ki payment request ki hai.`,
+      message: `${req.user.name || "Driver"} ne ₹${requestAmt} ki payment request ki hai.`,
       type: "payment_received",
       link: "/owner/payments",
       isRead: false,
@@ -825,7 +1009,147 @@ const requestPayment = async (req, res) => {
     return res.json({
       success: true,
       payment: populated,
-      salaryEarned,
+      netDue,
+      requestAmount: requestAmt,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Server error",
+    });
+  }
+};
+
+const createTripPaymentRequest = async (req, res) => {
+  try {
+    const driverId = uidFromReq(req);
+    const { tripId, amount: amountBody } = req.body;
+
+    if (!tripId) {
+      return res.status(400).json({
+        success: false,
+        message: "tripId zaroori hai",
+      });
+    }
+
+    const TripRecord = require("../models/TripRecord");
+
+    const trip = await TripRecord.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: "Trip nahi mili",
+      });
+    }
+
+    if (String(trip.driverId) !== String(driverId)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access nahi hai",
+      });
+    }
+
+    if (trip.status !== "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Sirf approved trip ke liye payment request",
+      });
+    }
+
+    if (trip.paymentRequested) {
+      return res.status(400).json({
+        success: false,
+        message: "Is trip ka payment already request ho chuka hai",
+      });
+    }
+
+    const existingPay = await Payment.findOne({
+      tripId: trip._id,
+      status: { $in: ["pending", "paid"] },
+    });
+    if (existingPay) {
+      return res.status(400).json({
+        success: false,
+        message: "Is trip ka payment already request ho chuka hai",
+      });
+    }
+
+    const contract = await Contract.findById(trip.contractId);
+    if (!contract) {
+      return res.status(400).json({
+        success: false,
+        message: "Contract nahi mila",
+      });
+    }
+
+    const amt =
+      Number(amountBody) ||
+      Number(trip.approvedAmount) ||
+      Number(trip.approvedExpenses) ||
+      0;
+    if (!amt || amt <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount sahi nahi hai",
+      });
+    }
+
+    const driverProfile = await DriverProfile.findOne({
+      driverId,
+    });
+    const bd = driverProfile?.bankDetails || {};
+    const ownerIdRef = contract.ownerId?._id || contract.ownerId;
+    const now = new Date();
+
+    const payment = await Payment.create({
+      contractId: trip.contractId,
+      ownerId: ownerIdRef,
+      driverId,
+      amount: amt,
+      netAmount: amt,
+      advanceDeduction: 0,
+      paymentType: "trip",
+      requestKind: "trip",
+      payoutMethod: "upi",
+      month: now.getMonth() + 1,
+      year: now.getFullYear(),
+      status: "pending",
+      ownerMarkedPaid: false,
+      driverConfirmed: false,
+      note: "trip_payment",
+      tripId: trip._id,
+      driverUpiId: bd.upiId || "",
+      driverAccountNumber: bd.accountNumber || "",
+      driverIfsc: bd.ifscCode || "",
+      driverAccountName: bd.accountName || "",
+      driverUpiQrCode: bd.upiQrCode || "",
+      isDriverRequested: true,
+      driverRequestedAt: now,
+    });
+
+    trip.paymentRequested = true;
+    trip.paymentRequestedAt = now;
+    await trip.save();
+
+    await Notification.create({
+      userId: ownerIdRef,
+      title: "Trip Payment Request!",
+      message: `Driver ne trip payment request ki hai. Amount: ₹${amt}`,
+      type: "payment_request",
+      link: "/owner/payments",
+      isRead: false,
+    });
+
+    const populated = await Payment.findById(payment._id)
+      .populate("contractId", "salaryPerDay jobId")
+      .populate("ownerId", "name phone")
+      .populate("driverId", "name phone")
+      .populate("tripId");
+
+    return res.json({
+      success: true,
+      message: "Trip payment request bhej di!",
+      payment: populated,
     });
   } catch (error) {
     return res.status(500).json({
@@ -877,6 +1201,7 @@ module.exports = {
   rejectPayment,
   getPayments,
   requestPayment,
+  createTripPaymentRequest,
   requestAdvance,
   handleAdvance,
   getAdvances,

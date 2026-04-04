@@ -23,6 +23,9 @@ const notificationSchema = new mongoose.Schema({
       "new_application",
       "payment_received",
       "complaint_update",
+      "trip_submitted",
+      "trip_update",
+      "payment_request",
     ],
   },
   isRead: {

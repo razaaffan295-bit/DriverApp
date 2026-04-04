@@ -90,12 +90,28 @@ const DriverComplaints = () => {
   const selectedUser = contract?.ownerId
 
   const handleSubmit = async () => {
+    console.log('Submit clicked')
+    console.log('selectedUser:', selectedUser)
+    console.log('complaintType:', complaintType)
+    console.log('description:', description)
+
     if (
+      !contract ||
       !selectedUser ||
       !complaintType ||
       !description.trim()
     ) {
       toast.error('Sab fields bharein')
+      return
+    }
+
+    const againstUserId =
+      selectedUser._id || selectedUser
+    const againstIdStr =
+      againstUserId != null ? String(againstUserId) : ''
+
+    if (!againstIdStr) {
+      toast.error('Owner ID nahi mili — contract check karein')
       return
     }
 
@@ -108,8 +124,7 @@ const DriverComplaints = () => {
       }
 
       await createComplaint({
-        againstUserId:
-          selectedUser._id || selectedUser,
+        againstUserId: againstIdStr,
         jobId:
           contract.jobId?._id ||
           contract.jobId ||
@@ -120,20 +135,18 @@ const DriverComplaints = () => {
         evidence,
       })
 
-      toast.success(
-        'Complaint darj ho gayi! Admin review karega.'
-      )
+      toast.success('Complaint darj ho gayi!')
 
       setDescription('')
       setComplaintType('')
       setEvidenceFiles(null)
       setTab('mine')
-
-      loadMine()
+      await loadMine()
     } catch (err) {
+      console.error('Complaint error:', err)
       toast.error(
         err.response?.data?.message ||
-          'Complaint nahi gayi'
+          'Complaint nahi gayi. Dobara try karein.'
       )
     } finally {
       setSubmitting(false)
@@ -227,7 +240,7 @@ const DriverComplaints = () => {
             <form
               onSubmit={(e) => {
                 e.preventDefault()
-                handleSubmit()
+                void handleSubmit()
               }}
               className="space-y-4"
             >
@@ -300,14 +313,17 @@ const DriverComplaints = () => {
               </div>
 
               <button
-                type="submit"
+                type="button"
+                onClick={() => void handleSubmit()}
                 disabled={
+                  !contract ||
                   !selectedUser ||
                   !complaintType ||
                   !description.trim() ||
                   submitting
                 }
                 className={`w-full rounded-2xl py-4 font-semibold text-base text-white transition-all ${
+                  !contract ||
                   !selectedUser ||
                   !complaintType ||
                   !description.trim() ||
