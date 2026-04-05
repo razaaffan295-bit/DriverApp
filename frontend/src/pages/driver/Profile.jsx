@@ -148,17 +148,33 @@ const DriverProfile = () => {
     }
   }
 
-  const handleUpiQrChange = (e) => {
+  const handleUpiQrChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) {
-      toast.error('Sirf image file chuniye')
-      return
+
+    try {
+      const formData = new FormData()
+      formData.append('photo', file)
+
+      const res = await API.post(
+        '/api/driver/profile/photo',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      )
+
+      if (res.data?.success) {
+        setBankUpiQr(res.data.photo)
+        toast.success('QR code upload ho gaya!')
+      }
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || 'QR upload nahi hua'
+      )
     }
-    const reader = new FileReader()
-    reader.onload = () => setBankUpiQr(String(reader.result || ''))
-    reader.readAsDataURL(file)
-    e.target.value = ''
   }
 
   const handleDocUpload = async () => {

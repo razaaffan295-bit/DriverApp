@@ -80,7 +80,8 @@ const AdminComplaints = () => {
   const [complaints, setComplaints] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [expanded, setExpanded] = useState({})
+  const [selectedComplaint, setSelectedComplaint] =
+    useState(null)
   const [resolveId, setResolveId] = useState(null)
   const [adminNote, setAdminNote] = useState('')
   const [action, setAction] = useState('no_action')
@@ -324,7 +325,6 @@ const AdminComplaints = () => {
           ) : (
             <ul className="mt-4 space-y-4">
               {complaints.map((c) => {
-                const isEx = expanded[c._id]
                 const pending = c.status === 'pending'
                 return (
                   <li
@@ -379,9 +379,7 @@ const AdminComplaints = () => {
                       State: {c.location?.state || '—'}
                     </p>
                     <p className="mt-2 text-sm text-gray-700">
-                      {isEx
-                        ? c.description
-                        : truncate(c.description, 100)}
+                      {truncate(c.description, 100)}
                     </p>
                     {c.status === 'resolved' && c.adminNote ? (
                       <p className="mt-2 rounded-lg bg-green-50 p-2 text-xs text-green-900">
@@ -396,15 +394,10 @@ const AdminComplaints = () => {
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() =>
-                          setExpanded((prev) => ({
-                            ...prev,
-                            [c._id]: !prev[c._id],
-                          }))
-                        }
+                        onClick={() => setSelectedComplaint(c)}
                         className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700"
                       >
-                        {isEx ? 'Chhupo' : 'Dekho'}
+                        Dekho
                       </button>
                       {pending ? (
                         <button
@@ -500,26 +493,6 @@ const AdminComplaints = () => {
                         </button>
                       </div>
                     ) : null}
-
-                    {isEx && c.evidence?.length ? (
-                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        {c.evidence.map((url, i) => (
-                          <a
-                            key={i}
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block overflow-hidden rounded-lg border"
-                          >
-                            <img
-                              src={url}
-                              alt=""
-                              className="h-28 w-full object-cover"
-                            />
-                          </a>
-                        ))}
-                      </div>
-                    ) : null}
                   </li>
                 )
               })}
@@ -527,6 +500,348 @@ const AdminComplaints = () => {
           )}
         </div>
       </main>
+
+      {selectedComplaint && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: '20px',
+              padding: '24px',
+              maxWidth: '500px',
+              width: '100%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '16px',
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  color: '#111827',
+                }}
+              >
+                Complaint Detail
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSelectedComplaint(null)}
+                style={{
+                  background: '#F3F4F6',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                gap: '8px',
+                marginBottom: '16px',
+              }}
+            >
+              <span
+                style={{
+                  background: '#F3F4F6',
+                  borderRadius: '20px',
+                  padding: '4px 12px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                }}
+              >
+                {TYPE_LABEL[selectedComplaint.type] ||
+                  selectedComplaint.type}
+              </span>
+              <span
+                style={{
+                  background: '#FEF3C7',
+                  color: '#D97706',
+                  borderRadius: '20px',
+                  padding: '4px 12px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                }}
+              >
+                {selectedComplaint.status}
+              </span>
+            </div>
+
+            <div
+              style={{
+                background: '#F9FAFB',
+                borderRadius: '12px',
+                padding: '16px',
+                marginBottom: '16px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: '8px',
+                }}
+              >
+                <div>
+                  <p
+                    style={{
+                      fontSize: '11px',
+                      color: '#9CA3AF',
+                    }}
+                  >
+                    Complaint By
+                  </p>
+                  <p
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      color: '#111827',
+                    }}
+                  >
+                    {selectedComplaint.raisedBy?.name}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: '#6B7280',
+                    }}
+                  >
+                    {selectedComplaint.raisedBy?.phone}
+                  </p>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      background: '#DBEAFE',
+                      color: '#1D4ED8',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    {selectedComplaint.raisedByRole ||
+                      selectedComplaint.raisedBy?.role}
+                  </span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p
+                    style={{
+                      fontSize: '11px',
+                      color: '#9CA3AF',
+                    }}
+                  >
+                    Khilaf
+                  </p>
+                  <p
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      color: '#111827',
+                    }}
+                  >
+                    {selectedComplaint.againstUser?.name}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: '#6B7280',
+                    }}
+                  >
+                    {selectedComplaint.againstUser?.phone}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {selectedComplaint.jobId ? (
+              <div
+                style={{
+                  marginBottom: '16px',
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: '12px',
+                    color: '#9CA3AF',
+                    marginBottom: '4px',
+                  }}
+                >
+                  Job
+                </p>
+                <p
+                  style={{
+                    fontSize: '14px',
+                    color: '#374151',
+                  }}
+                >
+                  {typeof selectedComplaint.jobId === 'object'
+                    ? selectedComplaint.jobId?.title
+                    : String(selectedComplaint.jobId)}
+                </p>
+              </div>
+            ) : null}
+
+            <div
+              style={{
+                marginBottom: '16px',
+              }}
+            >
+              <p
+                style={{
+                  fontSize: '12px',
+                  color: '#9CA3AF',
+                  marginBottom: '4px',
+                }}
+              >
+                Description
+              </p>
+              <p
+                style={{
+                  fontSize: '14px',
+                  color: '#374151',
+                  lineHeight: '1.6',
+                  background: '#F9FAFB',
+                  padding: '12px',
+                  borderRadius: '10px',
+                }}
+              >
+                {selectedComplaint.description}
+              </p>
+            </div>
+
+            {selectedComplaint.evidence?.length > 0 ? (
+              <div style={{ marginBottom: '16px' }}>
+                <p
+                  style={{
+                    fontSize: '12px',
+                    color: '#9CA3AF',
+                    marginBottom: '8px',
+                  }}
+                >
+                  Evidence ({selectedComplaint.evidence.length})
+                </p>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {selectedComplaint.evidence.map((img, i) => (
+                    <a
+                      key={i}
+                      href={img}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <img
+                        src={img}
+                        alt={`evidence ${i + 1}`}
+                        style={{
+                          width: '80px',
+                          height: '80px',
+                          objectFit: 'cover',
+                          borderRadius: '8px',
+                          border: '1px solid #E5E7EB',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <p
+              style={{
+                fontSize: '12px',
+                color: '#9CA3AF',
+                marginBottom: '16px',
+              }}
+            >
+              {new Date(
+                selectedComplaint.createdAt
+              ).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
+            </p>
+
+            {selectedComplaint.status === 'resolved' &&
+            selectedComplaint.adminNote ? (
+              <div
+                style={{
+                  background: '#F0FDF4',
+                  borderRadius: '10px',
+                  padding: '12px',
+                  marginBottom: '16px',
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: '12px',
+                    color: '#16A34A',
+                    fontWeight: '600',
+                    marginBottom: '4px',
+                  }}
+                >
+                  Admin Note:
+                </p>
+                <p
+                  style={{
+                    fontSize: '13px',
+                    color: '#166534',
+                  }}
+                >
+                  {selectedComplaint.adminNote}
+                </p>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setSelectedComplaint(null)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#F3F4F6',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '14px',
+                color: '#374151',
+              }}
+            >
+              Band Karo
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
