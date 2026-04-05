@@ -17,22 +17,6 @@ const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
 const tripCargo = (t) => t.cargo || t.description || ''
 
-const isPdf = (url) =>
-  url &&
-  (url.toLowerCase().includes('.pdf') ||
-    url.toLowerCase().includes('/pdf'))
-
-const getThumbUrl = (url) => {
-  if (!url) return ''
-  if (url.includes('cloudinary.com')) {
-    return url.replace(
-      '/upload/',
-      '/upload/w_150,h_150,c_fill,q_auto/'
-    )
-  }
-  return url
-}
-
 const OwnerTrips = () => {
   const [user, setUser] = useState(null)
   const [tab, setTab] = useState('pending')
@@ -131,6 +115,22 @@ const OwnerTrips = () => {
       return next
     })
   }, [pendingTrips])
+
+  const isPdf = (url) =>
+    url &&
+    (url.toLowerCase().includes('.pdf') ||
+      url.toLowerCase().includes('/pdf'))
+
+  const getThumbUrl = (url) => {
+    if (!url) return ''
+    if (url.includes('cloudinary.com')) {
+      return url.replace(
+        '/upload/',
+        '/upload/w_150,h_150,c_fill,q_auto/'
+      )
+    }
+    return url
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#F0F4FF' }}>
@@ -253,39 +253,43 @@ const OwnerTrips = () => {
                             </button>
                             {expOpen && (
                               <div className="mt-2 space-y-2">
-                                {(t.expenses || []).map((ex, idx) => (
+                                {(t.expenses || []).map((expense, idx) => (
                                   <div
                                     key={idx}
                                     className="rounded-xl bg-gray-50 p-3 text-xs"
                                   >
                                     <div className="flex justify-between font-semibold">
                                       <span className="capitalize">
-                                        {expenseLabel(ex)}
+                                        {expenseLabel(expense)}
                                       </span>
-                                      <span>{fmtMoney(ex.amount)}</span>
+                                      <span>{fmtMoney(expense.amount)}</span>
                                     </div>
-                                    {ex.note || ex.description ? (
+                                    {expense.note || expense.description ? (
                                       <p className="mt-1 text-gray-600">
-                                        {ex.note || ex.description}
+                                        {expense.note || expense.description}
                                       </p>
                                     ) : null}
-                                    {(ex.image || ex.photo) && (
+                                    {(expense.image || expense.photo) && (
                                       <a
-                                        href={ex.image || ex.photo}
+                                        href={
+                                          expense.image || expense.photo
+                                        }
                                         target="_blank"
                                         rel="noreferrer"
                                         style={{
+                                          display: 'inline-block',
                                           marginTop: '6px',
-                                          display: 'block',
                                         }}
                                       >
-                                        {isPdf(ex.image || ex.photo) ? (
+                                        {isPdf(
+                                          expense.image || expense.photo
+                                        ) ? (
                                           <div
                                             style={{
-                                              width: '60px',
-                                              height: '60px',
+                                              width: '50px',
+                                              height: '50px',
                                               background: '#FEF2F2',
-                                              borderRadius: '8px',
+                                              borderRadius: '6px',
                                               border: '1px solid #FECACA',
                                               display: 'flex',
                                               flexDirection: 'column',
@@ -293,7 +297,9 @@ const OwnerTrips = () => {
                                               justifyContent: 'center',
                                             }}
                                           >
-                                            <span style={{ fontSize: '20px' }}>
+                                            <span
+                                              style={{ fontSize: '18px' }}
+                                            >
                                               📄
                                             </span>
                                             <span
@@ -308,14 +314,14 @@ const OwnerTrips = () => {
                                         ) : (
                                           <img
                                             src={getThumbUrl(
-                                              ex.image || ex.photo
+                                              expense.image || expense.photo
                                             )}
-                                            alt="expense proof"
+                                            alt="proof"
                                             style={{
-                                              width: '60px',
-                                              height: '60px',
+                                              width: '50px',
+                                              height: '50px',
                                               objectFit: 'cover',
-                                              borderRadius: '8px',
+                                              borderRadius: '6px',
                                               border: '1px solid #E5E7EB',
                                               cursor: 'pointer',
                                             }}
@@ -342,32 +348,32 @@ const OwnerTrips = () => {
                             </button>
                             {repOpen && (
                               <div className="mt-2 space-y-2">
-                                {(t.repairs || []).map((r, i) => (
+                                {(t.repairs || []).map((repair, i) => (
                                   <div
                                     key={i}
                                     className="rounded-xl bg-amber-50 p-3 text-xs"
                                   >
                                     <div className="flex justify-between font-semibold">
-                                      <span>{r.description}</span>
-                                      <span>{fmtMoney(r.amount)}</span>
+                                      <span>{repair.description}</span>
+                                      <span>{fmtMoney(repair.amount)}</span>
                                     </div>
-                                    {r.image ? (
+                                    {repair.image ? (
                                       <a
-                                        href={r.image}
+                                        href={repair.image}
                                         target="_blank"
                                         rel="noreferrer"
                                         style={{
+                                          display: 'inline-block',
                                           marginTop: '6px',
-                                          display: 'block',
                                         }}
                                       >
-                                        {isPdf(r.image) ? (
+                                        {isPdf(repair.image) ? (
                                           <div
                                             style={{
-                                              width: '60px',
-                                              height: '60px',
+                                              width: '50px',
+                                              height: '50px',
                                               background: '#FEF2F2',
-                                              borderRadius: '8px',
+                                              borderRadius: '6px',
                                               border: '1px solid #FECACA',
                                               display: 'flex',
                                               flexDirection: 'column',
@@ -375,7 +381,9 @@ const OwnerTrips = () => {
                                               justifyContent: 'center',
                                             }}
                                           >
-                                            <span style={{ fontSize: '20px' }}>
+                                            <span
+                                              style={{ fontSize: '18px' }}
+                                            >
                                               📄
                                             </span>
                                             <span
@@ -389,13 +397,13 @@ const OwnerTrips = () => {
                                           </div>
                                         ) : (
                                           <img
-                                            src={getThumbUrl(r.image)}
+                                            src={getThumbUrl(repair.image)}
                                             alt="repair proof"
                                             style={{
-                                              width: '60px',
-                                              height: '60px',
+                                              width: '50px',
+                                              height: '50px',
                                               objectFit: 'cover',
-                                              borderRadius: '8px',
+                                              borderRadius: '6px',
                                               border: '1px solid #E5E7EB',
                                               cursor: 'pointer',
                                             }}
@@ -409,9 +417,96 @@ const OwnerTrips = () => {
                             )}
                           </>
                         ) : (
-                          <p className="mt-3 text-sm text-gray-600">
-                            Company trip — no expense list
-                          </p>
+                          <>
+                            <p className="mt-3 text-sm text-gray-500">
+                              Company trip — kharche nahi hote
+                            </p>
+                            {(t.repairs || []).length > 0 && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="mt-2 w-full rounded-lg border border-gray-200 py-2 text-left text-sm font-medium text-gray-800"
+                                  onClick={() =>
+                                    setExpandTripId(
+                                      repOpen ? null : `${t._id}-rep`
+                                    )
+                                  }
+                                >
+                                  {repOpen ? '▼' : '▶'} Repair list (
+                                  {(t.repairs || []).length})
+                                </button>
+                                {repOpen && (
+                                  <div className="mt-2 space-y-2">
+                                    {(t.repairs || []).map((repair, i) => (
+                                      <div
+                                        key={i}
+                                        className="rounded-xl bg-amber-50 p-3 text-xs"
+                                      >
+                                        <div className="flex justify-between font-semibold">
+                                          <span>{repair.description}</span>
+                                          <span>{fmtMoney(repair.amount)}</span>
+                                        </div>
+                                        {repair.image ? (
+                                          <a
+                                            href={repair.image}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            style={{
+                                              display: 'inline-block',
+                                              marginTop: '6px',
+                                            }}
+                                          >
+                                            {isPdf(repair.image) ? (
+                                              <div
+                                                style={{
+                                                  width: '50px',
+                                                  height: '50px',
+                                                  background: '#FEF2F2',
+                                                  borderRadius: '6px',
+                                                  border: '1px solid #FECACA',
+                                                  display: 'flex',
+                                                  flexDirection: 'column',
+                                                  alignItems: 'center',
+                                                  justifyContent: 'center',
+                                                }}
+                                              >
+                                                <span
+                                                  style={{ fontSize: '18px' }}
+                                                >
+                                                  📄
+                                                </span>
+                                                <span
+                                                  style={{
+                                                    fontSize: '9px',
+                                                    color: '#EF4444',
+                                                  }}
+                                                >
+                                                  PDF
+                                                </span>
+                                              </div>
+                                            ) : (
+                                              <img
+                                                src={getThumbUrl(repair.image)}
+                                                alt="repair proof"
+                                                style={{
+                                                  width: '50px',
+                                                  height: '50px',
+                                                  objectFit: 'cover',
+                                                  borderRadius: '6px',
+                                                  border: '1px solid #E5E7EB',
+                                                  cursor: 'pointer',
+                                                }}
+                                              />
+                                            )}
+                                          </a>
+                                        ) : null}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </>
                         )}
 
                         <div className="mt-4">

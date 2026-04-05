@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+﻿import { useEffect, useState, useCallback } from 'react'
 import {
   useNavigate,
   useSearchParams,
@@ -155,7 +155,7 @@ const OwnerProfile = () => {
       }
       setUser(nextUser)
       setAuth(getToken(), nextUser)
-      setPhotoDataUrl(null)
+      
       toast.success('Profile save ho gaya!')
     } catch (err) {
       toast.error(
@@ -557,23 +557,23 @@ const OwnerProfile = () => {
                               </span>
                               <div className="flex items-center gap-2">
                                 <span className="font-bold text-gray-900">
-                                  {v.vehicleNumber || '—'}
+                                  {v.vehicleNumber || 'â€”'}
                                 </span>
-                                <span className="text-gray-400">→</span>
+                                <span className="text-gray-400">â†’</span>
                               </div>
                             </div>
                             <p className="mt-3 text-sm text-gray-600">
                               <span className="font-medium text-gray-700">
                                 Model:
                               </span>{' '}
-                              {v.vehicleModel || '—'}
+                              {v.vehicleModel || 'â€”'}
                             </p>
                             <p className="text-sm text-gray-600">
                               <span className="font-medium text-gray-700">
                                 Location:
                               </span>{' '}
-                              {v.location?.state || '—'},{' '}
-                              {v.location?.district || '—'}
+                              {v.location?.state || 'â€”'},{' '}
+                              {v.location?.district || 'â€”'}
                             </p>
                             <p className="text-sm text-gray-600">
                               <span className="font-medium text-gray-700">
