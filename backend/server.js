@@ -36,6 +36,7 @@ const subscriptionRoutes =
 
 const helmet = require('helmet')
 const rateLimit = require('express-rate-limit')
+const { ipKeyGenerator } = rateLimit
 
 connectDB();
 
@@ -66,13 +67,26 @@ app.use(
 // General rate limit
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const auth = req.headers.authorization
+    if (auth) return auth
+    return ipKeyGenerator(req.ip || '')
+  },
   message: {
     success: false,
     message: 'Bahut zyada requests. Thoda ruko!',
   },
-  standardHeaders: true,
-  legacyHeaders: false,
+  skip: (req) => {
+    const skipPaths = [
+      '/api/notifications',
+      '/api/messages/conversations',
+      '/api/payments/summary',
+    ]
+    return skipPaths.some((path) => req.path.startsWith(path))
+  },
 })
 app.use('/api/', generalLimiter)
 
