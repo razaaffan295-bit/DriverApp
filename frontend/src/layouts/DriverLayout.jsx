@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 const NOTIF_API_BASE =
   process.env.REACT_APP_API_URL || 'http://localhost:5000'
@@ -12,6 +13,7 @@ const DriverLayout = () => {
   const [notifLoading, setNotifLoading] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const { i18n, t } = useTranslation()
 
   const handleLogout = () => {
     localStorage.clear()
@@ -152,42 +154,51 @@ const DriverLayout = () => {
     </button>
   )
 
+  const toggleLanguage = () => {
+    const newLang =
+      i18n.language === 'en' ? 'hi' : 'en'
+    i18n.changeLanguage(newLang)
+    localStorage.setItem('lang', newLang)
+  }
+
+  const currentLang = i18n.language
+
   const sidebarLinks = [
     { path: '/driver/dashboard',
-      label: 'Dashboard', icon: '🏠' },
+      label: t('dashboard'), icon: '🏠' },
     { path: '/driver/profile',
-      label: 'Mera Profile', icon: '👤' },
+      label: t('profile'), icon: '👤' },
     { path: '/driver/jobs',
-      label: 'Jobs Dhundho', icon: '💼' },
+      label: t('jobSearch'), icon: '💼' },
     { path: '/driver/applications',
-      label: 'Applications', icon: '📋' },
+      label: t('applications'), icon: '📋' },
     { path: '/driver/active-job',
-      label: 'Active Kaam', icon: '🔧' },
+      label: t('activeJob'), icon: '🔧' },
     { path: '/driver/messages',
-      label: 'Messages', icon: '💬' },
+      label: t('messages'), icon: '💬' },
     { path: '/driver/attendance',
-      label: 'Attendance', icon: '📅' },
+      label: t('attendance'), icon: '📅' },
     { path: '/driver/trips',
-      label: 'Trip Records', icon: '🚛' },
+      label: t('tripRequests'), icon: '🚛' },
     { path: '/driver/payments',
-      label: 'Earnings', icon: '💰' },
+      label: t('payments'), icon: '💰' },
     { path: '/driver/complaints',
-      label: 'Complaints', icon: '⚠️' },
+      label: t('complaints'), icon: '⚠️' },
     { path: '/driver/ratings',
-      label: 'Ratings', icon: '⭐' },
+      label: t('ratings'), icon: '⭐' },
     { path: '/driver/invites',
-      label: 'Kaam Ke Offers', icon: '🎯' },
+      label: t('invites'), icon: '🎯' },
   ]
 
   const bottomLinks = [
     { path: '/driver/dashboard',
-      icon: '🏠', label: 'Home' },
+      icon: '🏠', label: t('home') },
     { path: '/driver/jobs',
-      icon: '💼', label: 'Jobs' },
+      icon: '💼', label: t('jobs') },
     { path: '/driver/active-job',
-      icon: '🔧', label: 'Kaam' },
+      icon: '🔧', label: t('work') },
     { path: '/driver/profile',
-      icon: '👤', label: 'Profile' },
+      icon: '👤', label: t('profile') },
   ]
 
   const isActive = (path) =>
@@ -224,7 +235,25 @@ const DriverLayout = () => {
           }}>
             DriverApp
           </span>
-          <BellButton />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={toggleLanguage}
+              style={{
+                background: 'none',
+                border: '1px solid #CBD5E1',
+                borderRadius: '8px',
+                padding: '4px 10px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '600',
+                color: '#1D4ED8',
+              }}
+            >
+              {currentLang === 'en' ? 'हिं' : 'EN'}
+            </button>
+            <BellButton />
+          </div>
         </div>
 
         <nav style={{ padding: '8px', flex: 1 }}>
@@ -284,7 +313,7 @@ const DriverLayout = () => {
             <span style={{ fontSize: '18px' }}>
               🚪
             </span>
-            Logout
+            {t('logout')}
           </button>
         </div>
       </div>
@@ -336,7 +365,25 @@ const DriverLayout = () => {
           DriverApp
         </span>
 
-        <BellButton />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            style={{
+              background: 'none',
+              border: '1px solid #CBD5E1',
+              borderRadius: '8px',
+              padding: '4px 10px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#1D4ED8',
+            }}
+          >
+            {currentLang === 'en' ? 'हिं' : 'EN'}
+          </button>
+          <BellButton />
+        </div>
       </div>
 
       {/* NOTIFICATION DROPDOWN */}
@@ -636,7 +683,7 @@ const DriverLayout = () => {
             <span style={{ fontSize: '18px' }}>
               🚪
             </span>
-            Logout
+            {t('logout')}
           </button>
         </nav>
       </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import API from '../api/axios'
+import { useTranslation } from 'react-i18next'
 
 const notifTypeIcon = (type) => {
   if (type === 'new_message') return '💬'
@@ -43,6 +44,7 @@ const OwnerLayout = () => {
   const [notifLoading, setNotifLoading] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const { i18n, t } = useTranslation()
 
   const unreadDotColor = '#3B82F6'
 
@@ -130,28 +132,37 @@ const OwnerLayout = () => {
     </button>
   )
 
+  const toggleLanguage = () => {
+    const newLang =
+      i18n.language === 'en' ? 'hi' : 'en'
+    i18n.changeLanguage(newLang)
+    localStorage.setItem('lang', newLang)
+  }
+
+  const currentLang = i18n.language
+
   const sidebarLinks = [
-    { path: '/owner/dashboard', label: 'Dashboard', icon: '🏠' },
-    { path: '/owner/profile', label: 'Profile', icon: '👤' },
-    { path: '/owner/vehicles', label: 'Meri Gadiyaan', icon: '🚛' },
-    { path: '/owner/post-job', label: 'Job Post Karo', icon: '📝' },
-    { path: '/owner/jobs', label: 'Meri Jobs', icon: '💼' },
-    { path: '/owner/applications', label: 'Applications', icon: '📋' },
-    { path: '/owner/messages', label: 'Messages', icon: '💬' },
-    { path: '/owner/drivers', label: 'Mere Drivers', icon: '👥' },
-    { path: '/owner/invite-driver', label: 'Driver Add Karo', icon: '➕' },
-    { path: '/owner/attendance', label: 'Attendance', icon: '📅' },
-    { path: '/owner/trips', label: 'Trip Requests', icon: '🔧' },
-    { path: '/owner/payments', label: 'Payments', icon: '💰' },
-    { path: '/owner/complaints', label: 'Complaints', icon: '⚠️' },
-    { path: '/owner/ratings', label: 'Ratings', icon: '⭐' },
+    { path: '/owner/dashboard', label: t('dashboard'), icon: '🏠' },
+    { path: '/owner/profile', label: t('profile'), icon: '👤' },
+    { path: '/owner/vehicles', label: t('vehicles'), icon: '🚛' },
+    { path: '/owner/post-job', label: t('postJob'), icon: '📝' },
+    { path: '/owner/jobs', label: t('myJobs'), icon: '💼' },
+    { path: '/owner/applications', label: t('applications'), icon: '📋' },
+    { path: '/owner/messages', label: t('messages'), icon: '💬' },
+    { path: '/owner/drivers', label: t('myDrivers'), icon: '👥' },
+    { path: '/owner/invite-driver', label: t('addDriver'), icon: '➕' },
+    { path: '/owner/attendance', label: t('attendance'), icon: '📅' },
+    { path: '/owner/trips', label: t('tripRequests'), icon: '🔧' },
+    { path: '/owner/payments', label: t('payments'), icon: '💰' },
+    { path: '/owner/complaints', label: t('complaints'), icon: '⚠️' },
+    { path: '/owner/ratings', label: t('ratings'), icon: '⭐' },
   ]
 
   const bottomLinks = [
-    { path: '/owner/dashboard', icon: '🏠', label: 'Home' },
-    { path: '/owner/applications', icon: '📋', label: 'Apply' },
-    { path: '/owner/drivers', icon: '👥', label: 'Drivers' },
-    { path: '/owner/profile', icon: '👤', label: 'Profile' },
+    { path: '/owner/dashboard', icon: '🏠', label: t('home') },
+    { path: '/owner/applications', icon: '📋', label: t('applications') },
+    { path: '/owner/drivers', icon: '👥', label: t('myDrivers') },
+    { path: '/owner/profile', icon: '👤', label: t('profile') },
   ]
 
   const isActive = (path) => location.pathname === path
@@ -191,7 +202,25 @@ const OwnerLayout = () => {
           >
             DriverApp
           </span>
-          {renderBellButton('20px')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={toggleLanguage}
+              style={{
+                background: 'none',
+                border: '1px solid #CBD5E1',
+                borderRadius: '8px',
+                padding: '4px 10px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '600',
+                color: '#1D4ED8',
+              }}
+            >
+              {currentLang === 'en' ? 'हिं' : 'EN'}
+            </button>
+            {renderBellButton('20px')}
+          </div>
         </div>
 
         <nav style={{ padding: '8px', flex: 1 }}>
@@ -246,7 +275,7 @@ const OwnerLayout = () => {
             }}
           >
             <span style={{ fontSize: '18px' }}>🚪</span>
-            Logout
+            {t('logout')}
           </button>
         </div>
       </div>
@@ -315,7 +344,25 @@ const OwnerLayout = () => {
           DriverApp
         </span>
 
-        {renderBellButton('22px')}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            style={{
+              background: 'none',
+              border: '1px solid #CBD5E1',
+              borderRadius: '8px',
+              padding: '4px 10px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#1D4ED8',
+            }}
+          >
+            {currentLang === 'en' ? 'हिं' : 'EN'}
+          </button>
+          {renderBellButton('22px')}
+        </div>
       </div>
 
       {/* ═══ MOBILE OVERLAY ═══ */}
@@ -426,7 +473,7 @@ const OwnerLayout = () => {
             }}
           >
             <span style={{ fontSize: '18px' }}>🚪</span>
-            Logout
+            {t('logout')}
           </button>
         </nav>
       </div>
