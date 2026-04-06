@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import { getUser } from '../utils/helpers'
+import { getUser, setAuth, getToken } from '../utils/helpers'
 import axios from '../api/axios'
 
 const loadRazorpayScript = () => {
@@ -82,9 +82,21 @@ const Subscription = () => {
             )
 
             if (verifyRes.data.success) {
+              try {
+                const meRes = await axios.get(
+                  '/api/auth/me'
+                )
+                if (meRes.data?.user) {
+                  setAuth(getToken(), meRes.data.user)
+                }
+              } catch (e) {
+                console.error('User refresh failed:', e)
+              }
+
               toast.success(
                 'Payment successful! Subscription active!'
               )
+
               if (isOwner) {
                 navigate('/owner/post-job')
               } else {

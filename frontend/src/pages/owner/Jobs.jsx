@@ -16,6 +16,17 @@ const formatJobDate = (d) => {
   }
 }
 
+const getSalaryDisplay = (job) => {
+  if (!job) return '₹0'
+  if (job.salaryType === 'monthly') {
+    return `₹${job.salaryPerMonth || 0}/month`
+  }
+  if (job.salaryType === 'hourly') {
+    return `₹${job.salaryPerHour || 0}/ghanta`
+  }
+  return `₹${job.salaryPerDay || 0}/din`
+}
+
 const OwnerJobs = () => {
   const navigate = useNavigate()
   const [jobs, setJobs] = useState([])
@@ -170,7 +181,7 @@ const OwnerJobs = () => {
                     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="font-bold text-blue-700">
-                          ₹{j.salaryPerDay}/din
+                          {getSalaryDisplay(j)}
                         </p>
                         <p className="text-sm text-gray-500">
                           {j.duration} din

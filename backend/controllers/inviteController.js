@@ -182,6 +182,32 @@ const acceptInvite = async (req, res) => {
 
     const { inviteId } = req.body
 
+    const User = require('../models/User')
+    const driverUser = await User.findById(
+      req.user._id
+    ).select('subscription')
+
+    if (!driverUser) {
+      return res.status(401).json({
+        success: false,
+        message: 'User nahi mila',
+      })
+    }
+
+    const subActive =
+      driverUser.subscription?.isActive === true &&
+      driverUser.subscription?.endDate &&
+      new Date(driverUser.subscription.endDate) > new Date()
+
+    if (!subActive) {
+      return res.status(403).json({
+        success: false,
+        message:
+          'Invite accept karne ke liye active subscription chahiye (₹99/month).',
+        code: 'SUBSCRIPTION_REQUIRED',
+      })
+    }
+
     const invite = await DriverInvite.findById(inviteId)
       .populate('ownerId', 'name')
       .populate('vehicleId', 'vehicleType vehicleNumber')

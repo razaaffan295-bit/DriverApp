@@ -45,5 +45,10 @@ const driverAttendanceSchema = new mongoose.Schema({
   },
 });
 
+driverAttendanceSchema.index(
+  { contractId: 1, driverId: 1, date: 1 },
+  { unique: true }
+);
+
 module.exports = mongoose.model("DriverAttendance", driverAttendanceSchema);
 

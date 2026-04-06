@@ -17,6 +17,17 @@ const formatApplied = (d) => {
   }
 }
 
+const getSalaryDisplay = (job) => {
+  if (!job) return '—'
+  if (job.salaryType === 'monthly') {
+    return `₹${job.salaryPerMonth || 0}/month`
+  }
+  if (job.salaryType === 'hourly') {
+    return `₹${job.salaryPerHour || 0}/ghanta`
+  }
+  return `₹${job.salaryPerDay || 0}/din`
+}
+
 const DriverApplications = () => {
   const navigate = useNavigate()
   const [applications, setApplications] = useState([])
@@ -208,7 +219,7 @@ const DriverApplications = () => {
                     {owner?.location?.district}
                   </p>
                   <p className="text-sm text-gray-600">
-                    ₹{job?.salaryPerDay ?? '—'}/din
+                    {getSalaryDisplay(job)}
                   </p>
                   <p className="text-sm text-gray-600">
                     {job?.duration ?? '—'} din

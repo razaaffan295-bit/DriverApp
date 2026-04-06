@@ -7,8 +7,6 @@ const userIdFromReq = (req) => req.user._id || req.user.id;
 
 const createOrder = async (req, res) => {
   try {
-    console.log("KEY:", process.env.RAZORPAY_KEY_ID);
-
     const razorpay = require("../config/razorpay");
     const User = require("../models/User");
     const user = await User.findById(req.user.id);
@@ -29,8 +27,6 @@ const createOrder = async (req, res) => {
       currency: "INR",
       receipt: `rcpt_${Date.now()}`,
     });
-
-    console.log("Order created:", order.id);
 
     res.json({
       success: true,
