@@ -107,10 +107,16 @@ app.use('/api/auth/', authLimiter)
 // Subscription rate limit
 const subscriptionLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 10,
+  max: 20,
+  keyGenerator: (req) => {
+    const auth = req.headers.authorization
+    if (auth) return auth
+    return ipKeyGenerator(req.ip || '')
+  },
   message: {
     success: false,
-    message: 'Bahut zyada payment attempts!',
+    message:
+      'Bahut zyada payment attempts! 1 ghante baad try karein.',
   },
 })
 app.use('/api/subscription/', subscriptionLimiter)
