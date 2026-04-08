@@ -41,6 +41,7 @@ const { ipKeyGenerator } = rateLimit
 connectDB();
 
 const app = express();
+app.set('trust proxy', 1)
 
 // Security headers
 app.use(
@@ -53,11 +54,20 @@ app.use(
 // CORS
 app.use(
   cors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:5000',
-      process.env.FRONTEND_URL || 'http://localhost:3000',
-    ],
+    origin: (origin, callback) => {
+      const allowed = [
+        'http://localhost:3000',
+        'http://localhost:5000',
+        'https://driver-app-neon.vercel.app',
+        process.env.FRONTEND_URL,
+      ].filter(Boolean)
+
+      if (!origin || allowed.includes(origin)) {
+        callback(null, true)
+      } else {
+        callback(new Error('CORS not allowed'))
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],

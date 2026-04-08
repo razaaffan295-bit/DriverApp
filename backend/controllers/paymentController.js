@@ -74,14 +74,10 @@ const getPaymentSummary = async (req, res) => {
       .select("month year salaryForDay")
       .lean();
 
-    console.log("Records found:", driverRecords.length);
-
     const totalSalaryEarned = driverRecords.reduce(
       (sum, r) => sum + (Number(r.salaryForDay) || 0),
       0
     );
-
-    console.log("Total earned:", totalSalaryEarned);
 
     const byMonthYear = new Map();
     for (const r of driverRecords) {
