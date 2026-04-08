@@ -52,6 +52,7 @@ app.use(
 )
 
 // CORS
+app.options('*', cors())
 app.use(
   cors({
     origin: (origin, callback) => {
