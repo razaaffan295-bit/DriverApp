@@ -1,3 +1,4 @@
+require("./instrument.js");
 require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
@@ -166,8 +167,10 @@ app.use('/api/trips', tripRoutes)
 app.use('/api/invites', inviteRoutes)
 app.use('/api/subscription', subscriptionRoutes)
 
+const Sentry = require("@sentry/node");
+Sentry.setupExpressErrorHandler(app);
+
 app.use((err, req, res, next) => {
-  // eslint-disable-next-line no-console
   console.error(err.stack);
   res.status(500).json({
     success: false,
