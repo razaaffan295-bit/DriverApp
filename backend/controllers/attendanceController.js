@@ -77,6 +77,15 @@ const driverAddRecord = async (req, res) => {
       });
     }
 
+    if (contract.vehicleCategory === 'transport') {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Transport driver ke liye daily attendance nahi hoti. Sirf trip records bharein.',
+        code: 'TRANSPORT_NO_ATTENDANCE',
+      })
+    }
+
     const recordDate = new Date(date);
     recordDate.setHours(0, 0, 0, 0);
 

@@ -67,32 +67,59 @@ const getPaymentSummary = async (req, res) => {
       ? new mongoose.Types.ObjectId(String(driverIdForAttendance))
       : driverIdForAttendance;
 
-    const driverRecords = await DriverAttendance.find({
-      contractId: cidQuery,
-      driverId: didQuery,
-    })
-      .select("month year salaryForDay")
-      .lean();
+    const isTransport =
+      contract.vehicleCategory === 'transport'
 
-    const totalSalaryEarned = driverRecords.reduce(
-      (sum, r) => sum + (Number(r.salaryForDay) || 0),
-      0
-    );
+    let totalSalaryEarned = 0
+    let attendanceBreakdown = []
 
-    const byMonthYear = new Map();
-    for (const r of driverRecords) {
-      const key = `${r.year}-${r.month}`;
-      const prev = byMonthYear.get(key) || {
-        month: r.month,
-        year: r.year,
-        totalSalaryEarned: 0,
-      };
-      prev.totalSalaryEarned += Number(r.salaryForDay) || 0;
-      byMonthYear.set(key, prev);
+    if (isTransport) {
+      const now = new Date()
+      const contractStart = new Date(
+        contract.startDate || contract.createdAt
+      )
+      const monthsWorked = Math.max(
+        1,
+        Math.ceil(
+          (now - contractStart) /
+            (1000 * 60 * 60 * 24 * 30)
+        )
+      )
+      totalSalaryEarned =
+        (Number(contract.salaryPerMonth) || 0) *
+        monthsWorked
+    } else {
+      const driverRecords = await DriverAttendance.find({
+        contractId: cidQuery,
+        driverId: didQuery,
+      })
+        .select("month year salaryForDay")
+        .lean();
+
+      totalSalaryEarned = driverRecords.reduce(
+        (sum, r) =>
+          sum + (Number(r.salaryForDay) || 0),
+        0
+      );
+
+      const byMonthYear = new Map();
+      for (const r of driverRecords) {
+        const key = `${r.year}-${r.month}`;
+        const prev = byMonthYear.get(key) || {
+          month: r.month,
+          year: r.year,
+          totalSalaryEarned: 0,
+        };
+        prev.totalSalaryEarned += Number(r.salaryForDay) || 0;
+        byMonthYear.set(key, prev);
+      }
+      attendanceBreakdown = Array.from(
+        byMonthYear.values()
+      ).sort(
+        (a, b) =>
+          b.year - a.year || b.month - a.month
+      );
     }
-    const attendanceBreakdown = Array.from(byMonthYear.values()).sort(
-      (a, b) => b.year - a.year || b.month - a.month
-    );
 
     const confirmedPayments = await Payment.find({
       contractId: cid,
@@ -177,6 +204,7 @@ const getPaymentSummary = async (req, res) => {
         totalAdvanceRepaid,
         totalAdvanceRemaining,
         netDue,
+        isTransport,
         contract: contractPop,
         attendance: attendanceBreakdown,
         pendingRequests,
@@ -926,17 +954,40 @@ const requestPayment = async (req, res) => {
     const driverIdForAttendance =
       contract.driverId?._id || contract.driverId;
 
-    const attendanceRecords = await DriverAttendance.find({
-      contractId: contract._id,
-      driverId: driverIdForAttendance,
-    })
-      .select("salaryForDay")
-      .lean();
+    const isTransport =
+      contract.vehicleCategory === 'transport'
 
-    const totalSalaryEarned = attendanceRecords.reduce(
-      (sum, r) => sum + (Number(r.salaryForDay) || 0),
-      0
-    );
+    let totalSalaryEarned = 0
+
+    if (isTransport) {
+      const now = new Date()
+      const contractStart = new Date(
+        contract.startDate || contract.createdAt
+      )
+      const monthsWorked = Math.max(
+        1,
+        Math.ceil(
+          (now - contractStart) /
+            (1000 * 60 * 60 * 24 * 30)
+        )
+      )
+      totalSalaryEarned =
+        (Number(contract.salaryPerMonth) || 0) *
+        monthsWorked
+    } else {
+      const attendanceRecords = await DriverAttendance.find({
+        contractId: contract._id,
+        driverId: driverIdForAttendance,
+      })
+        .select("salaryForDay")
+        .lean();
+
+      totalSalaryEarned = attendanceRecords.reduce(
+        (sum, r) =>
+          sum + (Number(r.salaryForDay) || 0),
+        0
+      );
+    }
 
     const confirmedPayments = await Payment.find({
       contractId: contract._id,

@@ -14,15 +14,6 @@ import {
 } from '../../api/paymentAPI'
 import { getDriverTrips } from '../../api/tripAPI'
 
-const isTransportContract = (contract) => {
-  return (
-    contract?.vehicleCategory === 'transport' ||
-    contract?.transportType === 'company_trip' ||
-    contract?.transportType === 'malik_trip' ||
-    contract?.jobId?.vehicleCategory === 'transport'
-  )
-}
-
 const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
 const tripCargo = (t) => t.cargo || t.description || ''
@@ -211,7 +202,7 @@ const DriverPayments = () => {
     refreshTab()
   }, [refreshTab])
 
-  const isTransport = isTransportContract(summary?.contract)
+  const isTransport = summary?.isTransport || false
 
   useEffect(() => {
     if (!isTransport && tab === 'trip') {
@@ -477,6 +468,22 @@ const DriverPayments = () => {
               </p>
             ) : (
               <>
+                {isTransport && (
+                  <div
+                    style={{
+                      background: '#FFF7ED',
+                      border: '1px solid #FED7AA',
+                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      color: '#92400E',
+                    }}
+                  >
+                    🚛 Transport Driver — Fixed Monthly Salary: ₹{summary?.contract?.salaryPerMonth || 0}/month
+                  </div>
+                )}
+
                 <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
                     <p className="text-xs text-green-800">

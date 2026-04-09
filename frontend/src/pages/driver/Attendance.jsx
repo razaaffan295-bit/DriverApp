@@ -172,6 +172,10 @@ const DriverAttendance = () => {
   const fmtDate = (d) =>
     new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
 
+  const isTransport =
+    contract?.vehicleCategory === 'transport' ||
+    contract?.jobId?.vehicleCategory === 'transport'
+
   return (
     <div
       style={{ minHeight: '100vh', background: '#F0FDF4' }}
@@ -204,15 +208,46 @@ const DriverAttendance = () => {
                 </button>
               </div>
 
-              {contract?.vehicleCategory === 'transport' ? (
-                <div className="rounded-2xl bg-blue-50 p-4 mb-4">
-                  <p className="text-sm font-semibold text-blue-900">
-                    Transport driver attendance alag page pe hai
+              {isTransport ? (
+                <div
+                  style={{
+                    background: '#FFF7ED',
+                    border: '1px solid #FED7AA',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    textAlign: 'center',
+                    marginTop: '16px',
+                  }}
+                >
+                  <p style={{ fontSize: '32px', marginBottom: '8px' }}>
+                    🚛
+                  </p>
+                  <p
+                    style={{
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      color: '#92400E',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    Transport Driver
+                  </p>
+                  <p style={{ fontSize: '14px', color: '#B45309' }}>
+                    Aapke liye daily attendance nahi hoti. Trip records bharein aur month end pe salary request karein.
                   </p>
                   <button
-                    type="button"
                     onClick={() => navigate('/driver/trips')}
-                    className="mt-3 rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                    style={{
+                      marginTop: '16px',
+                      background: '#F97316',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '12px',
+                      padding: '12px 24px',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                    }}
                   >
                     Trip Records Dekho
                   </button>
