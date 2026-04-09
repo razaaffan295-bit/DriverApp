@@ -66,7 +66,13 @@ app.use(
         process.env.FRONTEND_URL,
       ].filter(Boolean)
 
-      if (!origin || allowed.includes(origin)) {
+      if (
+        !origin ||
+        allowed.includes(origin) ||
+        origin.startsWith('capacitor://') ||
+        origin.startsWith('ionic://') ||
+        origin === 'null'
+      ) {
         callback(null, true)
       } else {
         callback(new Error('CORS not allowed'))
