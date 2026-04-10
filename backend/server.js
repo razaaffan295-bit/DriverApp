@@ -63,6 +63,7 @@ app.use(
         'https://driver-app-neon.vercel.app',
         'capacitor://localhost',
         'http://localhost',
+        'https://localhost',
         process.env.FRONTEND_URL,
       ].filter(Boolean)
 
