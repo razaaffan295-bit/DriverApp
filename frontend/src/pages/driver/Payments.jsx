@@ -15,9 +15,17 @@ import {
 import { getDriverTrips } from '../../api/tripAPI'
 import jsPDF from 'jspdf'
 
-const isAndroid = () =>
-  typeof window !== 'undefined' &&
-  window.Capacitor !== undefined
+const isAndroid = () => {
+  try {
+    return (
+      typeof window !== 'undefined' &&
+      window.Capacitor !== undefined &&
+      window.Capacitor.isNativePlatform() === true
+    )
+  } catch (e) {
+    return false
+  }
+}
 
 const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
@@ -455,10 +463,46 @@ const DriverPayments = () => {
   }
 
   const handleTripReceipt = (trip) => {
-    setPrintTrip(trip)
-    setTimeout(() => {
-      window.print()
-    }, 300)
+    if (isAndroid()) {
+      const doc = new jsPDF()
+      doc.setFontSize(16)
+      doc.text('Trip Receipt', 14, 20)
+      doc.setFontSize(11)
+      doc.text(
+        `Route: ${tripFrom(trip)} to ${tripTo(trip)}`,
+        14, 32
+      )
+      doc.text(
+        `Cargo: ${tripCargo(trip) || ''}`,
+        14, 41
+      )
+      doc.text(
+        `Date: ${new Date(trip.tripDate || trip.createdAt).toLocaleDateString('en-IN')}`,
+        14, 50
+      )
+      doc.text(
+        `Total Expenses: Rs.${trip.totalExpenses || 0}`,
+        14, 59
+      )
+      doc.text(
+        `Total Repairs: Rs.${trip.totalRepairs || 0}`,
+        14, 68
+      )
+      doc.text(
+        `Grand Total: Rs.${grandTotalTrip(trip)}`,
+        14, 77
+      )
+      doc.text(
+        `Approved: Rs.${tripApprovedAmount(trip)}`,
+        14, 86
+      )
+      doc.save(`trip-receipt-${trip._id}.pdf`)
+    } else {
+      setPrintTrip(trip)
+      setTimeout(() => {
+        window.print()
+      }, 300)
+    }
   }
 
   const repayPct =

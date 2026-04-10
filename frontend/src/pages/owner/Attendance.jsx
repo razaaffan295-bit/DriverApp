@@ -11,9 +11,17 @@ import { getUser } from '../../utils/helpers'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-const isAndroid = () =>
-  typeof window !== 'undefined' &&
-  window.Capacitor !== undefined
+const isAndroid = () => {
+  try {
+    return (
+      typeof window !== 'undefined' &&
+      window.Capacitor !== undefined &&
+      window.Capacitor.isNativePlatform() === true
+    )
+  } catch (e) {
+    return false
+  }
+}
 
 const MONTH_NAMES = [
   'January',

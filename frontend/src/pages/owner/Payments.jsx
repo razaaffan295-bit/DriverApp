@@ -15,9 +15,17 @@ import {
 } from '../../api/paymentAPI'
 import jsPDF from 'jspdf'
 
-const isAndroid = () =>
-  typeof window !== 'undefined' &&
-  window.Capacitor !== undefined
+const isAndroid = () => {
+  try {
+    return (
+      typeof window !== 'undefined' &&
+      window.Capacitor !== undefined &&
+      window.Capacitor.isNativePlatform() === true
+    )
+  } catch (e) {
+    return false
+  }
+}
 
 const isTransportContract = (contract) => {
   return (

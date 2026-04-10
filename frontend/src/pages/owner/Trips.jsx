@@ -7,9 +7,17 @@ import { getPayments } from '../../api/paymentAPI'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-const isAndroid = () =>
-  typeof window !== 'undefined' &&
-  window.Capacitor !== undefined
+const isAndroid = () => {
+  try {
+    return (
+      typeof window !== 'undefined' &&
+      window.Capacitor !== undefined &&
+      window.Capacitor.isNativePlatform() === true
+    )
+  } catch (e) {
+    return false
+  }
+}
 
 const fmtMoney = (n) =>
   `₹${Number.isFinite(Number(n)) ? Number(n) : 0}`
