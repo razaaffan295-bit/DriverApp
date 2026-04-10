@@ -8,8 +8,8 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 const isAndroid = () =>
-  window.Capacitor !== undefined &&
-  window.Capacitor.getPlatform() === 'android'
+  typeof window !== 'undefined' &&
+  window.Capacitor !== undefined
 
 const fmtMoney = (n) =>
   `₹${Number.isFinite(Number(n)) ? Number(n) : 0}`

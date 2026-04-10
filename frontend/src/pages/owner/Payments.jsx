@@ -16,8 +16,8 @@ import {
 import jsPDF from 'jspdf'
 
 const isAndroid = () =>
-  window.Capacitor !== undefined &&
-  window.Capacitor.getPlatform() === 'android'
+  typeof window !== 'undefined' &&
+  window.Capacitor !== undefined
 
 const isTransportContract = (contract) => {
   return (

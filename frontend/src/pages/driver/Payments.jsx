@@ -16,8 +16,8 @@ import { getDriverTrips } from '../../api/tripAPI'
 import jsPDF from 'jspdf'
 
 const isAndroid = () =>
-  window.Capacitor !== undefined &&
-  window.Capacitor.getPlatform() === 'android'
+  typeof window !== 'undefined' &&
+  window.Capacitor !== undefined
 
 const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
