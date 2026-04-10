@@ -8,6 +8,12 @@ import {
   driverDeleteRecord,
   driverGetRecords,
 } from '../../api/attendanceAPI'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
+const isAndroid = () =>
+  window.Capacitor !== undefined &&
+  window.Capacitor.getPlatform() === 'android'
 
 const MONTH_NAMES = [
   'January',
@@ -176,6 +182,53 @@ const DriverAttendance = () => {
     contract?.vehicleCategory === 'transport' ||
     contract?.jobId?.vehicleCategory === 'transport'
 
+  const handlePrint = () => {
+    if (isAndroid()) {
+      const doc = new jsPDF()
+      doc.setFontSize(16)
+      doc.text('Attendance Report', 14, 15)
+      doc.setFontSize(10)
+      doc.text(
+        `Name: ${user?.name || ''}`,
+        14, 25
+      )
+      doc.text(
+        `Month: ${selectedMonth}/${selectedYear}`,
+        14, 32
+      )
+      doc.text(
+        `Present: ${summary?.presentDays || 0}`,
+        14, 39
+      )
+      doc.text(
+        `Absent: ${summary?.absentDays || 0}`,
+        14, 46
+      )
+      doc.text(
+        `Total Earned: Rs.${summary?.grossTotal || 0}`,
+        14, 53
+      )
+      const rows = (records || []).map(r => [
+        new Date(r.date)
+          .toLocaleDateString('en-IN'),
+        r.status,
+        r.hoursWorked || 0,
+        `Rs.${r.salaryForDay || 0}`
+      ])
+      autoTable(doc, {
+        startY: 60,
+        head: [['Date','Status','Hours','Salary']],
+        body: rows,
+        headStyles: { fillColor: [29,78,216] }
+      })
+      doc.save(
+        `attendance-${selectedMonth}-${selectedYear}.pdf`
+      )
+    } else {
+      window.print()
+    }
+  }
+
   return (
     <div
       style={{ minHeight: '100vh', background: '#F0FDF4' }}
@@ -201,7 +254,7 @@ const DriverAttendance = () => {
               <div className="no-print">
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={handlePrint}
                   className="no-print bg-gray-700 text-white px-4 py-2 rounded-xl text-sm w-full mt-4"
                 >
                   📄 Attendance PDF Download

@@ -4,6 +4,12 @@ import { getUser } from '../../utils/helpers'
 import { getOwnerTrips, handleTrip } from '../../api/tripAPI'
 import { getOwnerContracts } from '../../api/contractAPI'
 import { getPayments } from '../../api/paymentAPI'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
+const isAndroid = () =>
+  window.Capacitor !== undefined &&
+  window.Capacitor.getPlatform() === 'android'
 
 const fmtMoney = (n) =>
   `₹${Number.isFinite(Number(n)) ? Number(n) : 0}`
@@ -29,10 +35,58 @@ const OwnerTrips = () => {
   const [tripPayments, setTripPayments] = useState([])
 
   const handleTripReceipt = useCallback((trip) => {
-    setPrintTrip(trip)
-    setTimeout(() => {
-      window.print()
-    }, 300)
+    if (isAndroid()) {
+      const doc = new jsPDF()
+      doc.setFontSize(16)
+      doc.text('Trip Receipt', 14, 20)
+      doc.setFontSize(11)
+      doc.text(
+        `Route: ${trip.fromLocation || ''} to ${trip.toLocation || ''}`,
+        14, 32
+      )
+      doc.text(
+        `Cargo: ${trip.cargo || ''}`,
+        14, 41
+      )
+      doc.text(
+        `Driver: ${trip.driverId?.name || ''}`,
+        14, 50
+      )
+      doc.text(
+        `Total Expenses: Rs.${trip.totalExpenses || 0}`,
+        14, 59
+      )
+      doc.text(
+        `Total Repairs: Rs.${trip.totalRepairs || 0}`,
+        14, 68
+      )
+      doc.text(
+        `Grand Total: Rs.${(Number(trip.totalExpenses)||0) + (Number(trip.totalRepairs)||0)}`,
+        14, 77
+      )
+      doc.text(
+        `Approved: Rs.${trip.approvedAmount || 0}`,
+        14, 86
+      )
+      if (trip.expenses?.length > 0) {
+        autoTable(doc, {
+          startY: 95,
+          head: [['Type','Amount','Note']],
+          body: trip.expenses.map(e => [
+            e.type || '',
+            `Rs.${e.amount || 0}`,
+            e.note || ''
+          ]),
+          headStyles: { fillColor: [29,78,216] }
+        })
+      }
+      doc.save(`trip-${trip._id}.pdf`)
+    } else {
+      setPrintTrip(trip)
+      setTimeout(() => {
+        window.print()
+      }, 300)
+    }
   }, [])
 
   useEffect(() => {

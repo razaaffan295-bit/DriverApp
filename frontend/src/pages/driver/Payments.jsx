@@ -13,6 +13,11 @@ import {
   requestTripPayment,
 } from '../../api/paymentAPI'
 import { getDriverTrips } from '../../api/tripAPI'
+import jsPDF from 'jspdf'
+
+const isAndroid = () =>
+  window.Capacitor !== undefined &&
+  window.Capacitor.getPlatform() === 'android'
 
 const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
@@ -323,10 +328,44 @@ const DriverPayments = () => {
   }
 
   const handlePrintReceipt = (payment) => {
-    setPrintPayment(payment)
-    setTimeout(() => {
-      window.print()
-    }, 300)
+    if (isAndroid()) {
+      const doc = new jsPDF()
+      doc.setFontSize(16)
+      doc.text('Payment Receipt', 14, 20)
+      doc.setFontSize(11)
+      doc.text(
+        `Amount: Rs.${payment.amount}`,
+        14, 35
+      )
+      doc.text(
+        `Type: ${payment.payoutMethod?.toUpperCase() || 'UPI'}`,
+        14, 44
+      )
+      if (payment.utrNumber) {
+        doc.text(
+          `UTR: ${payment.utrNumber}`,
+          14, 53
+        )
+      }
+      doc.text(
+        `Date: ${new Date(payment.createdAt || payment.ownerPaidAt).toLocaleDateString('en-IN')}`,
+        14, 62
+      )
+      doc.text(
+        `Driver: ${payment.driverId?.name || ''}`,
+        14, 71
+      )
+      doc.text(
+        `Owner: ${payment.ownerId?.name || ''}`,
+        14, 80
+      )
+      doc.save(`receipt-${payment._id}.pdf`)
+    } else {
+      setPrintPayment(payment)
+      setTimeout(() => {
+        window.print()
+      }, 300)
+    }
   }
 
   const onRequestAdvance = async (e) => {
