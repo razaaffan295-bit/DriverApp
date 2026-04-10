@@ -31,6 +31,28 @@ const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
 const tripCargo = (t) => t.cargo || t.description || ''
 
+const savePDF = (doc, filename) => {
+  try {
+    const blob = doc.output('blob')
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => {
+      URL.revokeObjectURL(url)
+    }, 1000)
+  } catch (e) {
+    try {
+      doc.save(filename)
+    } catch (err) {
+      console.error('PDF save failed:', err)
+    }
+  }
+}
+
 const OwnerTrips = () => {
   const [user, setUser] = useState(null)
   const [tab, setTab] = useState('pending')
@@ -88,7 +110,7 @@ const OwnerTrips = () => {
           headStyles: { fillColor: [29,78,216] }
         })
       }
-      doc.save(`trip-${trip._id}.pdf`)
+      savePDF(doc, `trip-receipt-${trip._id}.pdf`)
     } else {
       setPrintTrip(trip)
       setTimeout(() => {

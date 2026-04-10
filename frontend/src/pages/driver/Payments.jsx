@@ -99,6 +99,28 @@ const payoutMethodOf = (p) => {
   return 'upi'
 }
 
+const savePDF = (doc, filename) => {
+  try {
+    const blob = doc.output('blob')
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => {
+      URL.revokeObjectURL(url)
+    }, 1000)
+  } catch (e) {
+    try {
+      doc.save(filename)
+    } catch (err) {
+      console.error('PDF save failed:', err)
+    }
+  }
+}
+
 const DriverPayments = () => {
   const [tab, setTab] = useState('summary')
   const [loading, setLoading] = useState(true)
@@ -367,7 +389,7 @@ const DriverPayments = () => {
         `Owner: ${payment.ownerId?.name || ''}`,
         14, 80
       )
-      doc.save(`receipt-${payment._id}.pdf`)
+      savePDF(doc, `receipt-${payment._id}.pdf`)
     } else {
       setPrintPayment(payment)
       setTimeout(() => {
@@ -496,7 +518,7 @@ const DriverPayments = () => {
         `Approved: Rs.${tripApprovedAmount(trip)}`,
         14, 86
       )
-      doc.save(`trip-receipt-${trip._id}.pdf`)
+      savePDF(doc, `trip-receipt-${trip._id}.pdf`)
     } else {
       setPrintTrip(trip)
       setTimeout(() => {

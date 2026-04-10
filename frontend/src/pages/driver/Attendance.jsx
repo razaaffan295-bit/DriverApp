@@ -78,6 +78,28 @@ const calcSalary = (contract, status, hours) => {
   return Math.round(base)
 }
 
+const savePDF = (doc, filename) => {
+  try {
+    const blob = doc.output('blob')
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => {
+      URL.revokeObjectURL(url)
+    }, 1000)
+  } catch (e) {
+    try {
+      doc.save(filename)
+    } catch (err) {
+      console.error('PDF save failed:', err)
+    }
+  }
+}
+
 const DriverAttendance = () => {
   const navigate = useNavigate()
 
@@ -229,9 +251,7 @@ const DriverAttendance = () => {
         body: rows,
         headStyles: { fillColor: [29,78,216] }
       })
-      doc.save(
-        `attendance-${selectedMonth}-${selectedYear}.pdf`
-      )
+      savePDF(doc, `attendance-${selectedMonth}-${selectedYear}.pdf`)
     } else {
       window.print()
     }

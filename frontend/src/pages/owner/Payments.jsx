@@ -87,6 +87,28 @@ const grandTotalTrip = (t) =>
 const tripApprovedAmount = (t) =>
   Number(t.approvedAmount) || Number(t.approvedExpenses) || 0
 
+const savePDF = (doc, filename) => {
+  try {
+    const blob = doc.output('blob')
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => {
+      URL.revokeObjectURL(url)
+    }, 1000)
+  } catch (e) {
+    try {
+      doc.save(filename)
+    } catch (err) {
+      console.error('PDF save failed:', err)
+    }
+  }
+}
+
 const OwnerPayments = () => {
   const navigate = useNavigate()
   const [tab, setTab] = useState('summary')
@@ -685,7 +707,7 @@ const OwnerPayments = () => {
         `Owner: ${payment.ownerId?.name || ''}`,
         14, 80
       )
-      doc.save(`receipt-${payment._id}.pdf`)
+      savePDF(doc, `receipt-${payment._id}.pdf`)
     } else {
       setPrintPayment(payment)
       setTimeout(() => {
