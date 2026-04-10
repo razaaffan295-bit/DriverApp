@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { App as CapApp } from '@capacitor/app'
 import { BrowserRouter, Routes, Route, 
   Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
@@ -80,6 +82,19 @@ import OwnerMyDrivers from './pages/owner/MyDrivers'
 import Subscription from './pages/Subscription'
 
 function App() {
+  useEffect(() => {
+    CapApp.addListener('backButton', ({ canGoBack }) => {
+      if (canGoBack) {
+        window.history.back()
+      } else {
+        CapApp.minimizeApp()
+      }
+    })
+    return () => {
+      CapApp.removeAllListeners()
+    }
+  }, [])
+
   return (
     <BrowserRouter>
       <Toaster position="top-right" />
