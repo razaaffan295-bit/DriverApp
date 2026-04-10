@@ -64,20 +64,6 @@ const calcSalary = (contract, status, hours) => {
   return Math.round(base)
 }
 
-const isPWA = () => {
-  return window.Capacitor !== undefined
-}
-
-const handlePDFDownload = () => {
-  if (isPWA()) {
-    // Android - open in browser
-    window.open(window.location.href, '_blank')
-  } else {
-    // Web - normal print
-    window.print()
-  }
-}
-
 const DriverAttendance = () => {
   const navigate = useNavigate()
 
@@ -215,7 +201,7 @@ const DriverAttendance = () => {
               <div className="no-print">
                 <button
                   type="button"
-                  onClick={() => handlePDFDownload()}
+                  onClick={() => window.print()}
                   className="no-print bg-gray-700 text-white px-4 py-2 rounded-xl text-sm w-full mt-4"
                 >
                   📄 Attendance PDF Download

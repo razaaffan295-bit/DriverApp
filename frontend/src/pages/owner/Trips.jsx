@@ -17,20 +17,6 @@ const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
 const tripCargo = (t) => t.cargo || t.description || ''
 
-const isPWA = () => {
-  return window.Capacitor !== undefined
-}
-
-const handlePDFDownload = () => {
-  if (isPWA()) {
-    // Android - open in browser
-    window.open(window.location.href, '_blank')
-  } else {
-    // Web - normal print
-    window.print()
-  }
-}
-
 const OwnerTrips = () => {
   const [user, setUser] = useState(null)
   const [tab, setTab] = useState('pending')
@@ -45,7 +31,7 @@ const OwnerTrips = () => {
   const handleTripReceipt = useCallback((trip) => {
     setPrintTrip(trip)
     setTimeout(() => {
-      handlePDFDownload()
+      window.print()
     }, 300)
   }, [])
 
@@ -638,7 +624,7 @@ const OwnerTrips = () => {
               <div>
                 <button
                   type="button"
-                  onClick={() => handlePDFDownload()}
+                  onClick={() => window.print()}
                   className="no-print mb-4 w-full rounded-xl bg-gray-700 py-3 text-sm text-white"
                 >
                   Trip history print

@@ -86,20 +86,6 @@ const payoutMethodOf = (p) => {
   return 'upi'
 }
 
-const isPWA = () => {
-  return window.Capacitor !== undefined
-}
-
-const handlePDFDownload = () => {
-  if (isPWA()) {
-    // Android - open in browser
-    window.open(window.location.href, '_blank')
-  } else {
-    // Web - normal print
-    window.print()
-  }
-}
-
 const DriverPayments = () => {
   const [tab, setTab] = useState('summary')
   const [loading, setLoading] = useState(true)
@@ -339,7 +325,7 @@ const DriverPayments = () => {
   const handlePrintReceipt = (payment) => {
     setPrintPayment(payment)
     setTimeout(() => {
-      handlePDFDownload()
+      window.print()
     }, 300)
   }
 
@@ -432,7 +418,7 @@ const DriverPayments = () => {
   const handleTripReceipt = (trip) => {
     setPrintTrip(trip)
     setTimeout(() => {
-      handlePDFDownload()
+      window.print()
     }, 300)
   }
 

@@ -64,20 +64,6 @@ const calcSalary = (contract, status, hours) => {
   return Math.round(base)
 }
 
-const isPWA = () => {
-  return window.Capacitor !== undefined
-}
-
-const handlePDFDownload = () => {
-  if (isPWA()) {
-    // Android - open in browser
-    window.open(window.location.href, '_blank')
-  } else {
-    // Web - normal print
-    window.print()
-  }
-}
-
 const OwnerAttendance = () => {
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
@@ -214,7 +200,7 @@ const OwnerAttendance = () => {
   }, [selectedContract])
 
   const handlePrint = () => {
-    handlePDFDownload()
+    window.print()
   }
 
   const salaryPreview = useMemo(() => {
