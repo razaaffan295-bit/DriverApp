@@ -87,24 +87,33 @@ const grandTotalTrip = (t) =>
 const tripApprovedAmount = (t) =>
   Number(t.approvedAmount) || Number(t.approvedExpenses) || 0
 
-const savePDF = (doc, filename) => {
+const savePDF = async (doc, filename) => {
   try {
-    const blob = doc.output('blob')
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    setTimeout(() => {
-      URL.revokeObjectURL(url)
-    }, 1000)
+    if (isAndroid()) {
+      const { Share } = await import('@capacitor/share')
+      const base64 = doc.output('datauristring').split(',')[1]
+      await Share.share({
+        title: filename,
+        text: filename,
+        url: `data:application/pdf;base64,${base64}`,
+        dialogTitle: 'PDF Save Karo',
+      })
+    } else {
+      const blob = doc.output('blob')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    }
   } catch (e) {
     try {
       doc.save(filename)
     } catch (err) {
-      console.error('PDF save failed:', err)
+      alert('PDF save nahi hua. Dobara try karein.')
     }
   }
 }
