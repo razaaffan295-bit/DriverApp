@@ -64,53 +64,46 @@ const OwnerTrips = () => {
   const [printTrip, setPrintTrip] = useState(null)
   const [tripPayments, setTripPayments] = useState([])
 
-  const handleTripReceipt = useCallback((trip) => {
-    if (isAndroid()) {
-      const doc = new jsPDF()
-      doc.setFontSize(16)
-      doc.text('Trip Receipt', 14, 20)
-      doc.setFontSize(11)
-      doc.text(
-        `Route: ${trip.fromLocation || ''} to ${trip.toLocation || ''}`,
-        14, 32
-      )
-      doc.text(
-        `Cargo: ${trip.cargo || ''}`,
-        14, 41
-      )
-      doc.text(
-        `Driver: ${trip.driverId?.name || ''}`,
-        14, 50
-      )
-      doc.text(
-        `Total Expenses: Rs.${trip.totalExpenses || 0}`,
-        14, 59
-      )
-      doc.text(
-        `Total Repairs: Rs.${trip.totalRepairs || 0}`,
-        14, 68
-      )
-      doc.text(
-        `Grand Total: Rs.${(Number(trip.totalExpenses)||0) + (Number(trip.totalRepairs)||0)}`,
-        14, 77
-      )
-      doc.text(
-        `Approved: Rs.${trip.approvedAmount || 0}`,
-        14, 86
-      )
-      if (trip.expenses?.length > 0) {
-        autoTable(doc, {
-          startY: 95,
-          head: [['Type','Amount','Note']],
-          body: trip.expenses.map(e => [
-            e.type || '',
-            `Rs.${e.amount || 0}`,
-            e.note || ''
-          ]),
-          headStyles: { fillColor: [29,78,216] }
-        })
+  const handleTripReceipt = useCallback(async (trip) => {
+    const native = (() => {
+      try {
+        return (
+          typeof window !== 'undefined' &&
+          window.Capacitor !== undefined &&
+          window.Capacitor.isNativePlatform() === true
+        )
+      } catch (e) {
+        return false
       }
-      savePDF(doc, `trip-receipt-${trip._id}.pdf`)
+    })()
+
+    if (native) {
+      try {
+        const doc = new jsPDF()
+        doc.setFontSize(16)
+        doc.text('Trip Receipt', 14, 20)
+        doc.setFontSize(11)
+        doc.text(`Driver: ${trip.driverId?.name || ''}`, 14, 35)
+        doc.text(`From: ${trip.fromLocation || trip.from || '—'}`, 14, 44)
+        doc.text(`To: ${trip.toLocation || trip.to || '—'}`, 14, 53)
+        doc.text(`Date: ${new Date(trip.tripDate || trip.createdAt).toLocaleDateString('en-IN')}`, 14, 62)
+        doc.text(`Total Expenses: Rs.${trip.totalExpenses || 0}`, 14, 71)
+        doc.text(`Approved Amount: Rs.${trip.approvedAmount || trip.approvedExpenses || 0}`, 14, 80)
+        doc.text(`Status: ${trip.status || ''}`, 14, 89)
+        if (trip.ownerNote) {
+          doc.text(`Note: ${trip.ownerNote}`, 14, 98)
+        }
+        const { Share } = await import('@capacitor/share')
+        const base64 = doc.output('datauristring').split(',')[1]
+        await Share.share({
+          title: `trip-receipt-${trip._id}.pdf`,
+          text: 'Trip Receipt',
+          url: `data:application/pdf;base64,${base64}`,
+          dialogTitle: 'PDF Save Karo',
+        })
+      } catch (e) {
+        alert('PDF save nahi hua. Dobara try karein.')
+      }
     } else {
       setPrintTrip(trip)
       setTimeout(() => {
