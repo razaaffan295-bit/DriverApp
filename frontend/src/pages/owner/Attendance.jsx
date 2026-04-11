@@ -86,23 +86,10 @@ const savePDF = async (doc, filename) => {
       window.Capacitor.isNativePlatform() === true
 
     if (isNative) {
-      const base64 = doc.output('datauristring').split(',')[1]
-      const { Filesystem, Directory } = await import('@capacitor/filesystem')
-      const fname = `${filename}_${Date.now()}.pdf`
-      await Filesystem.writeFile({
-        path: fname,
-        data: base64,
-        directory: Directory.Cache,
-      })
-      const fileUri = await Filesystem.getUri({
-        path: fname,
-        directory: Directory.Cache,
-      })
       const { Share } = await import('@capacitor/share')
+      const base64 = doc.output('datauristring')
       await Share.share({
-        title: filename,
-        text: filename,
-        url: fileUri.uri,
+        files: [base64],
         dialogTitle: 'PDF Save Karo ya Share Karein',
       })
     } else {
