@@ -626,13 +626,13 @@ const DriverAttendance = () => {
                             min={0}
                             max={24}
                             value={form.hoursWorked}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const val = e.target.value
                               setForm((prev) => ({
                                 ...prev,
-                                hoursWorked:
-                                  Number(e.target.value) || 0,
+                                hoursWorked: val,
                               }))
-                            }
+                            }}
                             placeholder="8"
                             className="input-field w-full"
                           />
