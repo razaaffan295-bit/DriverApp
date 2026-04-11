@@ -241,8 +241,8 @@ const MyDrivers = () => {
                           Start Date: {fmtDate(c.startDate)}
                         </p>
                         <p className="text-xs text-gray-500">
-                          Status: {c.status} · ₹
-                          {c.salaryPerDay}/din · {c.duration}{' '}
+                          Status: {c.status} ·{' '}
+                          {c.salaryType === 'monthly' ? `₹${c.salaryPerMonth || 0}/month` : c.salaryType === 'hourly' ? `₹${c.salaryPerHour || 0}/ghanta` : `₹${c.salaryPerDay || 0}/din`} · {c.duration}{' '}
                           din
                         </p>
                       </div>
