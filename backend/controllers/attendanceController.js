@@ -1,6 +1,7 @@
 const DriverAttendance = require("../models/DriverAttendance");
 const OwnerAttendance = require("../models/OwnerAttendance");
 const Contract = require("../models/Contract");
+const Payment = require("../models/Payment");
 
 const calculateDaySalary = (contract, status, hours) => {
   const {
@@ -206,6 +207,58 @@ const driverGetRecords = async (req, res) => {
 
 const driverDeleteRecord = async (req, res) => {
   try {
+    const record = await DriverAttendance.findOne({
+      _id: req.params.id,
+      driverId: req.user.id,
+    });
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: "Record nahi mila",
+      });
+    }
+
+    const confirmedPayments = await Payment.find({
+      contractId: record.contractId,
+      driverId: req.user.id,
+      status: "paid",
+      driverConfirmed: true,
+      $nor: [{ paymentType: "trip" }, { requestKind: "trip" }],
+    });
+
+    const totalConfirmedAmount = confirmedPayments.reduce(
+      (sum, p) => sum + (Number(p.amount) || 0),
+      0
+    );
+
+    if (totalConfirmedAmount > 0) {
+      const allRecords = await DriverAttendance.find({
+        contractId: record.contractId,
+        driverId: req.user.id,
+      }).sort({ date: 1 });
+
+      let remaining = totalConfirmedAmount;
+      const lockedIds = new Set();
+
+      for (const r of allRecords) {
+        if (remaining <= 0) break;
+        const salary = Number(r.salaryForDay) || 0;
+        if (salary > 0) {
+          remaining -= salary;
+          lockedIds.add(String(r._id));
+        }
+      }
+
+      if (lockedIds.has(String(record._id))) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Is din ki salary payment mil chuki hai — ye record delete nahi ho sakta",
+        });
+      }
+    }
+
     await DriverAttendance.findOneAndDelete({
       _id: req.params.id,
       driverId: req.user.id,
