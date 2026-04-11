@@ -4,20 +4,6 @@ import { getUser } from '../../utils/helpers'
 import { getOwnerTrips, handleTrip } from '../../api/tripAPI'
 import { getOwnerContracts } from '../../api/contractAPI'
 import { getPayments } from '../../api/paymentAPI'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-
-const isAndroid = () => {
-  try {
-    return (
-      typeof window !== 'undefined' &&
-      window.Capacitor !== undefined &&
-      window.Capacitor.isNativePlatform() === true
-    )
-  } catch (e) {
-    return false
-  }
-}
 
 const fmtMoney = (n) =>
   `₹${Number.isFinite(Number(n)) ? Number(n) : 0}`
@@ -31,28 +17,6 @@ const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
 const tripCargo = (t) => t.cargo || t.description || ''
 
-const savePDF = (doc, filename) => {
-  try {
-    const blob = doc.output('blob')
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    setTimeout(() => {
-      URL.revokeObjectURL(url)
-    }, 1000)
-  } catch (e) {
-    try {
-      doc.save(filename)
-    } catch (err) {
-      console.error('PDF save failed:', err)
-    }
-  }
-}
-
 const OwnerTrips = () => {
   const [user, setUser] = useState(null)
   const [tab, setTab] = useState('pending')
@@ -64,64 +28,7 @@ const OwnerTrips = () => {
   const [printTrip, setPrintTrip] = useState(null)
   const [tripPayments, setTripPayments] = useState([])
 
-  const handleTripReceipt = useCallback(async (trip) => {
-    const native = (() => {
-      try {
-        return (
-          typeof window !== 'undefined' &&
-          window.Capacitor !== undefined &&
-          window.Capacitor.isNativePlatform() === true
-        )
-      } catch (e) {
-        return false
-      }
-    })()
-
-    if (native) {
-      try {
-        const doc = new jsPDF()
-        doc.setFontSize(16)
-        doc.text('Trip Receipt', 14, 20)
-        doc.setFontSize(11)
-        doc.text(`Driver: ${trip.driverId?.name || ''}`, 14, 35)
-        doc.text(`From: ${trip.fromLocation || trip.from || '—'}`, 14, 44)
-        doc.text(`To: ${trip.toLocation || trip.to || '—'}`, 14, 53)
-        doc.text(`Date: ${new Date(trip.tripDate || trip.createdAt).toLocaleDateString('en-IN')}`, 14, 62)
-        doc.text(`Total Expenses: Rs.${trip.totalExpenses || 0}`, 14, 71)
-        doc.text(`Approved Amount: Rs.${trip.approvedAmount || trip.approvedExpenses || 0}`, 14, 80)
-        doc.text(`Status: ${trip.status || ''}`, 14, 89)
-        if (trip.ownerNote) {
-          doc.text(`Note: ${trip.ownerNote}`, 14, 98)
-        }
-        const base64 = doc.output('datauristring').split(',')[1]
-        const { Filesystem, Directory } = await import('@capacitor/filesystem')
-        const fname = `trips_${Date.now()}.pdf`
-        await Filesystem.writeFile({
-          path: fname,
-          data: base64,
-          directory: Directory.Cache,
-        })
-        const fileUri = await Filesystem.getUri({
-          path: fname,
-          directory: Directory.Cache,
-        })
-        const { Share } = await import('@capacitor/share')
-        await Share.share({
-          title: 'Trip Report',
-          text: 'Trip Report',
-          url: fileUri.uri,
-          dialogTitle: 'PDF Save Karo ya Share Karein',
-        })
-      } catch (e) {
-        alert('PDF save nahi hua. Dobara try karein.')
-      }
-    } else {
-      setPrintTrip(trip)
-      setTimeout(() => {
-        window.print()
-      }, 300)
-    }
-  }, [])
+  const handleTripReceipt = useCallback(async () => {}, [])
 
   useEffect(() => {
     setUser(getUser())

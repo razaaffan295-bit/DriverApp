@@ -8,20 +8,6 @@ import {
   ownerGetRecords,
 } from '../../api/attendanceAPI'
 import { getUser } from '../../utils/helpers'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-
-const isAndroid = () => {
-  try {
-    return (
-      typeof window !== 'undefined' &&
-      window.Capacitor !== undefined &&
-      window.Capacitor.isNativePlatform() === true
-    )
-  } catch (e) {
-    return false
-  }
-}
 
 const MONTH_NAMES = [
   'January',
@@ -76,57 +62,6 @@ const calcSalary = (contract, status, hours) => {
   }
 
   return Math.round(base)
-}
-
-const savePDF = async (doc, filename) => {
-  try {
-    const isNative =
-      typeof window !== 'undefined' &&
-      window.Capacitor !== undefined &&
-      window.Capacitor.isNativePlatform() === true
-
-    if (isNative) {
-      try {
-        const base64 = doc.output('datauristring').split(',')[1]
-        const { Filesystem, Directory } = await import('@capacitor/filesystem')
-        const { Share } = await import('@capacitor/share')
-        const fname = `attendance_${Date.now()}.pdf`
-        await Filesystem.writeFile({
-          path: fname,
-          data: base64,
-          directory: Directory.Documents,
-        })
-        const fileUri = await Filesystem.getUri({
-          path: fname,
-          directory: Directory.Documents,
-        })
-        await Share.share({
-          title: 'Attendance PDF',
-          text: 'Attendance Report',
-          url: fileUri.uri,
-          dialogTitle: 'PDF Save Karo ya Share Karein',
-        })
-      } catch(e) {
-        alert('PDF error: ' + e.message)
-      }
-    } else {
-      const blob = doc.output('blob')
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-    }
-  } catch (e) {
-    try {
-      doc.save(filename)
-    } catch (err) {
-      console.error('PDF save failed:', err)
-    }
-  }
 }
 
 const OwnerAttendance = () => {
@@ -263,51 +198,6 @@ const OwnerAttendance = () => {
   const showHoursInput = useMemo(() => {
     return selectedContract?.salaryType === 'hourly' || Boolean(selectedContract?.hasHourlyBonus)
   }, [selectedContract])
-
-  const handlePrint = () => {
-    if (isAndroid()) {
-      const doc = new jsPDF()
-      doc.setFontSize(16)
-      doc.text('Attendance Report', 14, 15)
-      doc.setFontSize(10)
-      doc.text(
-        `Name: ${user?.name || ''}`,
-        14, 25
-      )
-      doc.text(
-        `Month: ${selectedMonth}/${selectedYear}`,
-        14, 32
-      )
-      doc.text(
-        `Present: ${summary?.presentDays || 0}`,
-        14, 39
-      )
-      doc.text(
-        `Absent: ${summary?.absentDays || 0}`,
-        14, 46
-      )
-      doc.text(
-        `Total Earned: Rs.${summary?.grossTotal || 0}`,
-        14, 53
-      )
-      const rows = (records || []).map(r => [
-        new Date(r.date)
-          .toLocaleDateString('en-IN'),
-        r.status,
-        r.hoursWorked || 0,
-        `Rs.${r.salaryForDay || 0}`
-      ])
-      autoTable(doc, {
-        startY: 60,
-        head: [['Date','Status','Hours','Salary']],
-        body: rows,
-        headStyles: { fillColor: [29,78,216] }
-      })
-      savePDF(doc, `attendance-${selectedMonth}-${selectedYear}.pdf`)
-    } else {
-      window.print()
-    }
-  }
 
   const salaryPreview = useMemo(() => {
     if (!form.status) return 0
@@ -820,7 +710,7 @@ const OwnerAttendance = () => {
 
                 <button
                   type="button"
-                  onClick={handlePrint}
+                  onClick={() => {}}
                   className="no-print"
                   style={{
                     width: '100%',

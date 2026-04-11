@@ -13,19 +13,6 @@ import {
   getAdvances,
   handleAdvance as handleAdvanceApi,
 } from '../../api/paymentAPI'
-import jsPDF from 'jspdf'
-
-const isAndroid = () => {
-  try {
-    return (
-      typeof window !== 'undefined' &&
-      window.Capacitor !== undefined &&
-      window.Capacitor.isNativePlatform() === true
-    )
-  } catch (e) {
-    return false
-  }
-}
 
 const isTransportContract = (contract) => {
   return (
@@ -86,48 +73,6 @@ const grandTotalTrip = (t) =>
   (Number(t.totalExpenses) || 0) + (Number(t.totalRepairs) || 0)
 const tripApprovedAmount = (t) =>
   Number(t.approvedAmount) || Number(t.approvedExpenses) || 0
-
-const savePDF = async (doc, filename) => {
-  try {
-    if (isAndroid()) {
-      const base64 = doc.output('datauristring').split(',')[1]
-      const { Filesystem, Directory } = await import('@capacitor/filesystem')
-      const fname = `${filename}_${Date.now()}.pdf`
-      await Filesystem.writeFile({
-        path: fname,
-        data: base64,
-        directory: Directory.Cache,
-      })
-      const fileUri = await Filesystem.getUri({
-        path: fname,
-        directory: Directory.Cache,
-      })
-      const { Share } = await import('@capacitor/share')
-      await Share.share({
-        title: filename,
-        text: filename,
-        url: fileUri.uri,
-        dialogTitle: 'PDF Save Karo ya Share Karein',
-      })
-    } else {
-      const blob = doc.output('blob')
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-    }
-  } catch (e) {
-    try {
-      doc.save(filename)
-    } catch (err) {
-      alert('PDF save nahi hua. Dobara try karein.')
-    }
-  }
-}
 
 const OwnerPayments = () => {
   const navigate = useNavigate()
@@ -692,47 +637,6 @@ const OwnerPayments = () => {
       toast.success('UPI ID copy ho gaya!')
     } catch {
       toast.error('Copy nahi hua')
-    }
-  }
-
-  const handlePrintReceipt = (payment) => {
-    if (isAndroid()) {
-      const doc = new jsPDF()
-      doc.setFontSize(16)
-      doc.text('Payment Receipt', 14, 20)
-      doc.setFontSize(11)
-      doc.text(
-        `Amount: Rs.${payment.amount}`,
-        14, 35
-      )
-      doc.text(
-        `Type: ${payment.payoutMethod?.toUpperCase() || 'UPI'}`,
-        14, 44
-      )
-      if (payment.utrNumber) {
-        doc.text(
-          `UTR: ${payment.utrNumber}`,
-          14, 53
-        )
-      }
-      doc.text(
-        `Date: ${new Date(payment.createdAt || payment.ownerPaidAt).toLocaleDateString('en-IN')}`,
-        14, 62
-      )
-      doc.text(
-        `Driver: ${payment.driverId?.name || ''}`,
-        14, 71
-      )
-      doc.text(
-        `Owner: ${payment.ownerId?.name || ''}`,
-        14, 80
-      )
-      savePDF(doc, `receipt-${payment._id}.pdf`)
-    } else {
-      setPrintPayment(payment)
-      setTimeout(() => {
-        window.print()
-      }, 300)
     }
   }
 
@@ -2033,7 +1937,7 @@ const OwnerPayments = () => {
                       )}
                     <button
                       type="button"
-                      onClick={() => handlePrintReceipt(p)}
+                      onClick={() => {}}
                       className="no-print"
                       style={{
                         marginTop: '8px',

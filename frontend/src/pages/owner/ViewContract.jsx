@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
 import { getContractById, completeContract } from '../../api/contractAPI'
-import jsPDF from 'jspdf'
 
 const getSalaryDisplay = (contract) => {
   if (!contract) return '₹0'
@@ -58,65 +57,6 @@ const ViewContract = () => {
   const [contract, setContract] = useState(null)
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState(false)
-
-  const handlePrint = async () => {
-    const native = (() => {
-      try {
-        return (
-          typeof window !== 'undefined' &&
-          window.Capacitor !== undefined &&
-          window.Capacitor.isNativePlatform() === true
-        )
-      } catch (e) {
-        return false
-      }
-    })()
-
-    if (native) {
-      try {
-        const doc = new jsPDF()
-        doc.setFontSize(16)
-        doc.text('JOINING LETTER', 14, 20)
-        doc.setFontSize(11)
-        doc.text(`Owner: ${contract?.ownerId?.name || ''}`, 14, 35)
-        doc.text(`Driver: ${contract?.driverId?.name || ''}`, 14, 44)
-        doc.text(`Job: ${contract?.jobId?.title || ''}`, 14, 53)
-        doc.text(`Vehicle: ${contract?.jobId?.vehicleType || ''}`, 14, 62)
-        doc.text(`Start Date: ${contract?.startDate ? new Date(contract.startDate).toLocaleDateString('en-IN') : '—'}`, 14, 71)
-        doc.text(`Duration: ${contract?.duration || '—'} din`, 14, 80)
-        doc.text(`Status: ${contract?.status || ''}`, 14, 89)
-        if (contract?.terms) {
-          doc.setFontSize(10)
-          doc.text('Terms:', 14, 100)
-          const terms = doc.splitTextToSize(contract.terms, 180)
-          doc.text(terms, 14, 108)
-        }
-        const base64 = doc.output('datauristring').split(',')[1]
-        const { Filesystem, Directory } = await import('@capacitor/filesystem')
-        const fname = `joining-letter_${Date.now()}.pdf`
-        await Filesystem.writeFile({
-          path: fname,
-          data: base64,
-          directory: Directory.Cache,
-        })
-        const fileUri = await Filesystem.getUri({
-          path: fname,
-          directory: Directory.Cache,
-        })
-        const { Share } = await import('@capacitor/share')
-        await Share.share({
-          title: 'joining-letter.pdf',
-          text: 'Joining Letter',
-          url: fileUri.uri,
-          dialogTitle: 'PDF Save Karo ya Share Karein',
-        })
-      } catch (e) {
-        alert('PDF save nahi hua. Dobara try karein.')
-      }
-    } else {
-      window.print()
-    }
-  }
 
   useEffect(() => {
     setUser(getUser())
@@ -222,7 +162,7 @@ const ViewContract = () => {
                 </h1>
                 <button
                   type="button"
-                  onClick={handlePrint}
+                  onClick={() => {}}
                   className="bg-gray-700 text-white px-4 py-2 rounded-xl text-sm"
                 >
                   PDF Download Karo
