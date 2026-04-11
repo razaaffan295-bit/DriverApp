@@ -93,13 +93,24 @@ const OwnerTrips = () => {
         if (trip.ownerNote) {
           doc.text(`Note: ${trip.ownerNote}`, 14, 98)
         }
-        const { Share } = await import('@capacitor/share')
         const base64 = doc.output('datauristring').split(',')[1]
+        const { Filesystem, Directory } = await import('@capacitor/filesystem')
+        const fname = `trips_${Date.now()}.pdf`
+        await Filesystem.writeFile({
+          path: fname,
+          data: base64,
+          directory: Directory.Cache,
+        })
+        const fileUri = await Filesystem.getUri({
+          path: fname,
+          directory: Directory.Cache,
+        })
+        const { Share } = await import('@capacitor/share')
         await Share.share({
-          title: `trip-receipt-${trip._id}.pdf`,
-          text: 'Trip Receipt',
-          url: `data:application/pdf;base64,${base64}`,
-          dialogTitle: 'PDF Save Karo',
+          title: 'Trip Report',
+          text: 'Trip Report',
+          url: fileUri.uri,
+          dialogTitle: 'PDF Save Karo ya Share Karein',
         })
       } catch (e) {
         alert('PDF save nahi hua. Dobara try karein.')

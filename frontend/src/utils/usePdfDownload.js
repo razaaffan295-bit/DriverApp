@@ -29,19 +29,24 @@ const usePdfDownload = () => {
       const isNative = Capacitor.isNativePlatform()
 
       if (isNative) {
-        const pdfBlob = pdf.output('blob')
-        const reader = new FileReader()
-        reader.onloadend = async () => {
-          const base64 = reader.result.split(',')[1]
-          const tempFile = `${fileName}.pdf`
-          await Share.share({
-            title: fileName,
-            text: `${fileName} PDF`,
-            url: `data:application/pdf;base64,${base64}`,
-            dialogTitle: 'PDF Save Karo',
-          })
-        }
-        reader.readAsDataURL(pdfBlob)
+        const base64 = pdf.output('datauristring').split(',')[1]
+        const { Filesystem, Directory } = await import('@capacitor/filesystem')
+        const fname = `${fileName}_${Date.now()}.pdf`
+        await Filesystem.writeFile({
+          path: fname,
+          data: base64,
+          directory: Directory.Cache,
+        })
+        const fileUri = await Filesystem.getUri({
+          path: fname,
+          directory: Directory.Cache,
+        })
+        await Share.share({
+          title: fileName,
+          text: fileName,
+          url: fileUri.uri,
+          dialogTitle: 'PDF Save Karo ya Share Karein',
+        })
       } else {
         pdf.save(`${fileName}.pdf`)
       }

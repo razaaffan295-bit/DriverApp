@@ -90,13 +90,24 @@ const tripApprovedAmount = (t) =>
 const savePDF = async (doc, filename) => {
   try {
     if (isAndroid()) {
-      const { Share } = await import('@capacitor/share')
       const base64 = doc.output('datauristring').split(',')[1]
+      const { Filesystem, Directory } = await import('@capacitor/filesystem')
+      const fname = `${filename}_${Date.now()}.pdf`
+      await Filesystem.writeFile({
+        path: fname,
+        data: base64,
+        directory: Directory.Cache,
+      })
+      const fileUri = await Filesystem.getUri({
+        path: fname,
+        directory: Directory.Cache,
+      })
+      const { Share } = await import('@capacitor/share')
       await Share.share({
         title: filename,
         text: filename,
-        url: `data:application/pdf;base64,${base64}`,
-        dialogTitle: 'PDF Save Karo',
+        url: fileUri.uri,
+        dialogTitle: 'PDF Save Karo ya Share Karein',
       })
     } else {
       const blob = doc.output('blob')
