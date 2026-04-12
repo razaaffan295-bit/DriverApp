@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { getUser } from '../../utils/helpers'
+import { savePDF, isNativeApp } from '../../utils/pdfUpload'
 import { getDriverActiveContract } from '../../api/contractAPI'
 import {
   driverAddRecord,
@@ -176,6 +179,52 @@ const DriverAttendance = () => {
     contract?.vehicleCategory === 'transport' ||
     contract?.jobId?.vehicleCategory === 'transport'
 
+  const handlePrint = async () => {
+    if (isNativeApp()) {
+      const doc = new jsPDF()
+      doc.setFontSize(18)
+      doc.text('Attendance Report', 14, 20)
+      doc.setFontSize(11)
+      doc.text(`Driver: ${user?.name || ''}`, 14, 32)
+      doc.text(
+        `Month: ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`,
+        14,
+        40
+      )
+      doc.text(`Present Days: ${summary?.presentDays || 0}`, 14, 48)
+      doc.text(`Absent Days: ${summary?.absentDays || 0}`, 14, 56)
+      doc.text(`Half Days: ${summary?.halfDays || 0}`, 14, 64)
+      doc.text(`Total Earned: Rs.${summary?.grossTotal || 0}`, 14, 72)
+
+      const rows = (records || []).map((r) => [
+        new Date(r.date).toLocaleDateString('en-IN'),
+        r.status === 'present'
+          ? 'Present'
+          : r.status === 'absent'
+            ? 'Absent'
+            : 'Half Day',
+        r.hoursWorked || 0,
+        `Rs.${r.salaryForDay || 0}`,
+        r.note || '-',
+      ])
+
+      autoTable(doc, {
+        startY: 80,
+        head: [['Date', 'Status', 'Hours', 'Salary', 'Note']],
+        body: rows,
+        headStyles: { fillColor: [13, 148, 136] },
+        styles: { fontSize: 9 },
+      })
+
+      await savePDF(
+        doc,
+        `attendance-${selectedMonth}-${selectedYear}.pdf`
+      )
+    } else {
+      window.print()
+    }
+  }
+
   return (
     <div
       style={{ minHeight: '100vh', background: '#F0FDF4' }}
@@ -201,7 +250,7 @@ const DriverAttendance = () => {
               <div className="no-print">
                 <button
                   type="button"
-                  onClick={() => {}}
+                  onClick={handlePrint}
                   className="no-print bg-gray-700 text-white px-4 py-2 rounded-xl text-sm w-full mt-4"
                 >
                   📄 Attendance PDF Download

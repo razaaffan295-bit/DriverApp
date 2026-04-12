@@ -14,18 +14,7 @@ import {
 } from '../../api/paymentAPI'
 import { getDriverTrips } from '../../api/tripAPI'
 import jsPDF from 'jspdf'
-
-const isAndroid = () => {
-  try {
-    return (
-      typeof window !== 'undefined' &&
-      window.Capacitor !== undefined &&
-      window.Capacitor.isNativePlatform() === true
-    )
-  } catch (e) {
-    return false
-  }
-}
+import { savePDF, isNativeApp } from '../../utils/pdfUpload'
 
 const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
@@ -97,37 +86,6 @@ const payoutMethodOf = (p) => {
     return p.paymentType
   }
   return 'upi'
-}
-
-const savePDF = async (doc, filename) => {
-  try {
-    if (isAndroid()) {
-      const { Share } = await import('@capacitor/share')
-      const base64 = doc.output('datauristring').split(',')[1]
-      await Share.share({
-        title: filename,
-        text: filename,
-        url: `data:application/pdf;base64,${base64}`,
-        dialogTitle: 'PDF Save Karo',
-      })
-    } else {
-      const blob = doc.output('blob')
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-    }
-  } catch (e) {
-    try {
-      doc.save(filename)
-    } catch (err) {
-      alert('PDF save nahi hua. Dobara try karein.')
-    }
-  }
 }
 
 const DriverPayments = () => {
@@ -366,44 +324,44 @@ const DriverPayments = () => {
     }
   }
 
-  const handlePrintReceipt = (payment) => {
-    if (isAndroid()) {
+  const handlePrintReceipt = async (payment) => {
+    if (isNativeApp()) {
       const doc = new jsPDF()
-      doc.setFontSize(16)
+      doc.setFontSize(18)
       doc.text('Payment Receipt', 14, 20)
       doc.setFontSize(11)
+      doc.text(`Amount: Rs.${payment.amount}`, 14, 35)
       doc.text(
-        `Amount: Rs.${payment.amount}`,
-        14, 35
+        `Net Amount: Rs.${payment.netAmount || payment.amount}`,
+        14,
+        43
       )
       doc.text(
         `Type: ${payment.payoutMethod?.toUpperCase() || 'UPI'}`,
-        14, 44
+        14,
+        51
       )
       if (payment.utrNumber) {
-        doc.text(
-          `UTR: ${payment.utrNumber}`,
-          14, 53
-        )
+        doc.text(`UTR: ${payment.utrNumber}`, 14, 59)
       }
       doc.text(
-        `Date: ${new Date(payment.createdAt || payment.ownerPaidAt).toLocaleDateString('en-IN')}`,
-        14, 62
+        `Date: ${new Date(
+          payment.ownerPaidAt || payment.createdAt
+        ).toLocaleDateString('en-IN')}`,
+        14,
+        67
       )
+      doc.text(`Driver: ${payment.driverId?.name || ''}`, 14, 75)
+      doc.text(`Owner: ${payment.ownerId?.name || ''}`, 14, 83)
       doc.text(
-        `Driver: ${payment.driverId?.name || ''}`,
-        14, 71
+        `Status: ${payment.status === 'paid' ? 'Confirmed' : payment.status}`,
+        14,
+        91
       )
-      doc.text(
-        `Owner: ${payment.ownerId?.name || ''}`,
-        14, 80
-      )
-      savePDF(doc, `receipt-${payment._id}.pdf`)
+      await savePDF(doc, `receipt-${payment._id}.pdf`)
     } else {
       setPrintPayment(payment)
-      setTimeout(() => {
-        window.print()
-      }, 300)
+      setTimeout(() => window.print(), 300)
     }
   }
 
@@ -493,46 +451,41 @@ const DriverPayments = () => {
     }
   }
 
-  const handleTripReceipt = (trip) => {
-    if (isAndroid()) {
+  const handleTripReceipt = async (trip) => {
+    if (isNativeApp()) {
       const doc = new jsPDF()
-      doc.setFontSize(16)
+      doc.setFontSize(18)
       doc.text('Trip Receipt', 14, 20)
       doc.setFontSize(11)
+      doc.text(`Route: ${tripFrom(trip)} → ${tripTo(trip)}`, 14, 32)
+      doc.text(`Cargo: ${tripCargo(trip) || '-'}`, 14, 40)
       doc.text(
-        `Route: ${tripFrom(trip)} to ${tripTo(trip)}`,
-        14, 32
-      )
-      doc.text(
-        `Cargo: ${tripCargo(trip) || ''}`,
-        14, 41
-      )
-      doc.text(
-        `Date: ${new Date(trip.tripDate || trip.createdAt).toLocaleDateString('en-IN')}`,
-        14, 50
+        `Date: ${new Date(
+          trip.tripDate || trip.createdAt
+        ).toLocaleDateString('en-IN')}`,
+        14,
+        48
       )
       doc.text(
         `Total Expenses: Rs.${trip.totalExpenses || 0}`,
-        14, 59
+        14,
+        56
       )
       doc.text(
         `Total Repairs: Rs.${trip.totalRepairs || 0}`,
-        14, 68
+        14,
+        64
       )
-      doc.text(
-        `Grand Total: Rs.${grandTotalTrip(trip)}`,
-        14, 77
-      )
+      doc.text(`Grand Total: Rs.${grandTotalTrip(trip)}`, 14, 72)
       doc.text(
         `Approved: Rs.${tripApprovedAmount(trip)}`,
-        14, 86
+        14,
+        80
       )
-      savePDF(doc, `trip-receipt-${trip._id}.pdf`)
+      await savePDF(doc, `trip-receipt-${trip._id}.pdf`)
     } else {
       setPrintTrip(trip)
-      setTimeout(() => {
-        window.print()
-      }, 300)
+      setTimeout(() => window.print(), 300)
     }
   }
 

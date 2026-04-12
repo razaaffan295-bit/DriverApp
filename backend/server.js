@@ -34,6 +34,7 @@ const inviteRoutes =
   require('./routes/inviteRoutes')
 const subscriptionRoutes =
   require('./routes/subscriptionRoutes')
+const uploadRoutes = require('./routes/uploadRoutes')
 
 const helmet = require('helmet')
 const rateLimit = require('express-rate-limit')
@@ -175,6 +176,7 @@ app.use("/api/resign", resignRoutes);
 app.use('/api/trips', tripRoutes)
 app.use('/api/invites', inviteRoutes)
 app.use('/api/subscription', subscriptionRoutes)
+app.use('/api/upload', uploadRoutes)
 
 const Sentry = require("@sentry/node");
 Sentry.setupExpressErrorHandler(app);

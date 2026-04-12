@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'react-hot-toast'
+import jsPDF from 'jspdf'
 import { getUser } from '../../utils/helpers'
+import { savePDF, isNativeApp } from '../../utils/pdfUpload'
 import { getOwnerTrips, handleTrip } from '../../api/tripAPI'
 import { getOwnerContracts } from '../../api/contractAPI'
 import { getPayments } from '../../api/paymentAPI'
@@ -12,6 +14,9 @@ const expenseLabel = (ex) => ex.type || ex.category || 'other'
 
 const grandTotal = (t) =>
   (Number(t.totalExpenses) || 0) + (Number(t.totalRepairs) || 0)
+
+const tripApprovedAmount = (t) =>
+  Number(t.approvedAmount) || Number(t.approvedExpenses) || 0
 
 const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
@@ -28,7 +33,43 @@ const OwnerTrips = () => {
   const [printTrip, setPrintTrip] = useState(null)
   const [tripPayments, setTripPayments] = useState([])
 
-  const handleTripReceipt = useCallback(async () => {}, [])
+  const handleTripReceipt = async (trip) => {
+    if (isNativeApp()) {
+      const doc = new jsPDF()
+      doc.setFontSize(18)
+      doc.text('Trip Receipt', 14, 20)
+      doc.setFontSize(11)
+      doc.text(`Route: ${tripFrom(trip)} → ${tripTo(trip)}`, 14, 32)
+      doc.text(`Cargo: ${tripCargo(trip) || '-'}`, 14, 40)
+      doc.text(
+        `Date: ${new Date(
+          trip.tripDate || trip.createdAt
+        ).toLocaleDateString('en-IN')}`,
+        14,
+        48
+      )
+      doc.text(
+        `Total Expenses: Rs.${trip.totalExpenses || 0}`,
+        14,
+        56
+      )
+      doc.text(
+        `Total Repairs: Rs.${trip.totalRepairs || 0}`,
+        14,
+        64
+      )
+      doc.text(`Grand Total: Rs.${grandTotal(trip)}`, 14, 72)
+      doc.text(
+        `Approved: Rs.${tripApprovedAmount(trip)}`,
+        14,
+        80
+      )
+      await savePDF(doc, `trip-receipt-${trip._id}.pdf`)
+    } else {
+      setPrintTrip(trip)
+      setTimeout(() => window.print(), 300)
+    }
+  }
 
   useEffect(() => {
     setUser(getUser())

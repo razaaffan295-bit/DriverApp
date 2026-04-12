@@ -13,6 +13,8 @@ import {
   getAdvances,
   handleAdvance as handleAdvanceApi,
 } from '../../api/paymentAPI'
+import jsPDF from 'jspdf'
+import { savePDF, isNativeApp } from '../../utils/pdfUpload'
 
 const isTransportContract = (contract) => {
   return (
@@ -671,11 +673,83 @@ const OwnerPayments = () => {
       .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
   }
 
-  const handleTripReceipt = (trip) => {
-    setPrintTrip(trip)
-    setTimeout(() => {
-      window.print()
-    }, 300)
+  const handlePrintReceipt = async (payment) => {
+    if (isNativeApp()) {
+      const doc = new jsPDF()
+      doc.setFontSize(18)
+      doc.text('Payment Receipt', 14, 20)
+      doc.setFontSize(11)
+      doc.text(`Amount: Rs.${payment.amount}`, 14, 35)
+      doc.text(
+        `Net Amount: Rs.${payment.netAmount || payment.amount}`,
+        14,
+        43
+      )
+      doc.text(
+        `Type: ${payment.payoutMethod?.toUpperCase() || 'UPI'}`,
+        14,
+        51
+      )
+      if (payment.utrNumber) {
+        doc.text(`UTR: ${payment.utrNumber}`, 14, 59)
+      }
+      doc.text(
+        `Date: ${new Date(
+          payment.ownerPaidAt || payment.createdAt
+        ).toLocaleDateString('en-IN')}`,
+        14,
+        67
+      )
+      doc.text(`Driver: ${payment.driverId?.name || ''}`, 14, 75)
+      doc.text(`Owner: ${payment.ownerId?.name || ''}`, 14, 83)
+      doc.text(
+        `Status: ${payment.status === 'paid' ? 'Confirmed' : payment.status}`,
+        14,
+        91
+      )
+      await savePDF(doc, `receipt-${payment._id}.pdf`)
+    } else {
+      setPrintPayment(payment)
+      setTimeout(() => window.print(), 300)
+    }
+  }
+
+  const handleTripReceipt = async (trip) => {
+    if (isNativeApp()) {
+      const doc = new jsPDF()
+      doc.setFontSize(18)
+      doc.text('Trip Receipt', 14, 20)
+      doc.setFontSize(11)
+      doc.text(`Route: ${tripFrom(trip)} → ${tripTo(trip)}`, 14, 32)
+      doc.text(`Cargo: ${tripCargo(trip) || '-'}`, 14, 40)
+      doc.text(
+        `Date: ${new Date(
+          trip.tripDate || trip.createdAt
+        ).toLocaleDateString('en-IN')}`,
+        14,
+        48
+      )
+      doc.text(
+        `Total Expenses: Rs.${trip.totalExpenses || 0}`,
+        14,
+        56
+      )
+      doc.text(
+        `Total Repairs: Rs.${trip.totalRepairs || 0}`,
+        14,
+        64
+      )
+      doc.text(`Grand Total: Rs.${grandTotalTrip(trip)}`, 14, 72)
+      doc.text(
+        `Approved: Rs.${tripApprovedAmount(trip)}`,
+        14,
+        80
+      )
+      await savePDF(doc, `trip-receipt-${trip._id}.pdf`)
+    } else {
+      setPrintTrip(trip)
+      setTimeout(() => window.print(), 300)
+    }
   }
 
   const yearOptions = useMemo(() => {
@@ -1937,7 +2011,7 @@ const OwnerPayments = () => {
                       )}
                     <button
                       type="button"
-                      onClick={() => {}}
+                      onClick={() => handlePrintReceipt(p)}
                       className="no-print"
                       style={{
                         marginTop: '8px',
