@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-import { savePDF, isNativeApp } from '../../utils/pdfUpload'
+import {
+  isNativeApp,
+  generateAndOpenPDF,
+} from '../../utils/pdfUpload'
 import {
   ownerAddRecord,
   ownerDeleteRecord,
@@ -209,47 +210,23 @@ const OwnerAttendance = () => {
 
   const handlePrint = async () => {
     if (isNativeApp()) {
-      const doc = new jsPDF()
-      doc.setFontSize(18)
-      doc.text('Attendance Report', 14, 20)
-      doc.setFontSize(11)
-      doc.text(
-        `Driver: ${selectedContract?.driverId?.name || ''}`,
-        14,
-        32
-      )
-      doc.text(
-        `Month: ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`,
-        14,
-        40
-      )
-      doc.text(`Present Days: ${summary?.presentDays || 0}`, 14, 48)
-      doc.text(`Absent Days: ${summary?.absentDays || 0}`, 14, 56)
-      doc.text(`Half Days: ${summary?.halfDays || 0}`, 14, 64)
-      doc.text(`Total Earned: Rs.${summary?.grossTotal || 0}`, 14, 72)
-
-      const rows = (records || []).map((r) => [
-        new Date(r.date).toLocaleDateString('en-IN'),
-        r.status === 'present'
-          ? 'Present'
-          : r.status === 'absent'
-            ? 'Absent'
-            : 'Half Day',
-        r.hoursWorked || 0,
-        `Rs.${r.salaryForDay || 0}`,
-        r.note || '-',
-      ])
-
-      autoTable(doc, {
-        startY: 80,
-        head: [['Date', 'Status', 'Hours', 'Salary', 'Note']],
-        body: rows,
-        headStyles: { fillColor: [13, 148, 136] },
-        styles: { fontSize: 9 },
-      })
-
-      await savePDF(
-        doc,
+      await generateAndOpenPDF(
+        'attendance',
+        {
+          driverName: selectedContract?.driverId?.name || '',
+          month: selectedMonth,
+          year: selectedYear,
+          presentDays: summary?.presentDays || 0,
+          absentDays: summary?.absentDays || 0,
+          halfDays: summary?.halfDays || 0,
+          grossTotal: summary?.grossTotal || 0,
+          records: (records || []).map(r => ({
+            date: r.date,
+            status: r.status,
+            hoursWorked: r.hoursWorked || 0,
+            salaryForDay: r.salaryForDay || 0,
+          }))
+        },
         `attendance-${selectedMonth}-${selectedYear}.pdf`
       )
     } else {

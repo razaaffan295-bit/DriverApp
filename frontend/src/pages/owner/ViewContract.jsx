@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import jsPDF from 'jspdf'
 import { getUser } from '../../utils/helpers'
-import { savePDF, isNativeApp } from '../../utils/pdfUpload'
+import {
+  isNativeApp,
+  generateAndOpenPDF,
+} from '../../utils/pdfUpload'
 import { getContractById, completeContract } from '../../api/contractAPI'
 
 const getSalaryDisplay = (contract) => {
@@ -95,23 +97,21 @@ const ViewContract = () => {
 
   const handlePrint = async () => {
     if (isNativeApp()) {
-      const doc = new jsPDF()
-      doc.setFontSize(18)
-      doc.text('Contract Details', 14, 20)
-      doc.setFontSize(11)
-      doc.text(`Job: ${contract?.jobId?.title || ''}`, 14, 32)
-      doc.text(`Driver: ${contract?.driverId?.name || ''}`, 14, 40)
-      doc.text(`Owner: ${contract?.ownerId?.name || ''}`, 14, 48)
-      doc.text(`Salary: ${getSalaryDisplay(contract)}`, 14, 56)
-      doc.text(
-        `Start: ${new Date(
-          contract?.startDate
-        ).toLocaleDateString('en-IN')}`,
-        14,
-        64
+      await generateAndOpenPDF(
+        'contract',
+        {
+          jobTitle: contract?.jobId?.title || '',
+          driverName: contract?.driverId?.name || '',
+          ownerName: contract?.ownerId?.name || '',
+          salary: getSalaryDisplay(contract),
+          startDate: contract?.startDate
+            ? new Date(contract.startDate)
+              .toLocaleDateString('en-IN')
+            : '',
+          status: contract?.status || '',
+        },
+        `contract-${contract?._id}.pdf`
       )
-      doc.text(`Status: ${contract?.status || ''}`, 14, 72)
-      await savePDF(doc, `contract-${contract?._id}.pdf`)
     } else {
       window.print()
     }

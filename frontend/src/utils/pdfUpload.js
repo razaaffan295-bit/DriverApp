@@ -12,41 +12,44 @@ export const isNativeApp = () => {
   }
 }
 
-export const savePDF = async (doc, filename) => {
+export const generateAndOpenPDF = async (
+  type,
+  data,
+  filename
+) => {
   try {
-    if (isNativeApp()) {
-      const blob = doc.output('blob')
-      const formData = new FormData()
-      formData.append('pdf', blob, filename)
-
-      const res = await API.post('/api/upload/pdf', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+    const res = await API.post(
+      '/api/upload/generate-pdf',
+      { type, data }
+    )
+    if (res.data?.success && res.data?.url) {
+      const { Browser } = await import(
+        '@capacitor/browser'
+      )
+      await Browser.open({
+        url: res.data.url,
+        presentationStyle: 'fullscreen',
       })
-
-      if (res.data?.success && res.data?.url) {
-        const { Browser } = await import('@capacitor/browser')
-        await Browser.open({
-          url: res.data.url,
-          presentationStyle: 'fullscreen',
-        })
-      } else {
-        alert('PDF upload nahi hua. Dobara try karein.')
-      }
     } else {
-      const blob = doc.output('blob')
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      alert('PDF generate nahi hua. Dobara try karein.')
     }
   } catch (e) {
     console.error('PDF error:', e)
-    alert('PDF nahi khula. Dobara try karein.')
+    const msg = e?.response?.data?.message
+      || e?.message
+      || 'Unknown error'
+    alert(`PDF nahi khula: ${msg}`)
   }
+}
+
+export const savePDF = (doc, filename) => {
+  const blob = doc.output('blob')
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
