@@ -19,6 +19,27 @@ const SubscriptionGuard = ({ children }) => {
   const [daysLeft, setDaysLeft] = useState(null)
   const user = getUser()
 
+  const POPUP_KEY = 'sub_popup_dismissed'
+
+  const wasPopupDismissedToday = () => {
+    try {
+      const val = sessionStorage.getItem(POPUP_KEY)
+      if (!val) return false
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const markPopupDismissed = () => {
+    try {
+      sessionStorage.setItem(
+        POPUP_KEY, 
+        new Date().toDateString()
+      )
+    } catch {}
+  }
+
   useEffect(() => {
     const check = async () => {
       try {
@@ -69,7 +90,9 @@ const SubscriptionGuard = ({ children }) => {
             (deadline - now) / (24 * 60 * 60 * 1000)
           )
           setDaysLeft(days)
-          setShowPopup(true)
+          if (!wasPopupDismissedToday()) {
+            setShowPopup(true)
+          }
           setChecked(true)
           return
         }
@@ -121,7 +144,10 @@ const SubscriptionGuard = ({ children }) => {
             </p>
             <button
               type="button"
-              onClick={() => setShowPopup(false)}
+              onClick={() => {
+                setShowPopup(false)
+                markPopupDismissed()
+              }}
               style={{
                 marginLeft: 'auto',
                 background: 'none',
