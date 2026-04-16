@@ -7,7 +7,7 @@ export const STATES = [
 
 export const VEHICLE_TYPES = [
   'JCB', 'Truck', 'Dumper', 'Crane',
-  'Excavator', 'Roller', 'Poclain', 'Other'
+  'Excavator', 'Roller', 'Poclain', 'Other', 'Trailer', 'Tanker'
 ]
 
 export const SKILLS = [
