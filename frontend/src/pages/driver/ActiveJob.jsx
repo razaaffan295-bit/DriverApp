@@ -387,7 +387,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            {t('startDateLabel')}
+                            {t('startDate')}
                           </span>
                           <span className="font-medium text-right">
                             {formatDate(contract.startDate)}
@@ -448,7 +448,7 @@ const ActiveJob = () => {
 
                     <div className="bg-gray-50 rounded-xl p-5 font-mono text-sm text-gray-700 leading-relaxed">
                       <div className="text-center font-bold text-base mb-4 font-sans">
-                        {t('joiningLetterContract').toUpperCase()}
+                        {t('joiningLetter').toUpperCase()}
                       </div>
                       <div className="mb-3">
                         <strong>{t('dateLabel')}:</strong>{' '}
@@ -472,7 +472,7 @@ const ActiveJob = () => {
                         {contract.workLocation}
                       </div>
                       <div className="mb-3">
-                        <strong>{t('startDateLabel')}:</strong>{' '}
+                        <strong>{t('startDate')}:</strong>{' '}
                         {formatDate(contract.startDate)}
                       </div>
                       <div className="mb-3">
@@ -692,7 +692,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            {t('startDateLabel')}
+                            {t('startDate')}
                           </span>
                           <span className="font-medium text-right">
                             {formatDate(contract.startDate)}
@@ -760,7 +760,7 @@ const ActiveJob = () => {
                     </div>
                     <div className="print-area bg-gray-50 rounded-xl p-5 font-mono text-sm text-gray-700 leading-relaxed mt-4">
                       <div className="text-center font-bold text-base mb-4 font-sans">
-                        {t('joiningLetterContract').toUpperCase()}
+                        {t('joiningLetter').toUpperCase()}
                       </div>
                       <div className="mb-2">
                         <strong>{t('dateLabel')}:</strong>{' '}
@@ -784,7 +784,7 @@ const ActiveJob = () => {
                         {contract.workLocation}
                       </div>
                       <div className="mb-2">
-                        <strong>{t('startDateLabel')}:</strong>{' '}
+                        <strong>{t('startDate')}:</strong>{' '}
                         {formatDate(contract.startDate)}
                       </div>
                       <div className="mb-2">

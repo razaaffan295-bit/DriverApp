@@ -363,7 +363,7 @@ const ViewContract = () => {
 
                 <div className="print-row">
                   <span>{t('salary')}:</span>
-                  <span>{getSalaryDisplay(contract)}</span>
+                  <span>{getSalaryDisplay(contract, t)}</span>
                 </div>
 
                 {contract.hasBhatta && contract.dailyBhatta > 0 && (
