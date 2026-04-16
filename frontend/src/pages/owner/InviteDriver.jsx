@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import API from '../../api/axios'
 import { getVehicles } from '../../api/ownerAPI'
 import { getOwnerInvites, sendInvite } from '../../api/inviteAPI'
 
 const InviteDriver = () => {
+  const { t } = useTranslation()
   const [step, setStep] = useState(1)
   const [phone, setPhone] = useState('')
   const [checking, setChecking] = useState(false)
@@ -39,7 +41,7 @@ const InviteDriver = () => {
         setVehicles(vRes.data?.vehicles || [])
         setSentInvites(iRes.data?.invites || [])
       } catch (e) {
-        toast.error(e.response?.data?.message || 'Load nahi hua')
+        toast.error(e.response?.data?.message || t('loadInviteError'))
       }
     })()
   }, [])
@@ -61,9 +63,9 @@ const InviteDriver = () => {
   }
 
   const statusLabel = (status) => {
-    if (status === 'pending') return '⏳ Pending'
-    if (status === 'accepted') return '✅ Accept'
-    if (status === 'rejected') return '❌ Reject'
+    if (status === 'pending') return `⏳ ${t('pending')}`
+    if (status === 'accepted') return `✅ ${t('approved')}`
+    if (status === 'rejected') return `❌ ${t('rejected')}`
     return status
   }
 
@@ -83,18 +85,18 @@ const InviteDriver = () => {
         <div className="mx-auto max-w-2xl px-4 py-6">
           {step === 1 ? (
             <div className="bg-white rounded-2xl p-6 mb-6">
-              <h2 className="text-lg font-bold text-gray-900">Driver Ka Phone Number</h2>
+              <h2 className="text-lg font-bold text-gray-900">{t('addDriver')}</h2>
               <p className="mt-1 text-sm text-gray-600">
-                Driver ko pehle DriverApp mein signup karwao, phir yahan unka number dalo.
+                {t('inviteDriverNote')}
               </p>
 
               <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-sm text-blue-900">
-                ℹ️ Driver ko pehle DriverApp download karwa ke signup karwao. Phir unka phone number yahan enter karo.
+                {t('inviteInfoNote')}
               </div>
 
               <input
                 type="tel"
-                placeholder="Driver ka phone number"
+                placeholder={t('phone')}
                 maxLength={10}
                 value={phone}
                 onChange={(e) => {
@@ -115,14 +117,14 @@ const InviteDriver = () => {
                     setDriverFound(driver)
                     setDriverNotFound(false)
                     setStep(2)
-                    toast.success(`${driver.name} mil gaya! Ab details bharo.`)
+                    toast.success(`${driver.name} ${t('driverFoundToast')}`)
                   } catch (e) {
                     if (e.response?.status === 404) {
                       setDriverFound(null)
                       setDriverNotFound(true)
-                      toast.error('❌ Is number pe koi driver registered nahi hai.')
+                      toast.error(t('driverNotFoundToast'))
                     } else {
-                      toast.error(e.response?.data?.message || 'Check nahi hua')
+                      toast.error(e.response?.data?.message || t('checkError'))
                     }
                   } finally {
                     setChecking(false)
@@ -130,19 +132,23 @@ const InviteDriver = () => {
                 }}
                 className="mt-4 bg-blue-700 text-white w-full rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
               >
-                {checking ? 'Dhundh raha hai...' : 'Driver Dhundho'}
+                {checking ? t('loading') : t('search')}
               </button>
 
               {driverNotFound ? (
                 <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-4">
-                  <p className="font-semibold text-red-900">❌ Is number pe koi driver registered nahi hai.</p>
+                  <p className="font-semibold text-red-900">{t('driverNotFoundMsg')}</p>
                   <p className="mt-1 text-sm text-red-800">
-                    Driver ko DriverApp mein signup karwao, phir wapas aao.
+                    {t('driverNotFoundNote')}
                   </p>
                   <div className="mt-3 text-sm text-red-900 space-y-1">
-                    <div>1. Driver ko app download karwao</div>
-                    <div>2. Driver apna profile banaye</div>
-                    <div>3. Wapas aao aur number enter karo</div>
+                    <div>
+                      {t('driverNotFoundSteps')
+                        .split('\n')
+                        .map((s, i) => (
+                          <div key={i}>{s}</div>
+                        ))}
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -152,7 +158,9 @@ const InviteDriver = () => {
           {step === 2 && driverFound ? (
             <>
               <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-6">
-                <div className="font-bold text-green-900">✅ Driver Mil Gaya!</div>
+                <div className="font-bold text-green-900">
+                  ✅ {t('driverFoundMsg')}
+                </div>
                 <div className="mt-3 flex gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-sm font-bold text-green-800">
                     {initials}
@@ -173,22 +181,26 @@ const InviteDriver = () => {
                       }}
                       className="mt-2 text-sm text-blue-700 underline"
                     >
-                      Galat driver hai?
+                      {t('wrongDriver')}
                     </button>
                   </div>
                 </div>
               </div>
 
               <div className="bg-white rounded-2xl p-6">
-                <h2 className="text-lg font-bold text-gray-900">Kaam Ki Details</h2>
+                <h2 className="text-lg font-bold text-gray-900">
+                  {t('workDetailsTitle')}
+                </h2>
 
-                <label className="mt-4 block text-sm font-semibold text-gray-800">Kaun Si Gadi Pe?</label>
+                <label className="mt-4 block text-sm font-semibold text-gray-800">
+                  {t('whichVehicle')}
+                </label>
                 <select
                   value={form.vehicleId}
                   onChange={(e) => setForm((f) => ({ ...f, vehicleId: e.target.value }))}
                   className="input-field w-full"
                 >
-                  <option value="">Select vehicle</option>
+                  <option value="">{t('vehicleSelect2')}</option>
                   {vehicles.map((v) => (
                     <option key={v._id} value={v._id}>
                       {v.vehicleType} — {v.vehicleNumber}
@@ -196,7 +208,9 @@ const InviteDriver = () => {
                   ))}
                 </select>
 
-                <label className="mt-4 block text-sm font-semibold text-gray-800">Vehicle Category</label>
+                <label className="mt-4 block text-sm font-semibold text-gray-800">
+                  {t('vehicleCategoryLabel')}
+                </label>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {['mining', 'road', 'transport'].map((c) => (
                     <button
@@ -213,30 +227,42 @@ const InviteDriver = () => {
                         form.vehicleCategory === c ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-700'
                       }`}
                     >
-                      {c === 'mining' ? 'Mining' : c === 'road' ? 'Road' : 'Transport'}
+                      {c === 'mining'
+                        ? t('miningLabel')
+                        : c === 'road'
+                          ? t('roadLabel')
+                          : t('transportLabel')}
                     </button>
                   ))}
                 </div>
 
-                <label className="mt-4 block text-sm font-semibold text-gray-800">Salary Type</label>
+                <label className="mt-4 block text-sm font-semibold text-gray-800">
+                  {t('salaryTypeLabel4')}
+                </label>
                 <div className="mt-2 grid grid-cols-3 gap-2">
-                  {['daily', 'monthly', 'hourly'].map((t) => (
+                  {['daily', 'monthly', 'hourly'].map((st) => (
                     <button
-                      key={t}
+                      key={st}
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, salaryType: t }))}
+                      onClick={() => setForm((f) => ({ ...f, salaryType: st }))}
                       className={`rounded-xl py-2 text-sm font-semibold ${
-                        form.salaryType === t ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-700'
+                        form.salaryType === st ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-700'
                       }`}
                     >
-                      {t === 'daily' ? 'Daily' : t === 'monthly' ? 'Monthly' : 'Hourly'}
+                      {st === 'daily'
+                        ? t('daily')
+                        : st === 'monthly'
+                          ? t('monthly')
+                          : t('hourly')}
                     </button>
                   ))}
                 </div>
 
                 {form.salaryType === 'daily' ? (
                   <>
-                    <label className="mt-4 block text-sm font-semibold text-gray-800">Salary Per Day</label>
+                    <label className="mt-4 block text-sm font-semibold text-gray-800">
+                      {t('salaryPerDayLabel')}
+                    </label>
                     <input
                       value={form.salaryPerDay}
                       onChange={(e) => setForm((f) => ({ ...f, salaryPerDay: e.target.value }))}
@@ -247,7 +273,9 @@ const InviteDriver = () => {
                   </>
                 ) : form.salaryType === 'monthly' ? (
                   <>
-                    <label className="mt-4 block text-sm font-semibold text-gray-800">Salary Per Month</label>
+                    <label className="mt-4 block text-sm font-semibold text-gray-800">
+                      {t('salaryPerMonthLabel')}
+                    </label>
                     <input
                       value={form.salaryPerMonth}
                       onChange={(e) => setForm((f) => ({ ...f, salaryPerMonth: e.target.value }))}
@@ -258,7 +286,9 @@ const InviteDriver = () => {
                   </>
                 ) : (
                   <>
-                    <label className="mt-4 block text-sm font-semibold text-gray-800">Salary Per Hour</label>
+                    <label className="mt-4 block text-sm font-semibold text-gray-800">
+                      {t('salaryPerHourLabel')}
+                    </label>
                     <input
                       value={form.salaryPerHour}
                       onChange={(e) => setForm((f) => ({ ...f, salaryPerHour: e.target.value }))}
@@ -272,7 +302,9 @@ const InviteDriver = () => {
                 {form.vehicleCategory !== 'transport' ? (
                   <>
                     <div className="mt-4 flex items-center justify-between">
-                      <label className="text-sm font-semibold text-gray-800">Bhatta</label>
+                      <label className="text-sm font-semibold text-gray-800">
+                        {t('bhatta')}
+                      </label>
                       <button
                         type="button"
                         onClick={() => setForm((f) => ({ ...f, hasBhatta: !f.hasBhatta }))}
@@ -294,7 +326,9 @@ const InviteDriver = () => {
                     ) : null}
 
                     <div className="mt-4 flex items-center justify-between">
-                      <label className="text-sm font-semibold text-gray-800">Hourly Bonus</label>
+                      <label className="text-sm font-semibold text-gray-800">
+                        {t('hourlyBonusLabel3')}
+                      </label>
                       <button
                         type="button"
                         onClick={() => setForm((f) => ({ ...f, hasHourlyBonus: !f.hasHourlyBonus }))}
@@ -317,11 +351,13 @@ const InviteDriver = () => {
                   </>
                 ) : (
                   <>
-                    <label className="mt-4 block text-sm font-semibold text-gray-800">Transport Type</label>
+                    <label className="mt-4 block text-sm font-semibold text-gray-800">
+                      {t('transportTypeLabel3')}
+                    </label>
                     <div className="mt-2 grid grid-cols-2 gap-2">
                       {[
-                        { id: 'company_trip', label: 'Company Trip' },
-                        { id: 'malik_trip', label: 'Malik Trip' },
+                        { id: 'company_trip', label: t('companyTripLabel') },
+                        { id: 'malik_trip', label: t('malikTripLabel') },
                       ].map((o) => (
                         <button
                           key={o.id}
@@ -338,7 +374,9 @@ const InviteDriver = () => {
                   </>
                 )}
 
-                <label className="mt-4 block text-sm font-semibold text-gray-800">Duration (din)</label>
+                <label className="mt-4 block text-sm font-semibold text-gray-800">
+                  {t('durationDaysLabel2')}
+                </label>
                 <input
                   value={form.duration}
                   onChange={(e) => setForm((f) => ({ ...f, duration: e.target.value }))}
@@ -346,7 +384,9 @@ const InviteDriver = () => {
                   inputMode="numeric"
                 />
 
-                <label className="mt-4 block text-sm font-semibold text-gray-800">Start Date</label>
+                <label className="mt-4 block text-sm font-semibold text-gray-800">
+                  {t('startDate')}
+                </label>
                 <input
                   type="date"
                   value={form.startDate}
@@ -354,30 +394,36 @@ const InviteDriver = () => {
                   className="input-field w-full"
                 />
 
-                <label className="mt-4 block text-sm font-semibold text-gray-800">Work Location</label>
+                <label className="mt-4 block text-sm font-semibold text-gray-800">
+                  {t('workLocationLabel2')}
+                </label>
                 <input
                   value={form.workLocation}
                   onChange={(e) => setForm((f) => ({ ...f, workLocation: e.target.value }))}
                   className="input-field w-full"
-                  placeholder="Site ka address"
+                  placeholder={t('workLocationPlaceholder')}
                 />
 
-                <label className="mt-4 block text-sm font-semibold text-gray-800">Terms</label>
+                <label className="mt-4 block text-sm font-semibold text-gray-800">
+                  {t('termsLabel4')}
+                </label>
                 <textarea
                   rows={4}
                   value={form.terms}
                   onChange={(e) => setForm((f) => ({ ...f, terms: e.target.value }))}
                   className="input-field w-full resize-y"
-                  placeholder={'1. Roz time pe aana hoga\n2. Machine ka dhyan rakhna hoga'}
+                  placeholder={t('termsPlaceholder')}
                 />
 
-                <label className="mt-4 block text-sm font-semibold text-gray-800">Safety Conditions</label>
+                <label className="mt-4 block text-sm font-semibold text-gray-800">
+                  {t('safetyConditionsLabel3')}
+                </label>
                 <textarea
                   rows={3}
                   value={form.safetyConditions}
                   onChange={(e) => setForm((f) => ({ ...f, safetyConditions: e.target.value }))}
                   className="input-field w-full resize-y"
-                  placeholder={'1. Helmet pehenna zaroori\n2. Safety belt use karna'}
+                  placeholder={t('safetyPlaceholder')}
                 />
 
                 <button
@@ -404,19 +450,19 @@ const InviteDriver = () => {
                         safetyConditions: form.safetyConditions,
                         workLocation: form.workLocation,
                       })
-                      toast.success('Invite bhej diya! Driver ke accept karne ka wait karein.')
+                      toast.success(t('inviteSentToast'))
                       const iRes = await getOwnerInvites()
                       setSentInvites(iRes.data?.invites || [])
                       setStep(3)
                     } catch (e) {
-                      toast.error(e.response?.data?.message || 'Invite nahi gaya')
+                      toast.error(e.response?.data?.message || t('inviteError'))
                     } finally {
                       setSending(false)
                     }
                   }}
                   className="mt-4 bg-blue-700 text-white w-full rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
                 >
-                  {sending ? 'Bhej raha hai...' : 'Invite Bhejo'}
+                  {sending ? t('loading') : t('submit')}
                 </button>
               </div>
             </>
@@ -425,9 +471,15 @@ const InviteDriver = () => {
           {step === 3 ? (
             <div className="bg-green-50 rounded-2xl p-8 text-center">
               <div className="text-3xl">🎉</div>
-              <h2 className="mt-2 text-xl font-bold text-green-900">Invite Bhej Diya!</h2>
-              <p className="mt-1 text-sm text-green-800">Driver ko notification mil gayi hai.</p>
-              <p className="mt-1 text-sm text-green-800">Jab driver accept karega — kaam shuru ho jayega.</p>
+              <h2 className="mt-2 text-xl font-bold text-green-900">
+                {t('inviteSentTitle')}
+              </h2>
+              <p className="mt-1 text-sm text-green-800">
+                {t('inviteSentNote')}
+              </p>
+              <p className="mt-1 text-sm text-green-800">
+                {t('inviteSentNote2')}
+              </p>
               <button
                 type="button"
                 onClick={() => {
@@ -457,15 +509,17 @@ const InviteDriver = () => {
                 }}
                 className="mt-6 w-full rounded-xl bg-blue-700 py-3 text-sm font-semibold text-white"
               >
-                Doosra Driver Add Karo
+                {t('addDriver')}
               </button>
             </div>
           ) : null}
 
           <div className="mt-10">
-            <h2 className="mb-3 text-lg font-semibold text-gray-800">Bheje Hue Invites</h2>
+            <h2 className="mb-3 text-lg font-semibold text-gray-800">
+              {t('sentInvitesTitle')}
+            </h2>
             {sentInvites.length === 0 ? (
-              <p className="text-sm text-gray-500">Abhi koi invite nahi bheja</p>
+              <p className="text-sm text-gray-500">{t('noInvitesSent')}</p>
             ) : (
               <div className="space-y-3">
                 {sentInvites.map((inv) => (
@@ -480,12 +534,14 @@ const InviteDriver = () => {
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
                           {inv.salaryType === 'monthly'
-                            ? `₹${inv.salaryPerMonth}/month`
+                            ? `₹${inv.salaryPerMonth}/${t('perMonth')}`
                             : inv.salaryType === 'daily'
-                              ? `₹${inv.salaryPerDay}/din`
-                              : `₹${inv.salaryPerHour}/ghanta`}
+                              ? `₹${inv.salaryPerDay}/${t('perDay')}`
+                              : `₹${inv.salaryPerHour}/${t('perHour')}`}
                         </div>
-                        <div className="text-xs text-gray-400 mt-1">Sent: {fmtDate(inv.createdAt)}</div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {t('sentLabel')}: {fmtDate(inv.createdAt)}
+                        </div>
                       </div>
                       <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadge(inv.status)}`}>
                         {statusLabel(inv.status)}

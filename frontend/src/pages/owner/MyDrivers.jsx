@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import { getOwnerContracts } from '../../api/contractAPI'
 import {
@@ -17,6 +18,7 @@ const fmtDate = (d) =>
     : '—'
 
 const MyDrivers = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [contracts, setContracts] = useState([])
@@ -42,12 +44,12 @@ const MyDrivers = () => {
       setResigns(rRes.data?.resigns || [])
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Load nahi hua'
+        e.response?.data?.message || t('myDriversLoadError')
       )
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     load()
@@ -67,7 +69,7 @@ const MyDrivers = () => {
   const onSubmitAction = async () => {
     if (!actionId || !actionType) return
     if (actionType === 'rejected' && !actionText.trim()) {
-      toast.error('Reject karne ki wajah likhein')
+      toast.error(t('rejectReasonRequired'))
       return
     }
     setHandlingId(actionId)
@@ -79,8 +81,8 @@ const MyDrivers = () => {
       })
       toast.success(
         actionType === 'approved'
-          ? 'Resign approve ho gayi!'
-          : 'Resign reject kar di'
+          ? t('resignApprovedMsg')
+          : t('resignRejectedMsg')
       )
       setActionId(null)
       setActionType(null)
@@ -88,7 +90,7 @@ const MyDrivers = () => {
       load()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Nahi hua'
+        e.response?.data?.message || t('resignHandleError')
       )
     } finally {
       setHandlingId(null)
@@ -106,15 +108,20 @@ const MyDrivers = () => {
   return (
     <div
       style={{ minHeight: '100vh', background: '#F0F4FF' }}
+      aria-label={t('myDrivers')}
     >
         <div className="mx-auto max-w-2xl px-4 py-6">
           {loading ? (
-            <div className="flex justify-center py-16">
+            <div
+              className="flex justify-center py-16"
+              role="status"
+              aria-label={t('loading')}
+            >
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
             </div>
           ) : activeContracts.length === 0 ? (
             <p className="text-center text-gray-500">
-              Koi active driver / contract nahi
+              {t('noData')}
             </p>
           ) : (
             activeContracts.map((c) => {
@@ -125,22 +132,22 @@ const MyDrivers = () => {
                   {pending ? (
                     <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-5">
                       <p className="font-semibold text-red-900">
-                        🚪 {d?.name || 'Driver'} ne Resign
-                        Kiya!
+                        🚪 {d?.name || t('driver')}{' '}
+                        {t('driverResigned')}
                       </p>
                       <p className="mt-2 text-sm text-gray-700">
-                        Last Working Date:{' '}
+                        {t('lastWorkingDateLabel')}:{' '}
                         {fmtDate(pending.lastWorkingDate)}
                       </p>
                       <p className="mt-1 text-sm text-gray-700">
-                        Reason: {pending.reason}
+                        {t('reasonLabel3')}: {pending.reason}
                       </p>
                       {actionId === pending._id ? (
                         <div className="mt-4">
                           <label className="text-sm font-medium text-gray-700">
                             {actionType === 'approved'
-                              ? 'Koi message driver ko...'
-                              : 'Reject karne ki wajah...'}
+                              ? t('messageToDriver')
+                              : t('rejectReasonLabel2')}
                           </label>
                           <textarea
                             rows={3}
@@ -163,8 +170,8 @@ const MyDrivers = () => {
                             }`}
                           >
                             {actionType === 'approved'
-                              ? 'Approve Karo'
-                              : 'Reject Karo'}
+                              ? t('approveResignBtn')
+                              : t('rejectResignBtn')}
                           </button>
                           <button
                             type="button"
@@ -175,7 +182,7 @@ const MyDrivers = () => {
                             }}
                             className="mt-2 w-full text-sm text-gray-500"
                           >
-                            Cancel
+                            {t('cancel')}
                           </button>
                         </div>
                       ) : (
@@ -194,7 +201,7 @@ const MyDrivers = () => {
                           >
                             {handlingId === pending._id
                               ? '…'
-                              : 'Approve Karo'}
+                              : t('approveResignBtn')}
                           </button>
                           <button
                             type="button"
@@ -205,7 +212,7 @@ const MyDrivers = () => {
                             }}
                             className="rounded-xl border border-red-400 px-4 py-2 text-sm font-medium text-red-500"
                           >
-                            Reject Karo
+                            {t('rejectResignBtn')}
                           </button>
                         </div>
                       )}
@@ -214,6 +221,7 @@ const MyDrivers = () => {
 
                   <div
                     className="rounded-2xl border border-gray-100 bg-white p-5 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
+                    aria-label={t('contract')}
                     onClick={() => navigate(`/owner/driver-detail/${c.driverId?._id || c.driverId}`)}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -228,7 +236,7 @@ const MyDrivers = () => {
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">
-                          {d?.name || 'Driver'}
+                          {d?.name || t('driver')}
                         </p>
                         <p className="text-sm text-gray-500">
                           {d?.phone}
@@ -238,12 +246,17 @@ const MyDrivers = () => {
                           {c.jobId?.vehicleType}
                         </p>
                         <p className="text-xs text-gray-500">
-                          Start Date: {fmtDate(c.startDate)}
+                          {t('startDateLabel3')}: {fmtDate(c.startDate)}
                         </p>
                         <p className="text-xs text-gray-500">
-                          Status: {c.status} ·{' '}
-                          {c.salaryType === 'monthly' ? `₹${c.salaryPerMonth || 0}/month` : c.salaryType === 'hourly' ? `₹${c.salaryPerHour || 0}/ghanta` : `₹${c.salaryPerDay || 0}/din`} · {c.duration}{' '}
-                          din
+                          {t('status')}:{' '}
+                          {c.status === 'active' ? t('active') : c.status} ·{' '}
+                          {c.salaryType === 'monthly'
+                            ? `₹${c.salaryPerMonth || 0}/${t('perMonth')}`
+                            : c.salaryType === 'hourly'
+                              ? `₹${c.salaryPerHour || 0}/${t('perHour')}`
+                              : `₹${c.salaryPerDay || 0}/${t('perDay')}`} ·{' '}
+                          {c.duration} {t('days')}
                         </p>
                       </div>
                     </div>
@@ -258,7 +271,7 @@ const MyDrivers = () => {
           {!loading && historyResigns.length > 0 ? (
             <div className="mt-10">
               <h2 className="mb-3 text-lg font-semibold text-gray-800">
-                Purane Resign Requests
+                {t('oldResignRequests')}
               </h2>
               <div className="space-y-3">
                 {historyResigns.map((r) => (
@@ -269,10 +282,10 @@ const MyDrivers = () => {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-semibold text-gray-900">
-                          {r.driverId?.name || 'Driver'}
+                          {r.driverId?.name || t('driver')}
                         </p>
                         <p className="mt-1 text-sm text-gray-600">
-                          Last working date: {fmtDate(r.lastWorkingDate)}
+                          {t('lastWorkingDateLabel2')}: {fmtDate(r.lastWorkingDate)}
                         </p>
                       </div>
                       <span
@@ -287,11 +300,11 @@ const MyDrivers = () => {
                     </div>
                     {r.ownerResponse ? (
                       <p className="mt-2 text-sm text-gray-700">
-                        Owner response: {r.ownerResponse}
+                        {t('ownerResponseLabel')}: {r.ownerResponse}
                       </p>
                     ) : (
                       <p className="mt-2 text-sm text-gray-400">
-                        Owner response: —
+                        {t('ownerResponseLabel')}: —
                       </p>
                     )}
                   </div>

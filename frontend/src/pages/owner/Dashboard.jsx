@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { getUser } from '../../utils/helpers'
 import { getMyRatings } from '../../api/ratingAPI'
@@ -9,6 +10,7 @@ import { getMyComplaints } from '../../api/complaintAPI'
 import { getPayments } from '../../api/paymentAPI'
 
 const OwnerDashboard = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [contracts, setContracts] = useState([])
@@ -190,7 +192,7 @@ const OwnerDashboard = () => {
           <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-orange-200 bg-orange-50 p-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-orange-800 font-bold mb-1">
-                🚛 Khali Gadi Alert!
+                🚛 {t('emptyVehicleAlert')}
               </p>
               <div className="mt-2 space-y-1 text-sm text-orange-600">
                 {vacantVehicles.map((v) => (
@@ -201,7 +203,7 @@ const OwnerDashboard = () => {
                 ))}
               </div>
               <p className="text-orange-500 text-xs mt-1">
-                Naya driver hire karein!
+                {t('hireNewDriver')}
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:items-end">
@@ -210,7 +212,7 @@ const OwnerDashboard = () => {
                 onClick={() => navigate('/owner/post-job')}
                 className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
               >
-                Naya Driver Hire Karein
+                {t('hireNewDriver')}
               </button>
               <button
                 type="button"
@@ -227,17 +229,17 @@ const OwnerDashboard = () => {
           <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-medium text-yellow-800">
-                ⚠️ Profile incomplete hai
+                {t('profileIncomplete')}
               </p>
               <p className="mt-1 text-sm text-yellow-600">
-                Apni gadiyaan aur details add karein
+                {t('addVehiclesDetails')}
               </p>
             </div>
             <Link
               to="/owner/profile"
               className="inline-flex shrink-0 items-center justify-center rounded-lg bg-yellow-500 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-600"
             >
-              Profile Complete Karein
+              {t('completeProfile')}
             </Link>
           </div>
         )}
@@ -247,17 +249,20 @@ const OwnerDashboard = () => {
             <div
               className="h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"
               role="status"
-              aria-label="Loading"
+              aria-label={t('loading')}
             />
           </div>
         ) : (
           <>
             <div className="mb-2">
+              <h1 className="mb-1 text-lg font-semibold text-gray-700">
+                {t('dashboard')}
+              </h1>
               <h2 className="text-2xl font-bold text-gray-800">
-                Namaste, {user?.name || 'Owner'}! 👋
+                {t('greetingOwner')}, {user?.name || t('owner')}! 👋
               </h2>
               <p className="text-sm text-gray-500">
-                Aaj ka overview
+                {t('todayOverview')}
               </p>
             </div>
 
@@ -272,7 +277,7 @@ const OwnerDashboard = () => {
                     {stats.totalVehicles}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Total Gadiyaan
+                    {t('totalVehicles')}
                   </p>
                 </div>
               </div>
@@ -285,7 +290,7 @@ const OwnerDashboard = () => {
                     {stats.activeDrivers}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Active Drivers
+                    {t('totalDrivers')}
                   </p>
                 </div>
               </div>
@@ -298,7 +303,7 @@ const OwnerDashboard = () => {
                     {stats.openJobs}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Open Jobs
+                    {t('totalJobs')}
                   </p>
                 </div>
               </div>
@@ -311,7 +316,7 @@ const OwnerDashboard = () => {
                     {Number(stats.avgRating || 0).toFixed(1)}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Avg Rating ({stats.ratingCount})
+                    {t('avgRating')} ({stats.ratingCount})
                   </p>
                 </div>
               </div>
@@ -342,7 +347,7 @@ const OwnerDashboard = () => {
                     {stats.pendingComplaints}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Complaints
+                    {t('complaints')}
                   </p>
                 </div>
               </div>
@@ -355,10 +360,10 @@ const OwnerDashboard = () => {
                   ₹{thisMonthTotal}
                 </p>
                 <p className="text-sm text-gray-500">
-                  Is Mahine Payments
+                  {t('thisMonthPayments')}
                 </p>
                 <p className="text-xs text-gray-400">
-                  {thisMonthPayments.length} payments
+                  {thisMonthPayments.length} {t('paymentsCount')}
                 </p>
               </div>
               <div
@@ -378,10 +383,10 @@ const OwnerDashboard = () => {
                   {pendingPayments.length}
                 </p>
                 <p className="text-sm text-gray-500">
-                  Pending Requests
+                  {t('pendingRequests')}
                 </p>
                 <p className="text-xs text-orange-600">
-                  Payment approve karo
+                  {t('approvePayment')}
                 </p>
               </div>
               <div
@@ -401,10 +406,10 @@ const OwnerDashboard = () => {
                   {newApps.length}
                 </p>
                 <p className="text-sm text-gray-500">
-                  Nayi Applications
+                  {t('newApplications')}
                 </p>
                 <p className="text-xs text-blue-600">
-                  Last 7 din mein
+                  {t('last7days')}
                 </p>
               </div>
               <div
@@ -424,7 +429,7 @@ const OwnerDashboard = () => {
                   {vacantVehicles.length}
                 </p>
                 <p className="text-sm text-gray-500">
-                  Khali Gadiyaan
+                  {t('emptyVehicles')}
                 </p>
               </div>
             </div>
@@ -452,7 +457,7 @@ const OwnerDashboard = () => {
                   fontSize: '14px',
                 }}
               >
-                📝 Job Post Karo
+                📝 {t('postJob')}
               </button>
 
               <button
@@ -469,7 +474,7 @@ const OwnerDashboard = () => {
                   fontSize: '14px',
                 }}
               >
-                📋 Applications Dekho
+                {t('viewApplicationsBtn')}
                 {newApps.length > 0 ? (
                   <span
                     style={{
@@ -500,7 +505,7 @@ const OwnerDashboard = () => {
                   fontSize: '14px',
                 }}
               >
-                💰 Payments
+                {t('viewPaymentsBtn')}
                 {pendingPayments.length > 0 ? (
                   <span
                     style={{
@@ -531,7 +536,7 @@ const OwnerDashboard = () => {
                   fontSize: '14px',
                 }}
               >
-                👥 Mere Drivers
+                {t('viewDriversBtn')}
               </button>
             </div>
 
@@ -539,18 +544,18 @@ const OwnerDashboard = () => {
               <div className="rounded-2xl border border-gray-100 bg-white p-5">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-semibold text-gray-800">
-                    Recent Jobs
+                    {t('myJobs')}
                   </h3>
                   <Link
                     to="/owner/post-job"
                     className="text-sm font-medium text-blue-600 hover:text-blue-700"
                   >
-                    Job Post Karo
+                    {t('postJob')}
                   </Link>
                 </div>
                 {recentJobs.length === 0 ? (
                   <p className="py-8 text-center text-gray-400">
-                    Abhi koi job post nahi ki
+                    {t('noJobsPosted')}
                   </p>
                 ) : (
                   <div className="divide-y divide-gray-100">
@@ -575,18 +580,18 @@ const OwnerDashboard = () => {
               <div className="rounded-2xl border border-gray-100 bg-white p-5">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-semibold text-gray-800">
-                    Recent Applications
+                    {t('applications')}
                   </h3>
                   <Link
                     to="/owner/applications"
                     className="text-sm font-medium text-blue-600 hover:text-blue-700"
                   >
-                    Sab Dekho
+                    {t('seeAll')}
                   </Link>
                 </div>
                 {recentApps.length === 0 ? (
                   <p className="py-8 text-center text-gray-400">
-                    Koi application nahi aayi abhi
+                    {t('noApplicationsYet2')}
                   </p>
                 ) : (
                   <div>

@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import API from '../../api/axios'
 import { setAuth } from '../../utils/helpers'
+import { useTranslation } from 'react-i18next'
 
 const Login = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [formData, setFormData] = useState({
     phone: '',
     password: '',
@@ -20,11 +22,11 @@ const Login = () => {
 
   const validate = () => {
     if (!formData.phone.trim() || !formData.password) {
-      setError('Phone aur password zaroori hain')
+      setError(t('phonePasswordRequired'))
       return false
     }
     if (!/^\d{10}$/.test(formData.phone.trim())) {
-      setError('Phone number exactly 10 digits ka hona chahiye')
+      setError(t('phoneMustBe10'))
       return false
     }
     return true
@@ -43,7 +45,7 @@ const Login = () => {
       })
       if (data.success && data.token && data.user) {
         setAuth(data.token, data.user)
-        toast.success('Login ho gaye!')
+        toast.success(t('loginSuccess'))
         if (data.user.role === 'owner') {
           navigate('/owner/dashboard')
         } else if (data.user.role === 'driver') {
@@ -57,7 +59,7 @@ const Login = () => {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          'Kuch galat hua'
+          t('loginFailed')
       )
     } finally {
       setLoading(false)
@@ -71,7 +73,7 @@ const Login = () => {
           DriverApp
         </h1>
         <p className="text-gray-500 text-sm text-center mb-6">
-          Wapas aaye! Login karein
+          {t('welcomeBack')}
         </p>
 
         {error && (
@@ -83,7 +85,7 @@ const Login = () => {
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="text-sm font-medium text-gray-700 mb-1 block">
-              Phone Number
+              {t('phoneNumberLabel')}
             </label>
             <input
               className="input-field"
@@ -97,7 +99,7 @@ const Login = () => {
           </div>
           <div className="mb-4">
             <label className="text-sm font-medium text-gray-700 mb-1 block">
-              Password
+              {t('passwordLabel')}
             </label>
             <input
               className="input-field"
@@ -114,17 +116,17 @@ const Login = () => {
             className="btn-primary"
             disabled={loading}
           >
-            {loading ? 'Logging in...' : 'Login Karein'}
+            {loading ? t('loginProgress') : t('loginSubmitBtn')}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-4">
-          Naya account banana hai?{' '}
+          {t('noAccountText')}{' '}
           <Link
             to="/signup"
             className="text-blue-600 font-semibold"
           >
-            Register karein
+            {t('registerLink')}
           </Link>
         </p>
       </div>

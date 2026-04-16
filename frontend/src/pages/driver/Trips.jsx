@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
@@ -28,6 +29,7 @@ const fmtWhen = (d) =>
     : '—'
 
 const DriverTrips = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [contract, setContract] = useState(null)
@@ -74,7 +76,7 @@ const DriverTrips = () => {
       setContract(c)
       setTrips(list)
       if (!c) {
-        toast.error('Aapka contract transport type ka nahi hai')
+        toast.error(t('notTransportContract'))
         navigate('/driver/attendance')
       }
     } catch (e) {
@@ -84,7 +86,7 @@ const DriverTrips = () => {
     } finally {
       setLoading(false)
     }
-  }, [navigate])
+  }, [navigate, t])
 
   useEffect(() => {
     load()
@@ -103,8 +105,8 @@ const DriverTrips = () => {
 
   const transportTypeLabel =
     contract?.transportType === 'company_trip'
-      ? 'Company Trip'
-      : 'Malik Trip'
+      ? t('companyTrip')
+      : t('malikTrip')
 
   const tripFrom = (t) => t.fromLocation || t.from || ''
   const tripTo = (t) => t.toLocation || t.to || ''
@@ -135,7 +137,7 @@ const DriverTrips = () => {
           },
         }
       )
-      toast.success('Expense add ho gaya!')
+      toast.success(t('expenseAdded'))
       setExpenseForm((f) => ({
         ...f,
         amount: '',
@@ -145,7 +147,7 @@ const DriverTrips = () => {
       await load()
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Expense nahi gaya'
+        err.response?.data?.message || t('expenseError')
       )
     } finally {
       setSaving(false)
@@ -173,7 +175,7 @@ const DriverTrips = () => {
           },
         }
       )
-      toast.success('Repair record ho gaya!')
+      toast.success(t('repairAdded'))
       setRepairForm({
         description: '',
         amount: '',
@@ -182,7 +184,7 @@ const DriverTrips = () => {
       await load()
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Repair nahi gaya'
+        err.response?.data?.message || t('repairError')
       )
     } finally {
       setSaving(false)
@@ -205,7 +207,7 @@ const DriverTrips = () => {
           </div>
         ) : !contract ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-gray-600">
-            Aapka contract transport type ka nahi hai
+            {t('notTransportContract')}
           </div>
         ) : (
           <>
@@ -219,7 +221,8 @@ const DriverTrips = () => {
                   {transportTypeLabel}
                 </span>
                 <span>
-                  ₹{Number(contract?.salaryPerMonth) || 0}/month
+                  ₹{Number(contract?.salaryPerMonth) || 0}/
+                  {t('perMonth')}
                 </span>
               </div>
             </div>
@@ -235,7 +238,7 @@ const DriverTrips = () => {
                     : 'bg-gray-100 text-gray-700'
                 }`}
               >
-                Active Trip
+                {t('activeTrip')}
               </button>
               <button
                 type="button"
@@ -247,7 +250,7 @@ const DriverTrips = () => {
                     : 'bg-gray-100 text-gray-700'
                 }`}
               >
-                History
+                {t('tripHistory')}
               </button>
             </div>
 
@@ -256,15 +259,15 @@ const DriverTrips = () => {
                 {!activeTrip ? (
                   <div className="rounded-2xl border border-gray-100 bg-white p-6">
                     <p className="mb-4 text-center text-sm text-gray-600">
-                      Koi active trip nahi
+                      {t('noActiveTrip')}
                     </p>
                     <h2 className="mb-3 text-lg font-semibold text-gray-900">
-                      Nayi Trip Shuru Karo
+                      {t('startNewTrip')}
                     </h2>
                     <div className="grid gap-3">
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">
-                          Trip date
+                          {t('tripDate')}
                         </label>
                         <input
                           type="date"
@@ -286,7 +289,7 @@ const DriverTrips = () => {
                             fromLocation: e.target.value,
                           }))
                         }
-                        placeholder="From (e.g. Patna)"
+                        placeholder={`${t('from')} (e.g. Patna)`}
                         className="input-field w-full"
                       />
                       <input
@@ -297,7 +300,7 @@ const DriverTrips = () => {
                             toLocation: e.target.value,
                           }))
                         }
-                        placeholder="To (e.g. Delhi)"
+                        placeholder={`${t('to')} (e.g. Delhi)`}
                         className="input-field w-full"
                       />
                       <input
@@ -308,7 +311,7 @@ const DriverTrips = () => {
                             cargo: e.target.value,
                           }))
                         }
-                        placeholder="Cargo / load"
+                        placeholder={`${t('cargo')} / load`}
                         className="input-field w-full"
                       />
                       <input
@@ -319,7 +322,7 @@ const DriverTrips = () => {
                             description: e.target.value,
                           }))
                         }
-                        placeholder="Note (optional)"
+                        placeholder={t('noteOptional')}
                         className="input-field w-full"
                       />
                       <button
@@ -337,12 +340,12 @@ const DriverTrips = () => {
                                 tripForm.description ||
                                 tripForm.cargo,
                             })
-                            toast.success('Trip start ho gaya!')
+                            toast.success(t('tripStarted'))
                             await load()
                           } catch (e) {
                             toast.error(
                               e.response?.data?.message ||
-                                'Trip start nahi hui'
+                                t('tripStartError')
                             )
                           } finally {
                             setSaving(false)
@@ -351,8 +354,8 @@ const DriverTrips = () => {
                         className="w-full rounded-xl bg-green-700 py-3 text-sm font-semibold text-white disabled:opacity-60"
                       >
                         {saving
-                          ? 'Save ho raha hai...'
-                          : 'Trip Shuru Karo'}
+                          ? t('loading')
+                          : t('startTrip')}
                       </button>
                     </div>
                   </div>
@@ -362,8 +365,8 @@ const DriverTrips = () => {
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-gray-900">
-                            {tripFrom(activeTrip) || 'From'} →{' '}
-                            {tripTo(activeTrip) || 'To'}
+                            {tripFrom(activeTrip) || t('from')} →{' '}
+                            {tripTo(activeTrip) || t('to')}
                           </p>
                           <p className="mt-1 text-xs text-gray-500">
                             {new Date(
@@ -372,15 +375,15 @@ const DriverTrips = () => {
                           </p>
                           {tripCargo(activeTrip) ? (
                             <p className="mt-1 text-xs text-gray-600">
-                              Cargo: {tripCargo(activeTrip)}
+                              {t('cargo')}: {tripCargo(activeTrip)}
                             </p>
                           ) : null}
                         </div>
                         <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">
                           {activeTrip.transportType ===
                           'company_trip'
-                            ? 'Company Trip'
-                            : 'Malik Trip'}
+                            ? t('companyTrip')
+                            : t('malikTrip')}
                         </span>
                       </div>
                     </div>
@@ -388,7 +391,7 @@ const DriverTrips = () => {
                     {activeTrip.transportType === 'malik_trip' ? (
                       <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-6">
                         <h2 className="text-lg font-semibold text-gray-800">
-                          Kharcha add karo
+                          {t('addExpenseTitle')}
                         </h2>
                         <div className="mt-4 grid gap-3">
                           <select
@@ -401,12 +404,12 @@ const DriverTrips = () => {
                             }
                             className="input-field w-full"
                           >
-                            <option value="diesel">Diesel</option>
-                            <option value="toll">Toll</option>
-                            <option value="police">Police</option>
-                            <option value="khana">Khana</option>
-                            <option value="repair">Repair</option>
-                            <option value="other">Other</option>
+                            <option value="diesel">{t('diesel')}</option>
+                            <option value="toll">{t('toll')}</option>
+                            <option value="police">{t('police')}</option>
+                            <option value="khana">{t('food')}</option>
+                            <option value="repair">{t('repair')}</option>
+                            <option value="other">{t('other')}</option>
                           </select>
                           <div className="flex min-h-[44px] items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white">
                             <span className="flex items-center border-r border-gray-200 bg-gray-50 px-3 text-gray-600">
@@ -433,7 +436,7 @@ const DriverTrips = () => {
                                 note: e.target.value,
                               }))
                             }
-                            placeholder="Note (optional)"
+                            placeholder={t('noteOptional')}
                             className="input-field w-full"
                           />
                           <div style={{ marginTop: '8px' }}>
@@ -444,7 +447,7 @@ const DriverTrips = () => {
                                 fontWeight: '500',
                               }}
                             >
-                              Photo (optional)
+                              {t('photo')} (optional)
                             </label>
                             <input
                               type="file"
@@ -481,18 +484,18 @@ const DriverTrips = () => {
                             onClick={() => void handleAddExpense()}
                             className="w-full rounded-xl bg-green-600 py-3 text-sm font-semibold text-white disabled:opacity-60"
                           >
-                            Expense add karo
+                            {t('addExpense')}
                           </button>
                         </div>
 
                         <div className="mt-4 space-y-2 border-t border-gray-100 pt-4">
                           <p className="text-sm font-semibold text-gray-800">
-                            Expense list
+                            {t('expenseList')}
                           </p>
                           {(activeTrip.expenses || []).length ===
                           0 ? (
                             <p className="text-xs text-gray-500">
-                              Abhi koi expense nahi
+                              {t('noExpenseYet')}
                             </p>
                           ) : (
                             (activeTrip.expenses || []).map(
@@ -529,25 +532,25 @@ const DriverTrips = () => {
                             )
                           )}
                           <p className="text-sm font-bold text-gray-900">
-                            Total expenses:{' '}
-                            {fmtMoney(activeTrip.totalExpenses)}
-                          </p>
+                          {t('totalExpenses')}:{' '}
+                          {fmtMoney(activeTrip.totalExpenses)}
+                        </p>
                         </div>
                       </div>
                     ) : (
                       <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-6">
                         <p className="text-sm text-gray-700">
-                          Company trip — expense tracking nahi
+                          {t('companyTripNoExpense')}
                         </p>
                       </div>
                     )}
 
                     <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 p-6">
                       <h2 className="text-lg font-semibold text-amber-900">
-                        Repair record (trip history mein)
+                        {t('repairRecordTitle')}
                       </h2>
                       <p className="mt-1 text-xs text-amber-800">
-                        Alag notification nahi — sirf is trip par save
+                        {t('repairRecordNote')}
                       </p>
                       <div className="mt-4 grid gap-3">
                         <input
@@ -558,7 +561,7 @@ const DriverTrips = () => {
                               description: e.target.value,
                             }))
                           }
-                          placeholder="Kya repair hua?"
+                          placeholder={t('whatRepair')}
                           className="input-field w-full"
                         />
                         <div className="flex min-h-[44px] items-stretch overflow-hidden rounded-lg border border-amber-200 bg-white">
@@ -586,7 +589,7 @@ const DriverTrips = () => {
                               fontWeight: '500',
                             }}
                           >
-                            Photo (optional)
+                            {t('photo')} (optional)
                           </label>
                           <input
                             type="file"
@@ -625,7 +628,7 @@ const DriverTrips = () => {
                           onClick={() => void handleAddRepair()}
                           className="w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white disabled:opacity-60"
                         >
-                          Repair record karo
+                          {t('addRepair')}
                         </button>
                       </div>
                       <div className="mt-4 space-y-2">
@@ -655,7 +658,7 @@ const DriverTrips = () => {
                           </div>
                         ))}
                         <p className="text-sm font-bold text-amber-900">
-                          Total repairs:{' '}
+                          {t('totalRepairs')}:{' '}
                           {fmtMoney(activeTrip.totalRepairs)}
                         </p>
                       </div>
@@ -663,19 +666,19 @@ const DriverTrips = () => {
 
                     <div className="mb-4 rounded-2xl border border-green-200 bg-green-50 p-4">
                       <p className="text-sm text-green-900">
-                        Total expenses:{' '}
+                        {t('totalExpenses')}:{' '}
                         <strong>
                           {fmtMoney(activeTrip.totalExpenses)}
                         </strong>
                       </p>
                       <p className="text-sm text-green-900">
-                        Total repairs:{' '}
+                        {t('totalRepairs')}:{' '}
                         <strong>
                           {fmtMoney(activeTrip.totalRepairs)}
                         </strong>
                       </p>
                       <p className="mt-2 text-base font-bold text-green-950">
-                        Grand total: {fmtMoney(grandTotal(activeTrip))}
+                        {t('grandTotal')}: {fmtMoney(grandTotal(activeTrip))}
                       </p>
                     </div>
 
@@ -685,7 +688,7 @@ const DriverTrips = () => {
                       onClick={async () => {
                         if (
                           !window.confirm(
-                            'Trip owner ko bhejni hai? Baad mein edit nahi kar sakte.'
+                            t('submitTripConfirm')
                           )
                         ) {
                           return
@@ -696,7 +699,7 @@ const DriverTrips = () => {
                             tripId: activeTrip._id,
                           })
                           toast.success(
-                            'Trip submit ho gayi! Owner review karega.'
+                            t('tripSubmitted')
                           )
                           await load()
                         } catch (e) {
@@ -710,7 +713,7 @@ const DriverTrips = () => {
                       }}
                       className="w-full rounded-xl bg-green-800 py-3 text-sm font-semibold text-white disabled:opacity-60"
                     >
-                      Trip complete — owner ko bhejo
+                      {t('completeTrip')}
                     </button>
                   </>
                 )}
@@ -722,100 +725,102 @@ const DriverTrips = () => {
                   onClick={() => window.print()}
                   className="no-print mb-4 w-full rounded-xl bg-gray-700 py-3 text-sm text-white"
                 >
-                  Trip history print
+                  {t('tripHistoryPrint')}
                 </button>
 
                 {historyTrips.length === 0 ? (
                   <div className="py-8 text-center text-gray-400">
-                    Koi trip history nahi
+                    {t('noTrips')}
                   </div>
                 ) : (
-                  historyTrips.map((t) => {
-                    const open = expandedId === t._id
+                  historyTrips.map((tr) => {
+                    const open = expandedId === tr._id
                     return (
                       <div
-                        key={t._id}
+                        key={tr._id}
                         className="mb-3 rounded-2xl border border-gray-100 bg-white p-4"
                       >
                         <button
                           type="button"
                           className="w-full text-left"
                           onClick={() =>
-                            setExpandedId(open ? null : t._id)
+                            setExpandedId(open ? null : tr._id)
                           }
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-sm font-semibold text-gray-900">
-                                {tripFrom(t) || 'From'} →{' '}
-                                {tripTo(t) || 'To'}
+                                {tripFrom(tr) || t('from')} →{' '}
+                                {tripTo(tr) || t('to')}
                               </p>
                               <p className="mt-1 text-xs text-gray-500">
                                 {new Date(
-                                  t.tripDate
+                                  tr.tripDate
                                 ).toLocaleDateString('en-IN')}{' '}
                                 ·{' '}
-                                {t.submittedAt
-                                  ? `Submit: ${new Date(
-                                      t.submittedAt
+                                {tr.submittedAt
+                                  ? `${t('submitLabel')}: ${new Date(
+                                      tr.submittedAt
                                     ).toLocaleDateString('en-IN')}`
                                   : ''}
                               </p>
                             </div>
                             <span
                               className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                t.status === 'submitted'
+                                tr.status === 'submitted'
                                   ? 'bg-yellow-100 text-yellow-700'
-                                  : t.status === 'approved'
+                                  : tr.status === 'approved'
                                     ? 'bg-green-100 text-green-700'
-                                    : t.status === 'rejected'
+                                    : tr.status === 'rejected'
                                       ? 'bg-red-100 text-red-700'
                                       : 'bg-blue-100 text-blue-700'
                               }`}
                             >
-                              {t.status === 'submitted'
-                                ? 'Review pending'
-                                : t.status === 'approved'
-                                  ? 'Approved'
-                                  : t.status === 'rejected'
-                                    ? 'Rejected'
-                                    : t.status}
+                              {tr.status === 'submitted'
+                                ? t('pending')
+                                : tr.status === 'approved'
+                                  ? t('approved')
+                                  : tr.status === 'rejected'
+                                    ? t('rejected')
+                                    : tr.status}
                             </span>
                           </div>
                           <p className="mt-2 text-sm text-gray-700">
-                            {fmtMoney(t.totalExpenses)} expenses ·{' '}
-                            {fmtMoney(t.totalRepairs)} repairs · Grand{' '}
-                            {fmtMoney(grandTotal(t))}
+                            {fmtMoney(tr.totalExpenses)} expenses ·{' '}
+                            {fmtMoney(tr.totalRepairs)} repairs · {t('grandTotal')}{' '}
+                            {fmtMoney(grandTotal(tr))}
                           </p>
                           <p className="text-xs text-gray-500">
-                            Approved:{' '}
+                            {t('approved')}:{' '}
                             {fmtMoney(
-                              t.approvedAmount ??
-                                t.approvedExpenses ??
+                              tr.approvedAmount ??
+                                tr.approvedExpenses ??
                                 0
                             )}
                           </p>
-                          {t.ownerNote ? (
+                          {tr.ownerNote ? (
                             <p className="mt-1 text-xs text-gray-600">
-                              Owner: {t.ownerNote}
+                              Owner: {tr.ownerNote}
                             </p>
                           ) : null}
                           <p className="mt-2 text-xs font-medium text-green-700">
-                            {open ? '▼ Chhupao' : '▶ Poora detail'}
+                            {open
+                              ? t('hideDetails')
+                              : t('showDetails')}
                           </p>
                         </button>
                         {open && (
                           <div className="mt-3 border-t border-gray-100 pt-3 text-sm">
-                            {tripCargo(t) ? (
+                            {tripCargo(tr) ? (
                               <p className="mb-2 text-gray-700">
-                                Cargo: {tripCargo(t)}
+                                {t('cargo')}: {tripCargo(tr)}
                               </p>
                             ) : null}
                             <p className="font-semibold text-gray-800">
-                              Expenses
+                              {t('expensesTitle')}
                             </p>
                             <ul className="mt-1 space-y-2">
-                              {(t.expenses || []).map((ex, i) => (
+                              {(tr.expenses || []).map((ex, i) => (
                                 <li
                                   key={i}
                                   className="rounded-lg bg-gray-50 p-2 text-xs"
@@ -831,10 +836,10 @@ const DriverTrips = () => {
                               ))}
                             </ul>
                             <p className="mt-3 font-semibold text-gray-800">
-                              Repairs
+                              {t('repairsTitle')}
                             </p>
                             <ul className="mt-1 space-y-2">
-                              {(t.repairs || []).map((r, i) => (
+                              {(tr.repairs || []).map((r, i) => (
                                 <li
                                   key={i}
                                   className="rounded-lg bg-amber-50 p-2 text-xs"
@@ -850,11 +855,11 @@ const DriverTrips = () => {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleTripReceipt(t)
+                            handleTripReceipt(tr)
                           }}
                           className="no-print mt-3 w-full rounded-lg border border-gray-200 py-2 text-xs font-medium text-gray-700"
                         >
-                          Trip receipt download
+                          {t('downloadPDF')}
                         </button>
                       </div>
                     )
@@ -862,29 +867,31 @@ const DriverTrips = () => {
                 )}
 
                 <div className="print-area hidden">
-                  <div className="print-heading">TRIP HISTORY</div>
+                  <div className="print-heading">
+                    {t('tripHistory').toUpperCase()}
+                  </div>
                   <div className="print-row">
-                    <span>Driver</span>
+                    <span>{t('driver')}</span>
                     <span>{user?.name}</span>
                   </div>
                   {historyTrips.map((trip, index) => (
                     <div key={trip._id} className="mt-4 border-b pb-4">
                       <strong>
-                        Trip {index + 1} —{' '}
+                        {t('trip')} {index + 1} —{' '}
                         {new Date(trip.tripDate).toLocaleDateString(
                           'en-IN'
                         )}
                       </strong>
-                      <div className="print-row">
-                        <span>Route</span>
-                        <span>
-                          {tripFrom(trip)} → {tripTo(trip)}
-                        </span>
-                      </div>
-                      <div className="print-row">
-                        <span>Status</span>
-                        <span>{trip.status}</span>
-                      </div>
+              <div className="print-row">
+                <span>{t('route')}</span>
+                <span>
+                  {tripFrom(trip)} → {tripTo(trip)}
+                </span>
+              </div>
+              <div className="print-row">
+                <span>{t('status')}</span>
+                <span>{trip.status}</span>
+              </div>
                     </div>
                   ))}
                 </div>
@@ -896,19 +903,21 @@ const DriverTrips = () => {
         <div className="print-area" style={{ display: 'none' }}>
           {printTrip && (
             <div>
-              <div className="print-heading">TRIP RECEIPT</div>
+              <div className="print-heading">
+                {t('tripReceipt').toUpperCase()}
+              </div>
               <div className="print-row">
-                <span>Route:</span>
+                <span>{t('route')}:</span>
                 <span>
                   {tripFrom(printTrip)} → {tripTo(printTrip)}
                 </span>
               </div>
               <div className="print-row">
-                <span>Cargo:</span>
+                <span>{t('cargo')}:</span>
                 <span>{tripCargo(printTrip) || '—'}</span>
               </div>
               <div className="print-row">
-                <span>Date:</span>
+                <span>{t('date')}:</span>
                 <span>
                   {new Date(
                     printTrip.createdAt || printTrip.tripDate
@@ -916,17 +925,19 @@ const DriverTrips = () => {
                 </span>
               </div>
               <div className="print-row">
-                <span>Driver:</span>
+                <span>{t('driver')}:</span>
                 <span>
                   {user?.name || printTrip.driverId?.name || '—'}{' '}
                   {printTrip.driverId?.phone || ''}
                 </span>
               </div>
               <div className="print-row">
-                <span>Owner:</span>
+                <span>{t('owner')}:</span>
                 <span>{printTrip.ownerId?.name || '—'}</span>
               </div>
-              <h3 style={{ marginTop: '16px' }}>Expenses</h3>
+              <h3 style={{ marginTop: '16px' }}>
+                {t('expensesTitle')}
+              </h3>
               {(printTrip.expenses || []).map((e, i) => (
                 <div key={i} className="print-row">
                   <span>
@@ -936,7 +947,9 @@ const DriverTrips = () => {
                   <span>₹{e.amount}</span>
                 </div>
               ))}
-              <h3 style={{ marginTop: '16px' }}>Repairs</h3>
+              <h3 style={{ marginTop: '16px' }}>
+                {t('repairsTitle')}
+              </h3>
               {(printTrip.repairs || []).map((r, i) => (
                 <div key={i} className="print-row">
                   <span>{r.description || '—'}</span>
@@ -944,19 +957,19 @@ const DriverTrips = () => {
                 </div>
               ))}
               <div className="print-row">
-                <strong>Total Expenses:</strong>
+                <strong>{t('totalExpenses')}:</strong>
                 <strong>₹{printTrip.totalExpenses || 0}</strong>
               </div>
               <div className="print-row">
-                <strong>Total Repairs:</strong>
+                <strong>{t('totalRepairs')}:</strong>
                 <strong>₹{printTrip.totalRepairs || 0}</strong>
               </div>
               <div className="print-row">
-                <strong>Grand Total:</strong>
+                <strong>{t('grandTotal')}:</strong>
                 <strong>₹{grandTotal(printTrip)}</strong>
               </div>
               <div className="print-row">
-                <strong>Approved Amount:</strong>
+                <strong>{t('approvedAmount')}:</strong>
                 <strong>
                   ₹
                   {printTrip.approvedAmount ??
@@ -966,7 +979,7 @@ const DriverTrips = () => {
               </div>
               {printTrip.ownerNote ? (
                 <div className="print-row">
-                  <span>Owner Note:</span>
+                  <span>{t('ownerNote')}:</span>
                   <span>{printTrip.ownerNote}</span>
                 </div>
               ) : null}
@@ -977,8 +990,12 @@ const DriverTrips = () => {
                   justifyContent: 'space-between',
                 }}
               >
-                <div>Owner Signature: ____________</div>
-                <div>Driver Signature: ____________</div>
+                <div>
+                  {t('ownerSignature')}: ____________
+                </div>
+                <div>
+                  {t('driverSignature')}: ____________
+                </div>
               </div>
               <div
                 style={{
@@ -988,7 +1005,7 @@ const DriverTrips = () => {
                   color: '#666',
                 }}
               >
-                Generated by DriverApp —{' '}
+                {t('generatedBy')} —{' '}
                 {new Date().toLocaleDateString('en-IN')}
               </div>
             </div>

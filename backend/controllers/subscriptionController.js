@@ -105,7 +105,7 @@ const verifyPayment = async (req, res) => {
     await Notification.create({
       userId: userIdFromReq(req),
       title: "Subscription Active!",
-      message: `Aapka ₹${amount}/month subscription active ho gaya. 30 din valid hai.`,
+      message: `Your ₹${amount}/month subscription is active. Valid for 30 days.`,
       type: "payment_received",
       link:
         user.role === "owner"
@@ -137,18 +137,52 @@ const checkSubscription = async (req, res) => {
       });
     }
 
+    // Permanent free users
+    if (user.isPermanentFree) {
+      return res.json({
+        success: true,
+        isActive: true,
+        isPermanentFree: true,
+        endDate: null,
+        role: user.role,
+        amount: user.role === 'owner' ? 499 : 99,
+      })
+    }
+
+    // If subscription not required yet - free trial
+    if (!user.subscriptionRequired) {
+      return res.json({
+        success: true,
+        isActive: true,
+        isFreeTrialActive: true,
+        freeTrialStart: user.freeTrialStart,
+        endDate: null,
+        role: user.role,
+        amount: user.role === 'owner' ? 499 : 99,
+      })
+    }
+
+    // Subscription required - check if paid
     const isActive =
       user.subscription?.isActive === true &&
       user.subscription?.endDate &&
-      new Date(user.subscription.endDate) > new Date();
+      new Date(user.subscription.endDate) > new Date()
 
-    res.json({
+    // Check deadline passed
+    const deadlinePassed = user.subscriptionDeadline
+      ? new Date(user.subscriptionDeadline) < new Date()
+      : false
+
+    return res.json({
       success: true,
-      isActive,
+      isActive: isActive,
+      subscriptionRequired: user.subscriptionRequired,
+      subscriptionDeadline: user.subscriptionDeadline,
+      deadlinePassed,
       endDate: user.subscription?.endDate,
       role: user.role,
-      amount: user.role === "owner" ? 499 : 99,
-    });
+      amount: user.role === 'owner' ? 499 : 99,
+    })
   } catch (error) {
     res.status(500).json({
       success: false,

@@ -203,9 +203,9 @@ const blockUser = async (req, res) => {
 
     await Notification.create({
       userId: user._id,
-      title: "Account Block Ho Gaya",
+      title: "Account Blocked",
       message:
-        reason || "Aapka account block kar diya gaya hai.",
+        reason || "Your account has been blocked.",
       type: "complaint_update",
       link:
         user.role === "owner"
@@ -240,8 +240,8 @@ const unblockUser = async (req, res) => {
 
     await Notification.create({
       userId,
-      title: "Account Unblock Ho Gaya",
-      message: "Aapka account unblock kar diya gaya hai.",
+      title: "Account Unblocked",
+      message: "Your account has been unblocked.",
       type: "complaint_update",
       link:
         unblockedUser?.role === "owner"
@@ -342,7 +342,7 @@ const resolveComplaint = async (req, res) => {
         await Notification.create({
           userId: targetUser._id,
           title: "Admin Warning",
-          message: `Aapke khilaf complaint resolve hui. Admin ne warning di hai. ${note}`,
+          message: `A complaint against you was resolved. You received a warning. ${note}`,
           type: "complaint_update",
           link: targetComplaintLink,
           isRead: false,
@@ -365,8 +365,8 @@ const resolveComplaint = async (req, res) => {
 
         await Notification.create({
           userId: targetUser._id,
-          title: `Account ${days} Din ke liye Block`,
-          message: `Complaint ke baad aapka account ${days} din ke liye block. ${note}`,
+          title: `Account Blocked (${days} days)`,
+          message: `Your account was blocked for ${days} days. ${note}`,
           type: "complaint_update",
           link: targetComplaintLink,
           isRead: false,
@@ -383,8 +383,8 @@ const resolveComplaint = async (req, res) => {
 
         await Notification.create({
           userId: targetUser._id,
-          title: "Account Permanently Ban",
-          message: `Aapka account permanently ban ho gaya. ${note}`,
+          title: "Account Permanently Banned",
+          message: `Your account was permanently banned. ${note}`,
           type: "complaint_update",
           link: targetComplaintLink,
           isRead: false,
@@ -400,8 +400,8 @@ const resolveComplaint = async (req, res) => {
           : "/owner/complaints";
       await Notification.create({
         userId: raiser._id,
-        title: "Complaint Resolve Ho Gayi",
-        message: `Aapki complaint resolve ho gayi. Admin note: ${note}`,
+        title: "Complaint Resolved",
+        message: `Your complaint was resolved. Admin note: ${note}`,
         type: "complaint_update",
         link,
         isRead: false,
@@ -456,7 +456,7 @@ const verifyUser = async (req, res) => {
       userId,
       title: "Account Verified!",
       message:
-        "Aapka account verify ho gaya. Ab Verified badge milega.",
+        "Your account was verified. You will now have a verified badge.",
       type: "complaint_update",
       link:
         verifiedUser?.role === "owner"

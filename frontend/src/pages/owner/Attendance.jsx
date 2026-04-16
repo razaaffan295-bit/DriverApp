@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import {
@@ -69,6 +70,7 @@ const calcSalary = (contract, status, hours) => {
 }
 
 const OwnerAttendance = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
 
@@ -116,7 +118,9 @@ const OwnerAttendance = () => {
       } catch (e) {
         setContracts([])
         setSelectedContractId('')
-        toast.error(e.response?.data?.message || 'Contracts load nahi hue')
+        toast.error(
+          e.response?.data?.message || t('contractsLoadError')
+        )
       } finally {
         setLoading(false)
       }
@@ -180,7 +184,9 @@ const OwnerAttendance = () => {
           totalHours: 0,
           grossTotal: 0
         })
-        toast.error(e.response?.data?.message || 'Attendance load nahi hua')
+        toast.error(
+          e.response?.data?.message || t('attendanceLoadError')
+        )
       } finally {
         setLoading(false)
       }
@@ -189,7 +195,7 @@ const OwnerAttendance = () => {
     loadRecords()
   }, [selectedContractId, selectedMonth, selectedYear, selectedContract])
 
-  const driverName = selectedContract?.driverId?.name || 'Driver'
+  const driverName = selectedContract?.driverId?.name || t('driver')
   const driverPhone = selectedContract?.driverId?.phone || ''
 
   const formatRecordDate = (d) =>
@@ -239,20 +245,23 @@ const OwnerAttendance = () => {
       style={{ minHeight: '100vh', background: '#F0F4FF' }}
     >
         <div className="mx-auto max-w-3xl px-4 py-6">
+          <h1 className="mb-4 text-xl font-bold text-gray-800">
+            {t('attendance')}
+          </h1>
           {loading ? (
             <div className="flex justify-center py-16">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
             </div>
           ) : contracts.length === 0 ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-gray-600">
-              Koi mining/road contract nahi
+              {t('noData')}
             </div>
           ) : (
             <>
               <div className="mb-6 grid gap-4 sm:grid-cols-2 sm:items-end">
                 <div>
                   <label className="mb-1 block text-sm font-semibold text-gray-800">
-                    Driver Chunno
+                    {t('selectDriver')}
                   </label>
                   <select
                     value={selectedContractId}
@@ -261,14 +270,14 @@ const OwnerAttendance = () => {
                   >
                     {contracts.map((c) => (
                       <option key={c._id} value={c._id}>
-                        {c.driverId?.name || 'Driver'} — {c.jobId?.title || 'Job'}
+                        {c.driverId?.name || t('driver')} — {c.jobId?.title || 'Job'}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-semibold text-gray-800">
-                    Month
+                    {t('month')}
                   </label>
                   <select
                     value={selectedMonth}
@@ -297,22 +306,30 @@ const OwnerAttendance = () => {
                   </span>
                   <span>
                     {selectedContract?.salaryType === 'monthly'
-                      ? `₹${Number(selectedContract?.salaryPerMonth) || 0}/month`
+                      ? `₹${Number(selectedContract?.salaryPerMonth) || 0}/${t('perMonth')}`
                       : selectedContract?.salaryType === 'daily'
-                        ? `₹${Number(selectedContract?.salaryPerDay) || 0}/din`
-                        : `₹${Number(selectedContract?.salaryPerHour) || 0}/ghanta`}
+                        ? `₹${Number(selectedContract?.salaryPerDay) || 0}/${t('perDay')}`
+                        : `₹${Number(selectedContract?.salaryPerHour) || 0}/${t('perHour')}`}
                   </span>
                   {selectedContract?.hasBhatta && (
-                    <span>₹{Number(selectedContract?.dailyBhatta) || 0}/din bhatta</span>
+                    <span>
+                      ₹{Number(selectedContract?.dailyBhatta) || 0}/
+                      {t('perDay')} {t('bhatta')}
+                    </span>
                   )}
                   {selectedContract?.hasHourlyBonus && (
-                    <span>₹{Number(selectedContract?.salaryPerHour) || 0}/ghanta bonus</span>
+                    <span>
+                      ₹{Number(selectedContract?.salaryPerHour) || 0}/
+                      {t('perHour')} {t('bonus')}
+                    </span>
                   )}
                 </div>
               </div>
 
               <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50/80 p-6">
-                <h2 className="text-lg font-semibold text-blue-900">Monthly Summary</h2>
+                <h2 className="text-lg font-semibold text-blue-900">
+                  {t('monthlySummary')}
+                </h2>
                 <p className="text-sm text-blue-700/80">
                   {MONTH_NAMES[selectedMonth - 1]} {selectedYear} · {driverName}
                 </p>
@@ -321,42 +338,46 @@ const OwnerAttendance = () => {
                     <div className="text-2xl font-bold text-green-600">
                       {summary?.presentDays ?? 0}
                     </div>
-                    <div className="text-xs text-gray-600">Present</div>
+                    <div className="text-xs text-gray-600">{t('present')}</div>
                   </div>
                   <div className="rounded-xl bg-white p-4 text-center shadow-sm">
                     <div className="text-2xl font-bold text-red-500">
                       {summary?.absentDays ?? 0}
                     </div>
-                    <div className="text-xs text-gray-600">Absent</div>
+                    <div className="text-xs text-gray-600">{t('absent')}</div>
                   </div>
                   <div className="rounded-xl bg-white p-4 text-center shadow-sm">
                     <div className="text-2xl font-bold text-yellow-600">
                       {summary?.halfDays ?? 0}
                     </div>
-                    <div className="text-xs text-gray-600">Half Day</div>
+                    <div className="text-xs text-gray-600">{t('halfDay')}</div>
                   </div>
                   <div className="rounded-xl bg-white p-4 text-center shadow-sm">
                     <div className="text-2xl font-bold text-blue-700">
                       ₹{summary?.grossTotal ?? 0}
                     </div>
-                    <div className="text-xs text-gray-600">Gross Total</div>
+                    <div className="text-xs text-gray-600">{t('totalEarned')}</div>
                   </div>
                   {showHoursInput && (
                     <div className="rounded-xl bg-white p-4 text-center shadow-sm">
                       <div className="text-2xl font-bold text-gray-900">
                         {summary?.totalHours ?? 0}
                       </div>
-                      <div className="text-xs text-gray-600">Total Hours</div>
+                      <div className="text-xs text-gray-600">{t('hours')}</div>
                     </div>
                   )}
                 </div>
               </div>
 
               <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-6">
-                <h2 className="text-lg font-semibold text-gray-800">Record Add Karo</h2>
+                <h2 className="text-lg font-semibold text-gray-800">
+                  {t('addRecord')}
+                </h2>
                 <div className="mt-4 grid gap-3">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Tarikh</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      {t('selectDate')}
+                    </label>
                     <input
                       type="date"
                       value={form.date}
@@ -377,7 +398,7 @@ const OwnerAttendance = () => {
                           : 'border-gray-200 bg-gray-100 text-gray-600'
                       }`}
                     >
-                      ✅ Present
+                      ✅ {t('present')}
                     </button>
                     <button
                       type="button"
@@ -389,7 +410,7 @@ const OwnerAttendance = () => {
                           : 'border-gray-200 bg-gray-100 text-gray-600'
                       }`}
                     >
-                      🕐 Half Day
+                      🕐 {t('halfDay')}
                     </button>
                     <button
                       type="button"
@@ -401,14 +422,14 @@ const OwnerAttendance = () => {
                           : 'border-gray-200 bg-gray-100 text-gray-600'
                       }`}
                     >
-                      ❌ Absent
+                      ❌ {t('absent')}
                     </button>
                   </div>
 
                   {(selectedContract?.salaryType === 'hourly' || selectedContract?.hasHourlyBonus) && form.status && (
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Aaj kitne ghante kaam kiya?
+                        {t('hoursWorkedToday')}
                       </label>
                       <input
                         type="number"
@@ -425,7 +446,7 @@ const OwnerAttendance = () => {
                   {form.status && (
                     <div className="rounded-xl bg-gray-50 p-3 mt-3">
                       <p className="text-sm font-semibold text-blue-700">
-                        Is din ki salary: ₹{salaryPreview}
+                        {t('todaySalary')}: ₹{salaryPreview}
                       </p>
                     </div>
                   )}
@@ -434,7 +455,7 @@ const OwnerAttendance = () => {
                     <input
                       value={form.note}
                       onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
-                      placeholder="Koi note..."
+                      placeholder={t('addNote')}
                       className="input-field w-full"
                     />
                   </div>
@@ -453,7 +474,7 @@ const OwnerAttendance = () => {
                           hoursWorked: Number(form.hoursWorked) || 0,
                           note: form.note || '',
                         })
-                        toast.success('Record save ho gaya!')
+                        toast.success(t('recordSaved'))
                         setForm((f) => ({ ...f, status: '', hoursWorked: '', note: '' }))
                         const res = await ownerGetRecords({
                           contractId: selectedContractId,
@@ -480,22 +501,28 @@ const OwnerAttendance = () => {
                         s.grossTotal = Math.round(s.grossTotal)
                         setSummary(s)
                       } catch (e) {
-                        toast.error(e.response?.data?.message || 'Save nahi hua')
+                        toast.error(
+                          e.response?.data?.message || t('saveError2')
+                        )
                       } finally {
                         setSaving(false)
                       }
                     }}
                     className="w-full rounded-xl bg-blue-700 py-3 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
                   >
-                    {saving ? 'Save ho raha hai...' : 'Record Save Karo'}
+                    {saving ? t('savingText') : t('saveRecord')}
                   </button>
                 </div>
               </div>
 
               <div className="rounded-2xl border border-gray-100 bg-white p-6">
-                <h2 className="text-lg font-semibold text-gray-800">Mere Records</h2>
+                <h2 className="text-lg font-semibold text-gray-800">
+                  {t('myRecords')}
+                </h2>
                 {records.length === 0 ? (
-                  <div className="py-8 text-center text-gray-400">Is mahine koi record nahi</div>
+                  <div className="py-8 text-center text-gray-400">
+                    {t('noRecordsThisMonth')}
+                  </div>
                 ) : (
                   <div className="mt-4">
                     {records.map((r) => (
@@ -516,10 +543,12 @@ const OwnerAttendance = () => {
                                   : 'bg-yellow-100 text-yellow-700'
                             }`}
                           >
-                            {r.status === 'half_day' ? 'Half Day' : r.status}
+                            {r.status === 'half_day' ? t('halfDay') : r.status}
                           </span>
                           {Number(r.hoursWorked) > 0 && (
-                            <p className="mt-1 text-xs text-gray-600">{Number(r.hoursWorked)} ghante</p>
+                            <p className="mt-1 text-xs text-gray-600">
+                              {Number(r.hoursWorked)} {t('hours')}
+                            </p>
                           )}
                           {r.note && (
                             <p className="mt-1 text-xs italic text-gray-600">{r.note}</p>
@@ -531,12 +560,14 @@ const OwnerAttendance = () => {
                             type="button"
                             disabled={saving}
                             onClick={async () => {
-                              const ok = window.confirm('Pakka delete karein?')
+                              const ok = window.confirm(
+                                t('confirmDelete')
+                              )
                               if (!ok) return
                               try {
                                 setSaving(true)
                                 await ownerDeleteRecord(r._id)
-                                toast.success('Delete ho gaya')
+                                toast.success(t('recordDeleted'))
                                 const res = await ownerGetRecords({
                                   contractId: selectedContractId,
                                   month: selectedMonth,
@@ -562,14 +593,17 @@ const OwnerAttendance = () => {
                                 s.grossTotal = Math.round(s.grossTotal)
                                 setSummary(s)
                               } catch (e) {
-                                toast.error(e.response?.data?.message || 'Delete nahi hua')
+                                toast.error(
+                                  e.response?.data?.message ||
+                                    t('deleteError')
+                                )
                               } finally {
                                 setSaving(false)
                               }
                             }}
                             className="mt-2 text-xs font-semibold text-red-400 hover:text-red-600 disabled:opacity-60"
                           >
-                            Delete
+                            {t('delete')}
                           </button>
                         </div>
                       </div>
@@ -578,36 +612,38 @@ const OwnerAttendance = () => {
                 )}
 
                 <div className="print-area">
-                  <div className="print-heading">ATTENDANCE SHEET</div>
+                  <div className="print-heading">
+                    {t('attendanceSheet').toUpperCase()}
+                  </div>
 
                   <div className="print-row">
-                    <span>Driver:</span>
+                    <span>{t('driver')}:</span>
                     <span>{selectedContract?.driverId?.name}</span>
                   </div>
                   <div className="print-row">
-                    <span>Phone:</span>
+                    <span>{t('phone')}:</span>
                     <span>{selectedContract?.driverId?.phone}</span>
                   </div>
                   <div className="print-row">
-                    <span>Job:</span>
+                    <span>{t('job')}:</span>
                     <span>{selectedContract?.jobId?.title}</span>
                   </div>
                   <div className="print-row">
-                    <span>Vehicle:</span>
+                    <span>{t('vehicle')}:</span>
                     <span>{selectedContract?.jobId?.vehicleType}</span>
                   </div>
                   <div className="print-row">
-                    <span>Salary Type:</span>
+                    <span>{t('salaryType')}:</span>
                     <span>{selectedContract?.salaryType}</span>
                   </div>
                   <div className="print-row">
-                    <span>Month:</span>
+                    <span>{t('month')}:</span>
                     <span>
                       {selectedMonth} / {selectedYear}
                     </span>
                   </div>
                   <div className="print-row">
-                    <span>Owner:</span>
+                    <span>{t('owner')}:</span>
                     <span>{user?.name}</span>
                   </div>
 
@@ -616,12 +652,12 @@ const OwnerAttendance = () => {
                   <table className="print-table">
                     <thead>
                       <tr>
-                        <th>Date</th>
-                        <th>Status</th>
+                        <th>{t('date')}</th>
+                        <th>{t('status')}</th>
                         {(selectedContract?.salaryType === 'hourly' ||
-                          selectedContract?.hasHourlyBonus) && <th>Hours</th>}
-                        <th>Salary</th>
-                        <th>Note</th>
+                          selectedContract?.hasHourlyBonus) && <th>{t('hours')}</th>}
+                        <th>{t('salary')}</th>
+                        <th>{t('notes')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -630,10 +666,10 @@ const OwnerAttendance = () => {
                           <td>{new Date(record.date).toLocaleDateString('en-IN')}</td>
                           <td>
                             {record.status === 'present'
-                              ? 'Present'
+                              ? t('present')
                               : record.status === 'absent'
-                                ? 'Absent'
-                                : 'Half Day'}
+                                ? t('absent')
+                                : t('halfDay')}
                           </td>
                           {(selectedContract?.salaryType === 'hourly' ||
                             selectedContract?.hasHourlyBonus) && (
@@ -652,19 +688,19 @@ const OwnerAttendance = () => {
                     <tbody>
                       <tr>
                         <td>
-                          <strong>Present Days</strong>
+                          <strong>{t('presentDays')}</strong>
                         </td>
                         <td>{summary.presentDays}</td>
                       </tr>
                       <tr>
                         <td>
-                          <strong>Absent Days</strong>
+                          <strong>{t('absentDays')}</strong>
                         </td>
                         <td>{summary.absentDays}</td>
                       </tr>
                       <tr>
                         <td>
-                          <strong>Half Days</strong>
+                          <strong>{t('halfDays')}</strong>
                         </td>
                         <td>{summary.halfDays}</td>
                       </tr>
@@ -672,14 +708,14 @@ const OwnerAttendance = () => {
                         selectedContract?.hasHourlyBonus) && (
                         <tr>
                           <td>
-                            <strong>Total Hours</strong>
+                            <strong>{t('totalHours')}</strong>
                           </td>
                           <td>{summary.totalHours}</td>
                         </tr>
                       )}
                       <tr>
                         <td>
-                          <strong>Total Salary</strong>
+                          <strong>{t('totalSalary')}</strong>
                         </td>
                         <td>
                           <strong>₹{summary.grossTotal}</strong>
@@ -696,7 +732,7 @@ const OwnerAttendance = () => {
                     }}
                   >
                     <div>
-                      <div>Owner Signature:</div>
+                      <div>{t('ownerSignature')}:</div>
                       <div
                         style={{
                           marginTop: '30px',
@@ -709,7 +745,7 @@ const OwnerAttendance = () => {
                       </div>
                     </div>
                     <div>
-                      <div>Driver Signature:</div>
+                      <div>{t('driverSignature')}:</div>
                       <div
                         style={{
                           marginTop: '30px',
@@ -733,7 +769,7 @@ const OwnerAttendance = () => {
                       paddingTop: '8px',
                     }}
                   >
-                    Generated by DriverApp —{' '}
+                    {t('generatedBy')} —{' '}
                     {new Date().toLocaleDateString('en-IN')}
                   </div>
                 </div>
@@ -759,7 +795,7 @@ const OwnerAttendance = () => {
                     gap: '8px',
                   }}
                 >
-                  📄 Attendance PDF Download Karo
+                  📄 {t('downloadPDF')}
                 </button>
               </div>
             </>

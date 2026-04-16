@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import {
   useNavigate,
 } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import {
   getOwnerApplications,
@@ -35,6 +36,7 @@ const statusBadgeClass = (s) => {
 }
 
 const OwnerApplications = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [applications, setApplications] = useState([])
   const [jobs, setJobs] = useState([])
@@ -91,12 +93,12 @@ const OwnerApplications = () => {
       setJobs(jobsRes.data?.jobs ?? [])
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Data load nahi ho paya.'
+        e.response?.data?.message || t('dataLoadError2')
       )
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     loadData()
@@ -130,11 +132,11 @@ const OwnerApplications = () => {
     setAcceptId(id)
     try {
       await acceptApplication(id)
-      toast.success('Driver accept kar liya!')
+      toast.success(t('driverAccepted'))
       await loadData()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Accept nahi ho paya.'
+        e.response?.data?.message || t('acceptError2')
       )
     } finally {
       setAcceptId(null)
@@ -145,11 +147,11 @@ const OwnerApplications = () => {
     setRejectId(id)
     try {
       await rejectApplication(id)
-      toast.success('Application reject kar di')
+      toast.success(t('applicationRejected'))
       await loadData()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Reject nahi ho paya.'
+        e.response?.data?.message || t('rejectError3')
       )
     } finally {
       setRejectId(null)
@@ -169,7 +171,7 @@ const OwnerApplications = () => {
       console.log('Job ID:', application.jobId)
 
       if (!driverId) {
-        toast.error('Driver ID nahi mila')
+        toast.error(t('driverIdError'))
         return
       }
 
@@ -177,7 +179,7 @@ const OwnerApplications = () => {
       const u = res.data?.user
       const p = res.data?.profile || {}
       if (!u) {
-        toast.error('Profile load nahi hua')
+        toast.error(t('profileLoadError3'))
         return
       }
 
@@ -212,7 +214,7 @@ const OwnerApplications = () => {
       setShowModal(true)
     } catch (error) {
       console.error(error)
-      toast.error('Profile load nahi hua')
+      toast.error(t('profileLoadError3'))
     } finally {
       setProfileLoadingId(null)
     }
@@ -223,19 +225,28 @@ const OwnerApplications = () => {
     if (cid) navigate(`/owner/contracts/${cid}`)
   }
 
+  const applicationStatusLabel = (s) => {
+    if (s === 'pending') return t('pending')
+    if (s === 'rejected') return t('rejected')
+    if (s === 'accepted') return t('approved')
+    if (s === 'hired') return t('hired')
+    if (s === 'shortlisted') return t('shortlisted')
+    return s
+  }
+
   const contractStatusBadge = (app) => {
     if (!app.contractId) return null
     if (app.contractStatus === 'active') {
       return (
         <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
-          Contract active
+          {t('contractActive')}
         </span>
       )
     }
     if (app.contractStatus === 'sent') {
       return (
         <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
-          Letter bheja — sign wait
+          {t('contractSent')}
         </span>
       )
     }
@@ -246,7 +257,7 @@ const OwnerApplications = () => {
     setCancelId(id)
     try {
       await cancelApplication(id)
-      toast.success('Cancel ho gaya')
+      toast.success(t('cancelDone'))
       setShowModal(false)
       setSelectedDriver(null)
       setSelectedApplication(null)
@@ -254,7 +265,7 @@ const OwnerApplications = () => {
       await loadData()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Cancel nahi ho paya.'
+        e.response?.data?.message || t('cancelError')
       )
     } finally {
       setCancelId(null)
@@ -268,14 +279,14 @@ const OwnerApplications = () => {
         <div className="p-4 md:p-6">
           <div className="mb-6 max-w-md">
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Job filter
+              {t('jobFilter')}
             </label>
             <select
               value={jobFilter}
               onChange={(e) => setJobFilter(e.target.value)}
               className="input-field w-full"
             >
-              <option value="">Sab Jobs</option>
+              <option value="">{t('allJobs')}</option>
               {jobs.map((j) => (
                 <option key={j._id} value={j._id}>
                   {j.title}
@@ -285,10 +296,10 @@ const OwnerApplications = () => {
           </div>
 
           {loading ? (
-            <p className="text-sm text-gray-500">Loading...</p>
+            <p className="text-sm text-gray-500">{t('loading')}</p>
           ) : filteredApplications.length === 0 ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center text-gray-600">
-              Abhi koi application nahi aayi
+              {t('noApplications')}
             </div>
           ) : (
             <>
@@ -337,15 +348,15 @@ const OwnerApplications = () => {
                             <span className="text-sm font-medium text-gray-800">
                               {d?.totalRatings > 0
                                 ? d?.avgRating
-                                : 'New'}
+                                : t('newDriverLabel')}
                             </span>
                             <span className="text-xs text-gray-400">
-                              ({d?.totalRatings ?? 0} reviews)
+                              ({d?.totalRatings ?? 0} {t('reviewsLabel')})
                             </span>
                           </div>
                           <p className="mt-2 text-sm text-gray-500">
                             {prof?.experience != null
-                              ? `${prof.experience} saal experience`
+                              ? `${prof.experience} ${t('experienceYears')}`
                               : '—'}
                           </p>
                           <p className="text-sm text-gray-500">
@@ -364,7 +375,7 @@ const OwnerApplications = () => {
                           {job?.title || 'Job'}
                         </p>
                         <p className="mt-1 text-xs text-gray-400">
-                          Applied {formatApplied(app.appliedAt)}
+                          {t('appliedOnLabel')} {formatApplied(app.appliedAt)}
                         </p>
                       </div>
 
@@ -372,7 +383,7 @@ const OwnerApplications = () => {
                         <span
                           className={`inline-flex self-start rounded-full px-3 py-1 text-xs font-semibold capitalize lg:self-end ${statusBadgeClass(app.status)}`}
                         >
-                          {app.status}
+                          {applicationStatusLabel(app.status)}
                         </span>
                         <button
                           type="button"
@@ -381,8 +392,8 @@ const OwnerApplications = () => {
                           className="rounded-lg border border-blue-600 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 disabled:opacity-60"
                         >
                           {profileLoadingId === app._id
-                            ? 'Loading...'
-                            : 'Profile Dekho'}
+                            ? t('loading')
+                            : t('profileViewBtn')}
                         </button>
                         {app.status === 'pending' && (
                           <div className="flex flex-wrap gap-2">
@@ -394,7 +405,7 @@ const OwnerApplications = () => {
                             >
                               {acceptId === app._id
                                 ? '…'
-                                : 'Accept Karo'}
+                                : t('acceptBtn')}
                             </button>
                             <button
                               type="button"
@@ -404,7 +415,7 @@ const OwnerApplications = () => {
                             >
                               {rejectId === app._id
                                 ? '…'
-                                : 'Reject Karo'}
+                                : t('rejectBtn4')}
                             </button>
                           </div>
                         )}
@@ -416,7 +427,7 @@ const OwnerApplications = () => {
                               onClick={() => goToContract(app)}
                               className="rounded-lg border border-blue-700 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
                             >
-                              Contract Dekho
+                              {t('viewContractBtn')}
                             </button>
                           </div>
                         )}
@@ -433,7 +444,7 @@ const OwnerApplications = () => {
                               >
                                 {cancelId === app._id
                                   ? '…'
-                                  : 'Accept Cancel Karo'}
+                                  : t('cancelAcceptBtn')}
                               </button>
                             )}
                             {app.contractId ? (
@@ -444,7 +455,7 @@ const OwnerApplications = () => {
                                   onClick={() => goToContract(app)}
                                   className="rounded-lg border border-blue-700 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
                                 >
-                                  Contract Dekho
+                                  {t('viewContractBtn')}
                                 </button>
                               </div>
                             ) : (
@@ -457,7 +468,7 @@ const OwnerApplications = () => {
                                 }
                                 className="rounded-lg bg-blue-700 px-4 py-2 text-sm text-white hover:bg-blue-800"
                               >
-                                Joining Letter Bhejo
+                                {t('createContract')}
                               </button>
                             )}
                           </>
@@ -472,7 +483,7 @@ const OwnerApplications = () => {
               {terminatedApps.length > 0 ? (
                 <div className="border-t pt-6 mt-6">
                   <h2 className="mb-3 text-lg font-semibold text-gray-600">
-                    Purane Drivers
+                    {t('oldDrivers')}
                   </h2>
                   <div className="space-y-3">
                     {terminatedApps.map((app) => {
@@ -502,7 +513,7 @@ const OwnerApplications = () => {
                               </div>
                             </div>
                             <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">
-                              Resign Ho Gaya
+                              {t('resignedLabel')}
                             </span>
                           </div>
 
@@ -513,14 +524,16 @@ const OwnerApplications = () => {
                               onClick={() => handleViewProfile(app)}
                               className="border border-gray-300 text-gray-600 text-xs px-3 py-1 rounded-lg hover:bg-white disabled:opacity-60"
                             >
-                              {profileLoadingId === app._id ? 'Loading...' : 'Profile Dekho'}
+                              {profileLoadingId === app._id
+                                ? t('loading')
+                                : t('profileViewBtn')}
                             </button>
                             <button
                               type="button"
                               onClick={() => navigate('/owner/messages')}
                               className="border border-gray-300 text-gray-600 text-xs px-3 py-1 rounded-lg hover:bg-white"
                             >
-                              Message Karo
+                              {t('messageBtn2')}
                             </button>
                           </div>
                         </div>
@@ -550,7 +563,7 @@ const OwnerApplications = () => {
             setAcceptId(selectedApplication._id)
             try {
               await acceptApplication(selectedApplication._id)
-              toast.success('Driver accept kar liya!')
+              toast.success(t('driverAccepted'))
               setShowModal(false)
               setSelectedDriver(null)
               setSelectedApplication(null)
@@ -559,7 +572,7 @@ const OwnerApplications = () => {
             } catch (e) {
               toast.error(
                 e.response?.data?.message ||
-                  'Accept nahi ho paya.'
+                  t('acceptError2')
               )
             } finally {
               setAcceptId(null)
@@ -570,7 +583,7 @@ const OwnerApplications = () => {
             setRejectId(selectedApplication._id)
             try {
               await rejectApplication(selectedApplication._id)
-              toast.success('Application reject kar di')
+              toast.success(t('applicationRejected'))
               setShowModal(false)
               setSelectedDriver(null)
               setSelectedApplication(null)
@@ -579,7 +592,7 @@ const OwnerApplications = () => {
             } catch (e) {
               toast.error(
                 e.response?.data?.message ||
-                  'Reject nahi ho paya.'
+                  t('rejectError3')
               )
             } finally {
               setRejectId(null)

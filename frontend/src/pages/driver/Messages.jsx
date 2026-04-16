@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
@@ -18,6 +19,7 @@ const lastPreview = (c) =>
     : c.lastMessage?.message ?? ''
 
 const DriverMessages = () => {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [conversations, setConversations] = useState([])
@@ -235,7 +237,7 @@ const DriverMessages = () => {
       selectedConv.otherUserId
 
     if (!receiverId) {
-      toast.error('Receiver nahi mila')
+      toast.error(t('receiverNotFound'))
       return
     }
 
@@ -263,7 +265,7 @@ const DriverMessages = () => {
       fetchConversations()
     } catch (error) {
       console.error(error)
-      toast.error('Message nahi gaya')
+      toast.error(t('messageSendError'))
       setNewMessage(msgText)
     } finally {
       setSending(false)
@@ -316,7 +318,7 @@ const DriverMessages = () => {
       console.log('Fetching owner:', ownerId)
 
       if (!ownerId) {
-        toast.error('Owner ID nahi mila')
+        toast.error(t('ownerIdError'))
         return
       }
 
@@ -332,7 +334,7 @@ const DriverMessages = () => {
       console.error('Owner profile error:', err)
       toast.error(
         err.response?.data?.message ||
-          'Profile load nahi hua'
+          t('profileLoadError2')
       )
     } finally {
       setProfileLoading(false)
@@ -344,7 +346,7 @@ const DriverMessages = () => {
       const jobId =
         selectedConv?.jobId?._id || selectedConv?.jobId
       if (!jobId || jobId === 'none') {
-        toast.error('Job detail nahi mili')
+        toast.error(t('jobDetailError'))
         return
       }
 
@@ -352,7 +354,7 @@ const DriverMessages = () => {
       setJobDetailData(res.data.job)
       setShowJobDetail(true)
     } catch (err) {
-      toast.error('Job detail load nahi hui')
+      toast.error(t('jobDetailError'))
     }
   }
 
@@ -406,7 +408,7 @@ const DriverMessages = () => {
               flexShrink: 0,
             }}
           >
-            Messages
+            {t('messages')}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {convLoading ? (
@@ -418,7 +420,7 @@ const DriverMessages = () => {
                   fontSize: '14px',
                 }}
               >
-                Load ho raha hai...
+                {t('loading')}
               </div>
             ) : (
               conversations.map((conv) => {
@@ -574,7 +576,7 @@ const DriverMessages = () => {
                 >
                   💬
                 </div>
-                Koi conversation nahi
+                {t('noMessages')}
               </div>
             )}
           </div>
@@ -612,9 +614,9 @@ const DriverMessages = () => {
                     padding: '4px',
                     flexShrink: 0,
                   }}
-                  aria-label="Wapas"
+                  aria-label={t('backBtn')}
                 >
-                  ← Wapas
+                  {t('backBtn')}
                 </button>
                 <button
                   type="button"
@@ -663,7 +665,7 @@ const DriverMessages = () => {
                     title="Profile dekho"
                   >
                     {profileLoading
-                      ? 'Load ho raha hai...'
+                      ? t('loading')
                       : chatHeaderName}
                   </button>
                   <button
@@ -718,7 +720,7 @@ const DriverMessages = () => {
                       color: '#9CA3AF',
                     }}
                   >
-                    Pehla message bhejo!
+                    {t('sendFirstMessage')}
                   </div>
                 ) : (
                   messages.map((msg, i) => {
@@ -784,7 +786,7 @@ const DriverMessages = () => {
                     setNewMessage(e.target.value)
                   }
                   onKeyDown={handleKeyDown}
-                  placeholder="Message likhein..."
+                  placeholder={t('messagePlaceholder')}
                   style={{
                     flex: 1,
                     minWidth: 0,
@@ -817,7 +819,7 @@ const DriverMessages = () => {
                     justifyContent: 'center',
                     flexShrink: 0,
                   }}
-                  aria-label="Send"
+                  aria-label={t('send')}
                 >
                   ➤
                 </button>
@@ -836,7 +838,7 @@ const DriverMessages = () => {
               }}
             >
               <div style={{ fontSize: '48px' }}>💬</div>
-              <div>Kisi se baat karein</div>
+              <div>{t('startConversation')}</div>
             </div>
           )}
         </div>
@@ -847,7 +849,7 @@ const DriverMessages = () => {
           <div className="h-full w-full overflow-y-auto bg-white md:w-96">
             <div className="flex items-center justify-between border-b p-5">
               <h2 className="text-lg font-semibold">
-                Owner Profile
+                {t('ownerProfile')}
               </h2>
               <button
                 type="button"
@@ -888,8 +890,8 @@ const DriverMessages = () => {
                   }`}
                 >
                   {ownerProfileData.user?.isVerified
-                    ? '✓ Verified'
-                    : 'Not Verified'}
+                    ? t('verified')
+                    : t('notVerified')}
                 </span>
                 {ownerProfileData.profile?.companyName && (
                   <p className="mt-1 font-medium text-blue-700">
@@ -901,7 +903,7 @@ const DriverMessages = () => {
               {ownerProfileData.profile?.about && (
                 <div className="mb-5">
                   <h4 className="mb-2 font-semibold text-gray-800">
-                    About
+                    {t('aboutLabel')}
                   </h4>
                   <p className="text-sm text-gray-600">
                     {ownerProfileData.profile.about}
@@ -911,7 +913,7 @@ const DriverMessages = () => {
 
               <div className="mb-5">
                 <h4 className="mb-2 font-semibold text-gray-800">
-                  Gadiyaan
+                  {t('vehicles')}
                 </h4>
                 {ownerProfileData.vehicles?.length > 0 ? (
                   ownerProfileData.vehicles.map((v, i) => (
@@ -932,7 +934,7 @@ const DriverMessages = () => {
                   ))
                 ) : (
                   <p className="text-sm text-gray-400">
-                    Koi gadi nahi
+                    {t('noVehicles')}
                   </p>
                 )}
               </div>
@@ -962,7 +964,7 @@ const DriverMessages = () => {
           <div className="h-full w-full overflow-y-auto bg-white shadow-2xl md:w-96">
             <div className="flex items-center justify-between border-b p-5">
               <h2 className="text-lg font-semibold">
-                Job Detail
+                {t('jobDetail')}
               </h2>
               <button
                 type="button"
@@ -989,23 +991,23 @@ const DriverMessages = () => {
               <div className="mb-5 grid grid-cols-2 gap-4">
                 <div className="rounded-xl bg-gray-50 p-3">
                   <div className="mb-1 text-xs text-gray-500">
-                    Salary
+                    {t('salaryLabel')}
                   </div>
                   <div className="font-bold text-green-700">
-                    ₹{jobDetailData.salaryPerDay}/din
+                    ₹{jobDetailData.salaryPerDay}/{t('perDay')}
                   </div>
                 </div>
                 <div className="rounded-xl bg-gray-50 p-3">
                   <div className="mb-1 text-xs text-gray-500">
-                    Duration
+                    {t('durationLabel')}
                   </div>
                   <div className="font-bold">
-                    {jobDetailData.duration} din
+                    {jobDetailData.duration} {t('durationDays')}
                   </div>
                 </div>
                 <div className="rounded-xl bg-gray-50 p-3">
                   <div className="mb-1 text-xs text-gray-500">
-                    Start Date
+                    {t('startDateLabel')}
                   </div>
                   <div className="text-sm font-medium">
                     {jobDetailData.startDate
@@ -1017,7 +1019,7 @@ const DriverMessages = () => {
                 </div>
                 <div className="rounded-xl bg-gray-50 p-3">
                   <div className="mb-1 text-xs text-gray-500">
-                    Total Kamayi
+                    {t('totalEarnings')}
                   </div>
                   <div className="font-bold text-green-700">
                     ₹
@@ -1030,7 +1032,7 @@ const DriverMessages = () => {
 
               <div className="mb-4">
                 <div className="mb-1 text-sm text-gray-500">
-                  📍 Location
+                  📍 {t('locationLabel')}
                 </div>
                 <div className="font-medium">
                   {jobDetailData.location?.state},{' '}
@@ -1045,7 +1047,7 @@ const DriverMessages = () => {
               {jobDetailData.description && (
                 <div>
                   <div className="mb-2 font-semibold text-gray-700">
-                    Kaam ki Details
+                    {t('jobDetailsLabel')}
                   </div>
                   <p className="text-sm text-gray-600">
                     {jobDetailData.description}

@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import API from '../../api/axios'
 import { setAuth } from '../../utils/helpers'
+import { useTranslation } from 'react-i18next'
 
 const AdminLogin = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -20,15 +22,15 @@ const AdminLogin = () => {
       })
       const u = res.data?.user
       if (u?.role !== 'admin') {
-        toast.error('Admin access nahi hai')
+        toast.error(t('adminAccessError'))
         return
       }
       setAuth(res.data.token, u)
-      toast.success('Welcome Admin')
+      toast.success(t('welcomeAdmin'))
       navigate('/admin/dashboard')
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Login nahi hua'
+        err.response?.data?.message || t('loginError')
       )
     } finally {
       setLoading(false)
@@ -43,16 +45,16 @@ const AdminLogin = () => {
             DriverApp Admin
           </span>
           <h1 className="mt-3 text-2xl font-bold text-gray-900">
-            Admin Login
+            {t('adminLoginTitle')}
           </h1>
           <p className="mt-1 text-sm text-gray-600">
-            Phone + password (admin account)
+            {t('adminLoginSubtitle')}
           </p>
         </div>
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Phone
+              {t('phoneLabel2')}
             </label>
             <input
               type="tel"
@@ -67,7 +69,7 @@ const AdminLogin = () => {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Password
+              {t('passwordLabel')}
             </label>
             <input
               type="password"
@@ -83,7 +85,7 @@ const AdminLogin = () => {
             disabled={loading}
             className="w-full rounded-xl bg-purple-700 py-3 text-sm font-semibold text-white shadow-lg hover:bg-purple-800 disabled:opacity-50"
           >
-            {loading ? '…' : 'Login'}
+            {loading ? '…' : t('loginBtn')}
           </button>
         </form>
       </div>

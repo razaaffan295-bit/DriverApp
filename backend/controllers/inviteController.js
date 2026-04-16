@@ -110,8 +110,8 @@ const sendInvite = async (req, res) => {
 
     await Notification.create({
       userId: driver._id,
-      title: 'Kaam Ka Offer Aaya!',
-      message: `${req.user.name} ne aapko directly kaam pe invite kiya hai. Accept ya reject karein.`,
+      title: 'Work Invite',
+      message: `${req.user.name} invited you to a job. Please accept or reject the invite.`,
       type: 'new_application',
       link: '/driver/invites',
       isRead: false,
@@ -289,8 +289,8 @@ const acceptInvite = async (req, res) => {
 
     await Notification.create({
       userId: invite.ownerId._id,
-      title: 'Driver ne Invite Accept Kiya!',
-      message: `${req.user.name} ne aapka invite accept kar liya. Kaam shuru ho gaya!`,
+      title: 'Invite Accepted',
+      message: `${req.user.name} accepted your invite. Work has started.`,
       type: 'application_accepted',
       link: '/owner/applications',
       isRead: false,
@@ -333,8 +333,8 @@ const rejectInvite = async (req, res) => {
 
     await Notification.create({
       userId: invite.ownerId._id,
-      title: 'Driver ne Invite Reject Kiya',
-      message: `${req.user.name} ne invite reject kar diya. ${reason || ''}`,
+      title: 'Invite Rejected',
+      message: `${req.user.name} rejected the invite. ${reason || ''}`,
       type: 'application_accepted',
       link: '/owner/applications',
       isRead: false,

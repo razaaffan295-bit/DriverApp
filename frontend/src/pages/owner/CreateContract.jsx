@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
 import {
@@ -22,6 +23,7 @@ const fmtDate = (d) => {
 }
 
 const CreateContract = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const jobId = searchParams.get('jobId')
@@ -69,12 +71,12 @@ const CreateContract = () => {
     } catch (e) {
       console.error(e)
       toast.error(
-        e.response?.data?.message || 'Data load nahi hua'
+        e.response?.data?.message || t('dataLoadError3')
       )
     } finally {
       setPageLoading(false)
     }
-  }, [jobId, driverId])
+  }, [jobId, driverId, t])
 
   useEffect(() => {
     loadPage()
@@ -110,19 +112,19 @@ const CreateContract = () => {
   const dailyBhatta = Number(job?.dailyBhatta) || 0
 
   const salaryTypeLabel = (() => {
-    if (vehicleCategory === 'transport') return 'Monthly + Expenses'
-    if (salaryType === 'daily') return 'Per Day'
-    if (salaryType === 'monthly') return 'Per Month'
-    if (salaryType === 'hourly') return 'Per Hour'
-    return 'Per Day'
+    if (vehicleCategory === 'transport') return t('monthlyExpenses')
+    if (salaryType === 'daily') return t('perDayLabel')
+    if (salaryType === 'monthly') return t('perMonthLabel')
+    if (salaryType === 'hourly') return t('perHourLabel')
+    return t('perDayLabel')
   })()
 
   const rateLine = (() => {
-    if (vehicleCategory === 'transport') return `Monthly Salary: ₹${salaryPerMonth}`
-    if (salaryType === 'daily') return `Daily Rate: ₹${salaryPerDay}`
-    if (salaryType === 'monthly') return `Monthly Salary: ₹${salaryPerMonth}`
-    if (salaryType === 'hourly') return `Hourly Rate: ₹${salaryPerHour}`
-    return `Daily Rate: ₹${salaryPerDay}`
+    if (vehicleCategory === 'transport') return `${t('monthlySalary')}: ₹${salaryPerMonth}`
+    if (salaryType === 'daily') return `${t('dailyRate')}: ₹${salaryPerDay}`
+    if (salaryType === 'monthly') return `${t('monthlySalary')}: ₹${salaryPerMonth}`
+    if (salaryType === 'hourly') return `${t('hourlyRate')}: ₹${salaryPerHour}`
+    return `${t('dailyRate')}: ₹${salaryPerDay}`
   })()
 
   const duration = Number(job?.duration) || 0
@@ -134,7 +136,7 @@ const CreateContract = () => {
       return salaryPerMonth * Math.ceil(duration / 30)
     }
     if (salaryType === 'hourly') {
-      return 'Ghante ke hisaab se'
+      return t('hourlyBasis')
     }
     return salaryPerDay * duration
   })()
@@ -142,7 +144,7 @@ const CreateContract = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.terms.trim() || !form.safetyConditions.trim()) {
-      toast.error('Dono fields zaroori hain')
+      toast.error(t('bothFieldsRequired'))
       return
     }
     setLoading(true)
@@ -154,13 +156,13 @@ const CreateContract = () => {
         safetyConditions: form.safetyConditions.trim(),
       })
       toast.success(
-        'Joining letter bhej diya! Driver ke sign karne ka wait karein.'
+        t('contractSent')
       )
       navigate('/owner/applications')
     } catch (err) {
       toast.error(
         err.response?.data?.message ||
-          'Bhej nahi paye. Dobara try karein.'
+          t('contractSendError')
       )
     } finally {
       setLoading(false)
@@ -174,20 +176,20 @@ const CreateContract = () => {
         <div className="mx-auto max-w-4xl px-4 py-6">
           {!jobId || !driverId ? (
             <p className="text-center text-gray-500">
-              Job ya Driver ID missing. Applications se wapas aayein.
+              {t('jobOrDriverMissing')}
             </p>
           ) : pageLoading ? (
-            <p className="text-center text-gray-500">Load ho raha hai...</p>
+            <p className="text-center text-gray-500">{t('loading')}</p>
           ) : !job || !driver ? (
             <p className="text-center text-gray-500">
-              Job ya driver load nahi ho paya.
+              {t('jobOrDriverLoadError')}
             </p>
           ) : (
             <>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                   <h2 className="mb-3 text-sm font-semibold text-blue-700">
-                    Job Info
+                    {t('jobInfoLabel')}
                   </h2>
                   <p className="font-semibold text-gray-900">
                     {job.title}
@@ -201,21 +203,21 @@ const CreateContract = () => {
                   </p>
                   <p className="mt-2 text-sm font-medium text-blue-700">
                     {vehicleCategory === 'transport'
-                      ? `₹${salaryPerMonth}/month`
+                      ? `₹${salaryPerMonth}/${t('perMonth')}`
                       : salaryType === 'hourly'
-                        ? `₹${salaryPerHour}/hour`
+                        ? `₹${salaryPerHour}/${t('perHour')}`
                         : salaryType === 'monthly'
-                          ? `₹${salaryPerMonth}/month`
-                          : `₹${salaryPerDay}/din`}{' '}
-                    · {job.duration} din
+                          ? `₹${salaryPerMonth}/${t('perMonth')}`
+                          : `₹${salaryPerDay}/${t('perDay')}`}{' '}
+                    · {job.duration} {t('days')}
                   </p>
                   <p className="text-xs text-gray-500">
-                    Start: {fmtDate(job.startDate)}
+                    {t('startLabel3')}: {fmtDate(job.startDate)}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                   <h2 className="mb-3 text-sm font-semibold text-blue-700">
-                    Driver Info
+                    {t('driverInfoLabel')}
                   </h2>
                   <p className="font-semibold text-gray-900">
                     {driver.name}
@@ -235,17 +237,20 @@ const CreateContract = () => {
                     ))}
                   </div>
                   <p className="mt-2 text-sm text-gray-600">
-                    Experience: {driver.experience ?? '—'} saal
+                    {t('experienceLabel3')}: {driver.experience ?? '—'}{' '}
+                    {t('yearsLabel')}
                   </p>
                   <p className="text-sm text-gray-600">
-                    License: {driver.licenseType || '—'}
+                    {t('licenseLabel')}: {driver.licenseType || '—'}
                   </p>
                 </div>
               </div>
 
               <div className="mt-4 rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-600">
                 <p>
-                  <span className="text-gray-500">Salary Type:</span>{' '}
+                  <span className="text-gray-500">
+                    {t('salaryTypeLabel3')}:
+                  </span>{' '}
                   {salaryTypeLabel}
                 </p>
                 <p>
@@ -254,20 +259,22 @@ const CreateContract = () => {
                 </p>
                 {dailyBhatta > 0 && vehicleCategory !== 'transport' && (
                   <p>
-                    <span className="text-gray-500">Daily Bhatta:</span> ₹
+                    <span className="text-gray-500">{t('bhatta')}:</span> ₹
                     {dailyBhatta}
                   </p>
                 )}
                 <p>
-                  <span className="text-gray-500">Duration:</span>{' '}
-                  {job.duration} din
+                  <span className="text-gray-500">{t('duration')}:</span>{' '}
+                  {job.duration} {t('days')}
                 </p>
                 <p>
-                  <span className="text-gray-500">Start Date:</span>{' '}
+                  <span className="text-gray-500">{t('startDate')}:</span>{' '}
                   {fmtDate(job.startDate)}
                 </p>
                 <p>
-                  <span className="text-gray-500">Work Location:</span>{' '}
+                  <span className="text-gray-500">
+                    {t('workLocationLabel')}:
+                  </span>{' '}
                   {workLoc}
                 </p>
               </div>
@@ -277,11 +284,11 @@ const CreateContract = () => {
                 className="mt-6 rounded-2xl border border-gray-100 bg-white p-6"
               >
                 <h2 className="mb-4 text-lg font-semibold text-gray-800">
-                  Joining Letter Details
+                  {t('createContract')}
                 </h2>
                 <label className="block">
                   <span className="text-sm font-medium text-gray-700">
-                    Kaam ki Shartein
+                    {t('termsAndConditions')}
                   </span>
                   <textarea
                     required
@@ -303,7 +310,7 @@ const CreateContract = () => {
                 </label>
                 <label className="mt-4 block">
                   <span className="text-sm font-medium text-gray-700">
-                    Safety Conditions
+                    {t('safetyConditionsLabel2')}
                   </span>
                   <textarea
                     required
@@ -325,7 +332,7 @@ const CreateContract = () => {
 
                 <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-6">
                   <h3 className="mb-3 font-semibold text-blue-900">
-                    Preview
+                    {t('previewLabel')}
                   </h3>
                   <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-gray-800 md:text-sm">
                     {`JOINING LETTER
@@ -346,10 +353,10 @@ ${rateLine}
 ${dailyBhatta > 0 && vehicleCategory !== 'transport' ? `Daily Bhatta: ₹${dailyBhatta}\n` : ''}Total Kamayi: ${typeof totalK === 'string' ? totalK : `₹${totalK}`}
 
 Shartein:
-${form.terms || '(likhein...)'}
+${form.terms || t('writingProgress')}
 
 Safety Conditions:
-${form.safetyConditions || '(likhein...)'}
+${form.safetyConditions || t('writingProgress')}
 
 Dono parties is contract se agree hain.
 
@@ -363,7 +370,7 @@ Driver Signature: ____________`}
                   disabled={loading}
                   className="mt-6 w-full rounded-xl bg-blue-700 py-3 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60 md:w-auto md:px-8"
                 >
-                  {loading ? 'Bhej raha hai...' : 'Joining Letter Bhejo'}
+                  {loading ? t('loading') : t('submit')}
                 </button>
               </form>
             </>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import { getDriverContracts } from '../../api/contractAPI'
 import { getMyRatings, giveRating } from '../../api/ratingAPI'
@@ -24,6 +25,7 @@ const StarDisplay = ({ score, size = 'text-lg' }) => {
 }
 
 const DriverRatings = () => {
+  const { t } = useTranslation()
   const [tab, setTab] = useState('mine')
   const [loading, setLoading] = useState(true)
   const [contractsLoading, setContractsLoading] = useState(false)
@@ -65,12 +67,12 @@ const DriverRatings = () => {
       setReviewsByContract(rv)
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Load nahi hua'
+        e.response?.data?.message || t('ratingsLoadError')
       )
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const loadContractsForDriver = useCallback(async () => {
     setContractsLoading(true)
@@ -82,13 +84,13 @@ const DriverRatings = () => {
       setContracts(list)
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Contracts nahi mile'
+        e.response?.data?.message || t('contractsLoadError')
       )
       setContracts([])
     } finally {
       setContractsLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (tab === 'mine') loadMine()
@@ -122,14 +124,14 @@ const DriverRatings = () => {
         score,
         review: reviewText || '',
       })
-      toast.success('Rating de di!')
+      toast.success(t('ratingSubmitted'))
       const id = String(contract._id)
       setStarPick((p) => ({ ...p, [id]: 0 }))
       setReviewDrafts((r) => ({ ...r, [id]: '' }))
       await loadMine()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Rating nahi gayi'
+        e.response?.data?.message || t('ratingError')
       )
     } finally {
       setSubmittingId(null)
@@ -151,7 +153,7 @@ const DriverRatings = () => {
                   : 'bg-gray-100 text-gray-600'
               }`}
             >
-              Meri Ratings
+              {t('myRatings')}
             </button>
             <button
               type="button"
@@ -162,7 +164,7 @@ const DriverRatings = () => {
                   : 'bg-gray-100 text-gray-600'
               }`}
             >
-              Rating Do
+              {t('giveRating')}
             </button>
           </div>
 
@@ -175,7 +177,7 @@ const DriverRatings = () => {
               <>
                 <div className="mb-6 rounded-2xl bg-green-50 p-6 text-center">
                   <p className="text-sm text-green-800">
-                    Average rating
+                    {t('rating')}
                   </p>
                   <p className="text-5xl font-bold text-green-700">
                     {avgScore}
@@ -187,13 +189,13 @@ const DriverRatings = () => {
                     />
                   </div>
                   <p className="mt-2 text-sm text-green-900">
-                    {totalRatings} reviews
+                    {totalRatings} {t('review')}
                   </p>
                 </div>
 
                 <div className="mb-6 space-y-2 rounded-2xl border border-gray-100 bg-white p-4">
                   <p className="text-xs font-semibold text-gray-600">
-                    Star breakdown
+                    {t('starBreakdown')}
                   </p>
                   {[5, 4, 3, 2, 1].map((s) => (
                     <div
@@ -219,11 +221,11 @@ const DriverRatings = () => {
                 </div>
 
                 <h3 className="mb-3 font-semibold text-gray-800">
-                  Owner se reviews
+                  {t('reviewsFromOwner')}
                 </h3>
                 {received.length === 0 ? (
                   <p className="text-center text-gray-500">
-                    Abhi koi rating nahi mili
+                    {t('noRatings')}
                   </p>
                 ) : (
                   <ul className="space-y-3">
@@ -259,7 +261,7 @@ const DriverRatings = () => {
                                 </p>
                               ) : null}
                               <p className="mt-1 text-xs text-gray-500">
-                                Job:{' '}
+                                {t('job')}:{' '}
                                 {r.jobId?.title || '—'} ·{' '}
                                 {r.jobId?.vehicleType || '—'}
                               </p>
@@ -275,11 +277,11 @@ const DriverRatings = () => {
                 )}
 
                 <h3 className="mb-3 mt-8 font-semibold text-gray-800">
-                  Maine owners ko diye
+                  {t('ratingsGiven')}
                 </h3>
                 {given.length === 0 ? (
                   <p className="text-sm text-gray-500">
-                    Abhi koi rating nahi di
+                    {t('noRatingsGiven')}
                   </p>
                 ) : (
                   <ul className="space-y-2">
@@ -307,11 +309,11 @@ const DriverRatings = () => {
           ) : (
             <>
               <p className="mb-4 text-sm font-medium text-gray-800">
-                Owner ko rate karo (active / complete / terminate):
+                {t('rateOwner')}
               </p>
               {contracts.length === 0 ? (
                 <p className="text-gray-500">
-                  Koi active / complete / terminate contract nahi
+                  {t('noContracts')}
                 </p>
               ) : (
                 contracts.map((c) => {
@@ -347,9 +349,10 @@ const DriverRatings = () => {
                             {c.jobId?.vehicleType}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {c.duration} din · start{' '}
+                            {c.duration} {t('days')} ·{' '}
+                            {t('startLabel2')}{' '}
                             {fmtDate(c.startDate)} · ₹
-                            {c.salaryPerDay}/din
+                            {c.salaryPerDay}/{t('perDayShort')}
                           </p>
                         </div>
                       </div>
@@ -357,7 +360,7 @@ const DriverRatings = () => {
                       {done ? (
                         <div className="mt-4 rounded-xl bg-green-50 p-3 text-sm">
                           <p>
-                            Aapne {done} ★ diya{' '}
+                            {t('youGaveRating')} {done} ★{' '}
                             <StarDisplay score={done} />
                           </p>
                           {savedReview ? (
@@ -407,7 +410,7 @@ const DriverRatings = () => {
                           </div>
                           <textarea
                             rows={3}
-                            placeholder="Review likhein (optional)..."
+                            placeholder={`${t('review')} (optional)...`}
                             className="mt-3 w-full rounded-xl border border-gray-200 p-3 text-sm"
                             value={reviewDrafts[cid] ?? ''}
                             onChange={(e) =>
@@ -434,7 +437,7 @@ const DriverRatings = () => {
                           >
                             {submittingId === cid
                               ? '…'
-                              : 'Rating Do'}
+                              : t('submit')}
                           </button>
                         </>
                       )}

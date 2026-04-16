@@ -86,8 +86,8 @@ const createComplaint = async (req, res) => {
     for (const admin of admins) {
       await Notification.create({
         userId: admin._id,
-        title: "Nayi Complaint Aayi!",
-        message: `${req.user.name} ne ${againstUser.name} ke khilaf complaint ki: ${type}`,
+        title: "New Complaint",
+        message: `${req.user.name} filed a complaint against ${againstUser.name}: ${type}`,
         type: "complaint_update",
         link: "/admin/complaints",
         isRead: false,

@@ -95,8 +95,8 @@ const createContract = async (req, res) => {
 
     await Notification.create({
       userId: driverId,
-      title: "Joining Letter Aaya!",
-      message: `${owner?.name || "Owner"} ne joining letter bheja hai. Padh ke sign karein.`,
+      title: "Contract Sent",
+      message: `${owner?.name || "Owner"} sent you a joining letter. Please review and sign it.`,
       type: "new_message",
       link: "/driver/active-job",
       isRead: false,
@@ -220,8 +220,8 @@ const driverSignContract = async (req, res) => {
 
     await Notification.create({
       userId: contract.ownerId,
-      title: "Driver ne Sign Kar Diya!",
-      message: `${driver?.name || "Driver"} ne joining letter sign kar diya. Kaam shuru!`,
+      title: "Contract Signed",
+      message: `${driver?.name || "Driver"} signed the joining letter. Work can start now.`,
       type: "application_accepted",
       link: "/owner/applications",
       isRead: false,
@@ -279,9 +279,9 @@ const completeContract = async (req, res) => {
 
     await Notification.create({
       userId: contract.driverId._id,
-      title: "Kaam Complete Ho Gaya!",
+      title: "Work Completed",
       message:
-        "Aapka kaam complete mark ho gaya. Ab rating de sakte hain.",
+        "Your work was marked as completed. You can rate now.",
       type: "complaint_update",
       link: "/driver/ratings",
       isRead: false,

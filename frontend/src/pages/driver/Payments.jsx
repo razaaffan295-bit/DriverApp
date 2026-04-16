@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
@@ -91,6 +92,7 @@ const payoutMethodOf = (p) => {
 }
 
 const DriverPayments = () => {
+  const { t } = useTranslation()
   const [tab, setTab] = useState('summary')
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState(null)
@@ -257,7 +259,7 @@ const DriverPayments = () => {
       (summary?.totalPaid || 0)
 
     if (due <= 0) {
-      toast.error('Koi payment baaki nahi hai')
+      toast.error(t('noAmountDue'))
       return
     }
 
@@ -265,8 +267,8 @@ const DriverPayments = () => {
     if (amt <= 0 || amt > due) {
       toast.error(
         amt > due
-          ? 'Amount net due se zyada nahi ho sakta'
-          : 'Amount likhein'
+          ? t('amountExceeds')
+          : t('enterAmount')
       )
       return
     }
@@ -279,7 +281,7 @@ const DriverPayments = () => {
         year: reqPayYear,
         note: reqPayNote || '',
       })
-      toast.success('Payment request bhej di!')
+      toast.success(t('paymentRequestSent'))
       setReqPayNote('')
       await loadSummary()
       await loadHistory()
@@ -296,7 +298,7 @@ const DriverPayments = () => {
     setConfirmingId(paymentId)
     try {
       await confirmPaymentApi({ paymentId })
-      toast.success('Confirm ho gaya!')
+      toast.success(t('confirmDone'))
       await loadHistory()
       await loadSummary()
     } catch (e) {
@@ -314,7 +316,7 @@ const DriverPayments = () => {
         paymentId,
         reason: rejectReason,
       })
-      toast.success('Reject kar diya')
+      toast.success(t('rejectDone'))
       setRejectingId(null)
       setRejectReason('')
       await loadHistory()
@@ -354,7 +356,7 @@ const DriverPayments = () => {
     e.preventDefault()
     const amt = Number(reqAmount)
     if (!amt || amt <= 0) {
-      toast.error('Amount likhein')
+      toast.error(t('enterAmount'))
       return
     }
     setSubmittingReq(true)
@@ -363,9 +365,7 @@ const DriverPayments = () => {
         requestedAmount: amt,
         reason: reqReason,
       })
-      toast.success(
-        'Request bhej di! Owner ka wait karein.'
-      )
+      toast.success(t('advanceRequested'))
       setReqAmount('')
       setReqReason('')
       await loadAdvances()
@@ -385,15 +385,15 @@ const DriverPayments = () => {
 
   const driverTabs = useMemo(
     () => [
-      { id: 'summary', label: 'Summary' },
+      { id: 'summary', label: t('status') },
       ...(isTransport
-        ? [{ id: 'trip', label: 'Trip Earnings' }]
+        ? [{ id: 'trip', label: t('tripEarnings') }]
         : []),
-      { id: 'history', label: 'History' },
-      { id: 'advance', label: 'Advance' },
-      { id: 'request', label: 'Request Advance' },
+      { id: 'history', label: t('paymentHistory') },
+      { id: 'advance', label: t('advance') },
+      { id: 'request', label: t('requestAdvance') },
     ],
-    [isTransport]
+    [isTransport, t]
   )
 
   const filteredHistory =
@@ -416,7 +416,7 @@ const DriverPayments = () => {
     const paidSoFar = getTripPaidAmount(trip._id)
     const baaki = Math.max(0, approvedAmt - paidSoFar)
     if (!baaki) {
-      toast.error('Abhi koi baaki amount nahi')
+      toast.error(t('noAmountDue'))
       return
     }
     setTripRequestingId(trip._id)
@@ -425,7 +425,7 @@ const DriverPayments = () => {
         tripId: trip._id,
         amount: baaki,
       })
-      toast.success('Trip payment request bhej di!')
+      toast.success(t('tripPaymentRequestSent'))
       await loadTripEarnings()
     } catch (err) {
       toast.error(
@@ -504,7 +504,7 @@ const DriverPayments = () => {
           ) : tab === 'summary' ? (
             !s ? (
               <p className="text-center text-gray-600">
-                Koi active kaam nahi — pehle contract sign karein
+                {t('noActiveJob')}
               </p>
             ) : (
               <>
@@ -520,35 +520,36 @@ const DriverPayments = () => {
                       color: '#92400E',
                     }}
                   >
-                    🚛 Transport Driver — Fixed Monthly Salary: ₹{summary?.contract?.salaryPerMonth || 0}/month
+                    🚛 {t('transportFixedSalary')}: ₹
+                    {summary?.contract?.salaryPerMonth || 0}/{t('perMonth')}
                   </div>
                 )}
 
                 <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
                     <p className="text-xs text-green-800">
-                      Total Earned
+                      {t('totalEarned')}
                     </p>
                     <p className="text-xl font-bold text-green-900">
                       {fmtMoney(s.totalSalaryEarned)}
                     </p>
                     <p className="mt-1 text-[10px] text-green-700">
-                      Attendance se total
+                      {t('attendanceTotal')}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
                     <p className="text-xs text-blue-800">
-                      Total Paid
+                      {t('totalPaid')}
                     </p>
                     <p className="text-xl font-bold text-blue-900">
                       {fmtMoney(s.totalPaid)}
                     </p>
                     <p className="mt-1 text-[10px] text-blue-700">
-                      Confirmed payments
+                      {t('confirmedPayments')}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-gray-100 bg-white p-4">
-                    <p className="text-xs text-gray-800">Net Due</p>
+                    <p className="text-xs text-gray-800">{t('netDue')}</p>
                     <p
                       className={`text-xl font-bold ${
                         netDue > 0
@@ -561,30 +562,30 @@ const DriverPayments = () => {
                       {fmtMoney(netDue)}
                     </p>
                     <p className="mt-1 text-[10px] text-gray-600">
-                      Baaki lena hai
+                      {t('amountDue')}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-6">
                   <h2 className="text-lg font-semibold text-green-900">
-                    Salary Payment Request Karo
+                    {t('requestSalaryPayment')}
                   </h2>
                   {netDue <= 0 ? (
                     <p className="mt-3 text-sm text-green-800">
-                      Abhi koi payment baaki nahi
+                      {t('noPaymentDue')}
                     </p>
                   ) : (
                     <>
                       <div className="mt-3 text-sm text-green-900">
-                        Baaki lena hai:{' '}
+                        {t('amountDueLabel')}:{' '}
                         <strong>
                           ₹{Math.max(0, netDue)}
                         </strong>
                       </div>
 
                       <label className="mt-4 block text-sm font-medium text-gray-800">
-                        Kitna payment mangna hai? (max ₹
+                        {t('howMuchPayment')} (max ₹
                         {Math.max(0, Math.floor(netDue))})
                       </label>
                       <div className="mt-1 flex items-center rounded-xl border border-green-200 bg-white px-3">
@@ -620,33 +621,35 @@ const DriverPayments = () => {
                       {!hasUpi && (
                         <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
                           <p className="text-sm font-medium text-yellow-900">
-                            ⚠️ Pehle apna UPI ID set karein!
+                            ⚠️ {t('setUpiFirst')}
                           </p>
                           <button
                             type="button"
                             onClick={() => navigate('/driver/profile')}
                             className="mt-3 rounded-xl bg-yellow-600 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-700"
                           >
-                            Profile Update Karo
+                            {t('updateProfile')}
                           </button>
                         </div>
                       )}
 
                       <div className="mt-4 text-sm text-gray-700">
-                        <span className="text-gray-500">Aapka UPI ID:</span>{' '}
+                        <span className="text-gray-500">
+                          {t('yourUpiId')}:
+                        </span>{' '}
                         {hasUpi ? (
                           <span className="font-medium text-gray-900">
                             {upiFromProfile}
                           </span>
                         ) : (
                           <span className="text-amber-700">
-                            UPI ID set nahi hai
+                            {t('upiNotSet')}
                           </span>
                         )}
                       </div>
 
                       <label className="mt-4 block text-sm font-medium text-gray-800">
-                        Kaunsa mahina?
+                        {t('whichMonth')}
                       </label>
                       <select
                         value={reqPayKey}
@@ -661,13 +664,13 @@ const DriverPayments = () => {
                       </select>
 
                       <label className="mt-4 block text-sm font-medium text-gray-800">
-                        Owner ko note (optional)
+                        {t('noteToOwner')}
                       </label>
                       <textarea
                         rows={2}
                         value={reqPayNote}
                         onChange={(e) => setReqPayNote(e.target.value)}
-                        placeholder="Owner ko kuch batana ho..."
+                        placeholder={t('noteToOwnerPlaceholder')}
                         className="mt-1 w-full rounded-xl border border-green-200 bg-white p-3 text-sm"
                       />
 
@@ -683,19 +686,19 @@ const DriverPayments = () => {
                         className="mt-4 w-full rounded-xl bg-green-600 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
                       >
                         {requesting
-                          ? 'Bhej rahe hain...'
-                          : 'Payment Request Bhejo'}
+                          ? t('sending')
+                          : t('sendPaymentRequest')}
                       </button>
                     </>
                   )}
                 </div>
 
                 <h2 className="mb-3 mt-8 font-semibold text-gray-800">
-                  Confirm Karne Wali Payments
+                  {t('confirmPendingPayments')}
                 </h2>
                 {pendingPayments.length === 0 ? (
                   <p className="text-sm text-gray-500">
-                    Koi pending confirmation nahi
+                    {t('noPendingConfirmation')}
                   </p>
                 ) : (
                   pendingPayments.map((p) => (
@@ -704,10 +707,10 @@ const DriverPayments = () => {
                       className="mb-4 rounded-2xl border border-yellow-200 bg-white p-5"
                     >
                       <p className="text-xl font-bold text-gray-900">
-                        Amount: {fmtMoney(p.amount)}
+                        {t('amount')}: {fmtMoney(p.amount)}
                       </p>
                       <p className="text-sm text-gray-600">
-                        Net Amount: {fmtMoney(p.netAmount)}
+                        {t('netAmount')}: {fmtMoney(p.netAmount)}
                       </p>
                       <span
                         className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
@@ -717,19 +720,19 @@ const DriverPayments = () => {
                         }`}
                       >
                         {payoutMethodOf(p) === 'upi'
-                          ? 'UPI'
-                          : 'Cash'}
+                          ? t('upi')
+                          : t('cash')}
                       </span>
                       {payoutMethodOf(p) === 'upi' && p.utrNumber && (
                         <p className="mt-2 text-sm text-gray-600">
-                          UTR: {p.utrNumber}
+                          {t('utrNumber')}: {p.utrNumber}
                         </p>
                       )}
                       {payoutMethodOf(p) === 'cash' && (
                         <p className="mt-2 text-sm text-gray-600">
-                          Cash payment
+                          {t('cashPayment')}
                           {p.witnessName
-                            ? ` · Witness: ${p.witnessName}`
+                            ? ` · ${t('witness')}: ${p.witnessName}`
                             : ''}
                         </p>
                       )}
@@ -747,7 +750,7 @@ const DriverPayments = () => {
                               marginBottom: '4px',
                             }}
                           >
-                            Owner ka proof:
+                            {t('ownerProof')}:
                           </p>
                           <a
                             href={p.paymentPhoto || p.proofPhoto}
@@ -770,7 +773,7 @@ const DriverPayments = () => {
                       )}
                       {Number(p.advanceDeduction) > 0 && (
                         <p className="text-sm text-amber-600">
-                          Advance kata:{' '}
+                          {t('advanceDeduction')}:{' '}
                           {fmtMoney(p.advanceDeduction)}
                         </p>
                       )}
@@ -784,7 +787,7 @@ const DriverPayments = () => {
                             onChange={(e) =>
                               setRejectReason(e.target.value)
                             }
-                            placeholder="Kya problem hai? Batayein..."
+                            placeholder={t('rejectReasonPlaceholder')}
                             rows={3}
                             className="w-full rounded-xl border border-gray-200 p-3 text-sm"
                           />
@@ -793,7 +796,7 @@ const DriverPayments = () => {
                             onClick={() => onRejectSubmit(p._id)}
                             className="w-full rounded-xl border border-red-400 py-2 text-sm font-medium text-red-500"
                           >
-                            Reject Karo
+                            {t('rejectBtn')}
                           </button>
                           <button
                             type="button"
@@ -803,7 +806,7 @@ const DriverPayments = () => {
                             }}
                             className="w-full text-sm text-gray-500"
                           >
-                            Cancel
+                            {t('cancel')}
                           </button>
                         </div>
                       ) : (
@@ -816,14 +819,14 @@ const DriverPayments = () => {
                           >
                             {confirmingId === p._id
                               ? '…'
-                              : '✅ Confirm — Paisa Mila'}
+                              : `✅ ${t('confirm')} — ${t('moneyReceived')}`}
                           </button>
                           <button
                             type="button"
                             onClick={() => setRejectingId(p._id)}
                             className="w-full rounded-xl border border-red-400 py-3 text-sm font-medium text-red-500"
                           >
-                            ❌ Reject — Nahi Mila
+                            ❌ {t('rejectBtn')} — {t('moneyNotReceived')}
                           </button>
                         </div>
                       )}
@@ -836,7 +839,7 @@ const DriverPayments = () => {
             isTransport ? (
             <div>
               <p className="mb-3 text-sm text-gray-600">
-                Sirf owner-approved trips — alag salary se
+                {t('ownerApprovedTrips')}
               </p>
               <div
                 style={{
@@ -870,7 +873,7 @@ const DriverPayments = () => {
                       marginTop: '4px',
                     }}
                   >
-                    Total Approved
+                    {t('totalApproved')}
                   </div>
                 </div>
 
@@ -898,7 +901,7 @@ const DriverPayments = () => {
                       marginTop: '4px',
                     }}
                   >
-                    Total Mila
+                    {t('totalReceived')}
                   </div>
                 </div>
 
@@ -928,7 +931,7 @@ const DriverPayments = () => {
                       marginTop: '4px',
                     }}
                   >
-                    Baaki Milna Hai
+                    {t('amountLeft')}
                   </div>
                 </div>
               </div>
@@ -941,7 +944,7 @@ const DriverPayments = () => {
                     color: '#9CA3AF',
                   }}
                 >
-                  Loading...
+                  {t('loading')}
                 </div>
               ) : tripEarnings.length === 0 ? (
                 <div
@@ -956,7 +959,7 @@ const DriverPayments = () => {
                   >
                     🚛
                   </div>
-                  Koi approved trip nahi
+                  {t('noApprovedTrips')}
                 </div>
               ) : (
                 tripEarnings.map((trip, i) => {
@@ -1013,7 +1016,7 @@ const DriverPayments = () => {
                               marginTop: '2px',
                             }}
                           >
-                            Cargo: {tripCargo(trip) || '—'}
+                            {t('cargo')}: {tripCargo(trip) || '—'}
                           </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
@@ -1032,7 +1035,7 @@ const DriverPayments = () => {
                               color: '#9CA3AF',
                             }}
                           >
-                            Approved
+                            {t('approved')}
                           </div>
                         </div>
                       </div>
@@ -1048,10 +1051,10 @@ const DriverPayments = () => {
                         }}
                       >
                         <span style={{ color: '#6B7280' }}>
-                          Approved: ₹{approvedForTrip}
+                          {t('approved')}: ₹{approvedForTrip}
                         </span>
                         <span style={{ color: '#1D4ED8' }}>
-                          Mila: ₹{paidForTrip}
+                          {t('totalReceived')}: ₹{paidForTrip}
                         </span>
                         <span
                           style={{
@@ -1062,7 +1065,7 @@ const DriverPayments = () => {
                             fontWeight: '600',
                           }}
                         >
-                          Baaki: ₹{baakiForTrip}
+                          {t('remaining')}: ₹{baakiForTrip}
                         </span>
                       </div>
 
@@ -1102,7 +1105,7 @@ const DriverPayments = () => {
                           >
                             {tripRequestingId === trip._id
                               ? '…'
-                              : '💰 Payment Request Bhejo'}
+                              : `💰 ${t('sendPaymentRequestBtn')}`}
                           </button>
                         ) : baakiForTrip <= 0 ? (
                           <span
@@ -1113,7 +1116,7 @@ const DriverPayments = () => {
                               fontWeight: '600',
                             }}
                           >
-                            ✅ Poora Mil Gaya
+                            ✅ {t('allReceived')}
                           </span>
                         ) : (
                           <span
@@ -1125,7 +1128,7 @@ const DriverPayments = () => {
                               fontSize: '13px',
                             }}
                           >
-                            ✅ Request Bhej Di
+                            ✅ {t('requestSent')}
                           </span>
                         )}
 
@@ -1142,7 +1145,7 @@ const DriverPayments = () => {
                             cursor: 'pointer',
                           }}
                         >
-                          📄 Receipt
+                          📄 {t('tripReceipt')}
                         </button>
                       </div>
                     </div>
@@ -1153,14 +1156,14 @@ const DriverPayments = () => {
             ) : null
           ) : tab === 'history' ? (
             payments.length === 0 ? (
-              <p className="text-gray-500">Koi history nahi</p>
+              <p className="text-gray-500">{t('noPayments')}</p>
             ) : (
               <>
                 <div className="mb-4 flex flex-wrap gap-2">
                   {[
-                    { id: 'sab', label: 'Sab' },
-                    { id: 'salary', label: 'Salary' },
-                    { id: 'trip', label: 'Trip' },
+                    { id: 'sab', label: t('filterAll') },
+                    { id: 'salary', label: t('salary') },
+                    { id: 'trip', label: t('trip') },
                   ].map(({ id, label }) => (
                     <button
                       key={id}
@@ -1177,7 +1180,7 @@ const DriverPayments = () => {
                   ))}
                 </div>
                 {filteredHistory.length === 0 ? (
-                  <p className="text-gray-500">Is filter mein kuch nahi</p>
+                  <p className="text-gray-500">{t('noFilterData')}</p>
                 ) : (
               <ul className="space-y-3">
                 {filteredHistory.map((p) => (
@@ -1208,10 +1211,10 @@ const DriverPayments = () => {
                           }`}
                         >
                           {p.status === 'paid'
-                            ? '✅ Confirmed'
+                            ? `✅ ${t('approved')}`
                             : p.status === 'rejected'
-                              ? '❌ Driver ne reject kiya'
-                              : '⏳ Driver confirm karega'}
+                              ? `❌ ${t('rejected')}`
+                              : `⏳ ${t('pending')}`}
                         </span>
                       </div>
                       <p className="text-xs text-gray-400">
@@ -1219,26 +1222,26 @@ const DriverPayments = () => {
                       </p>
                     </div>
                     <p className="mt-2 text-xs text-gray-600">
-                      {payoutMethodOf(p) === 'upi' ? 'UPI' : 'Cash'}
+                      {payoutMethodOf(p) === 'upi' ? t('upi') : t('cash')}
                       {p.utrNumber
-                        ? ` · UTR: ${p.utrNumber}`
+                        ? ` · ${t('utrNumber')}: ${p.utrNumber}`
                         : ''}
                     </p>
                     {Number(p.advanceDeduction) > 0 && (
                       <p className="text-xs text-amber-600">
-                        Advance deduction:{' '}
+                        {t('advanceDeduction')}:{' '}
                         {fmtMoney(p.advanceDeduction)}
                       </p>
                     )}
                     <p className="text-xs text-gray-500">
                       {isTripPaymentRow(p)
-                        ? 'Trip payment'
-                        : `Month ${p.month}/${p.year}`}
+                        ? t('tripPaymentLabel')
+                        : `${t('month')} ${p.month}/${p.year}`}
                     </p>
                     {p.status === 'rejected' &&
                       p.driverRejectionReason && (
                         <p className="mt-2 text-xs text-red-600">
-                          Reason: {p.driverRejectionReason}
+                          {t('reason')}: {p.driverRejectionReason}
                         </p>
                       )}
                     {(p.paymentPhoto || p.proofPhoto) && (
@@ -1287,7 +1290,7 @@ const DriverPayments = () => {
                         color: '#374151',
                       }}
                     >
-                      📄 Receipt Download
+                      📄 {t('downloadPDF')}
                     </button>
                   </li>
                 ))}
@@ -1300,16 +1303,16 @@ const DriverPayments = () => {
               {s && s.totalAdvance > 0 && (
                 <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
                   <h3 className="font-semibold text-amber-900">
-                    Advance Balance
+                    {t('advanceBalance')}
                   </h3>
                   <p className="text-sm text-amber-800">
-                    Total: {fmtMoney(s.totalAdvance)}
+                    {t('totalEarned')}: {fmtMoney(s.totalAdvance)}
                   </p>
                   <p className="text-sm text-amber-800">
-                    Repaid: {fmtMoney(s.totalAdvanceRepaid)}
+                    {t('repaid')}: {fmtMoney(s.totalAdvanceRepaid)}
                   </p>
                   <p className="text-lg font-bold text-red-600">
-                    Remaining:{' '}
+                    {t('remaining')}:{' '}
                     {fmtMoney(s.totalAdvanceRemaining)}
                   </p>
                   <div className="mt-3 h-2 overflow-hidden rounded-full bg-amber-200">
@@ -1319,12 +1322,12 @@ const DriverPayments = () => {
                     />
                   </div>
                   <p className="mt-1 text-xs text-amber-700">
-                    Repayment: {repayPct}%
+                    {t('repayment')}: {repayPct}%
                   </p>
                 </div>
               )}
               {advances.length === 0 ? (
-                <p className="text-gray-500">Koi advance record nahi</p>
+                <p className="text-gray-500">{t('noAdvance')}</p>
               ) : (
                 advances.map((a) => (
                   <div
@@ -1332,16 +1335,22 @@ const DriverPayments = () => {
                     className="mb-4 rounded-2xl border border-gray-100 bg-white p-4"
                   >
                     <p className="text-sm text-gray-600">
-                      Requested: {fmtMoney(a.requestedAmount)}
+                      {t('requested')}: {fmtMoney(a.requestedAmount)}
                     </p>
                     <p className="text-sm text-gray-600">
-                      Approved: {fmtMoney(a.approvedAmount)}
+                      {t('approved')}: {fmtMoney(a.approvedAmount)}
                     </p>
                     <span className="mt-1 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs capitalize">
-                      {a.status}
+                      {a.status === 'pending'
+                        ? t('pending')
+                        : a.status === 'approved'
+                          ? t('approved')
+                          : a.status === 'rejected'
+                            ? t('rejected')
+                            : a.status}
                     </span>
                     <p className="mt-1 text-xs text-gray-500">
-                      {a.paymentType} · Remaining:{' '}
+                      {a.paymentType} · {t('remaining')}:{' '}
                       {fmtMoney(a.remaining)}
                     </p>
                     <p className="text-xs text-gray-400">
@@ -1355,7 +1364,7 @@ const DriverPayments = () => {
             <div>
               {pendingAdvanceRequest && (
                 <div className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-                  Ek request pending hai — owner ka wait karein
+                  {t('pendingRequestMsg')}
                 </div>
               )}
               <form
@@ -1363,10 +1372,10 @@ const DriverPayments = () => {
                 className="rounded-2xl border border-gray-100 bg-white p-6"
               >
                 <h2 className="text-lg font-semibold text-gray-800">
-                  Advance Request
+                  {t('requestAdvance')}
                 </h2>
                 <label className="mt-4 block text-sm font-medium text-gray-700">
-                  Kitna advance chahiye?
+                  {t('howMuchAdvance')}
                 </label>
                 <div className="mt-1 flex items-center rounded-xl border border-gray-200 px-3">
                   <span className="text-gray-500">₹</span>
@@ -1381,13 +1390,13 @@ const DriverPayments = () => {
                   />
                 </div>
                 <label className="mt-4 block text-sm font-medium text-gray-700">
-                  Kyun chahiye? (optional)
+                  {t('whyAdvance')}
                 </label>
                 <textarea
                   rows={3}
                   value={reqReason}
                   onChange={(e) => setReqReason(e.target.value)}
-                  placeholder="Ghar mein zarurat hai, medical emergency, etc."
+                  placeholder={t('advancePlaceholder')}
                   className="mt-1 w-full rounded-xl border border-gray-200 p-3 text-sm"
                 />
                 <button
@@ -1398,8 +1407,8 @@ const DriverPayments = () => {
                   className="mt-6 w-full rounded-xl bg-green-600 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
                 >
                   {submittingReq
-                    ? 'Bhej rahe hain...'
-                    : 'Advance Request Bhejo'}
+                    ? t('sending')
+                    : t('sendAdvanceRequest')}
                 </button>
               </form>
             </div>
@@ -1409,17 +1418,19 @@ const DriverPayments = () => {
       <div className="print-area" style={{ display: 'none' }}>
         {printPayment && (
           <div>
-            <div className="print-heading">PAYMENT RECEIPT</div>
+            <div className="print-heading">
+              {t('paymentReceipt').toUpperCase()}
+            </div>
 
             <div className="print-row">
-              <span>Receipt Date:</span>
+              <span>{t('receiptDate')}:</span>
               <span>
                 {new Date().toLocaleDateString('en-IN')}
               </span>
             </div>
 
             <div className="print-row">
-              <span>Payment Date:</span>
+              <span>{t('paymentDate')}:</span>
               <span>
                 {printPayment.ownerPaidAt || printPayment.createdAt
                   ? new Date(
@@ -1434,7 +1445,7 @@ const DriverPayments = () => {
             </div>
 
             <div className="print-row">
-              <span>Amount Paid:</span>
+              <span>{t('amountPaid')}:</span>
               <span style={{ fontWeight: 'bold' }}>
                 ₹{printPayment.amount}
               </span>
@@ -1442,14 +1453,14 @@ const DriverPayments = () => {
 
             {Number(printPayment.advanceDeduction) > 0 && (
               <div className="print-row">
-                <span>Advance Deduction:</span>
+                <span>{t('advanceDeduction')}:</span>
                 <span>-₹{printPayment.advanceDeduction}</span>
               </div>
             )}
 
             <div className="print-row">
               <span>
-                <strong>Net Amount:</strong>
+                <strong>{t('netAmount')}:</strong>
               </span>
               <span>
                 <strong>₹{printPayment.netAmount}</strong>
@@ -1457,56 +1468,56 @@ const DriverPayments = () => {
             </div>
 
             <div className="print-row">
-              <span>Category:</span>
+              <span>{t('category')}:</span>
               <span>
                 {isTripPaymentRow(printPayment)
-                  ? 'Trip'
-                  : 'Salary'}
+                  ? t('trip')
+                  : t('salary')}
               </span>
             </div>
 
             <div className="print-row">
-              <span>Payout:</span>
+              <span>{t('payout')}:</span>
               <span>
                 {payoutMethodOf(printPayment) === 'upi'
-                  ? 'UPI/Bank Transfer'
-                  : 'Cash'}
+                  ? `${t('upi')}/${t('bankAccount')}`
+                  : t('cash')}
               </span>
             </div>
 
             {printPayment.utrNumber && (
               <div className="print-row">
-                <span>UTR Number:</span>
+                <span>{t('utrNumber')}:</span>
                 <span>{printPayment.utrNumber}</span>
               </div>
             )}
 
             {printPayment.witnessName && (
               <div className="print-row">
-                <span>Witness:</span>
+                <span>{t('witness')}:</span>
                 <span>{printPayment.witnessName}</span>
               </div>
             )}
 
             <div className="print-row">
-              <span>Month:</span>
+              <span>{t('month')}:</span>
               <span>
                 {printPayment.month}/{printPayment.year}
               </span>
             </div>
 
             <div className="print-row">
-              <span>Status:</span>
+              <span>{t('status')}:</span>
               <span>
                 {printPayment.status === 'paid'
-                  ? '✓ Confirmed'
+                  ? `✓ ${t('confirmDone')}`
                   : printPayment.status}
               </span>
             </div>
 
             {printPayment.note && (
               <div className="print-row">
-                <span>Note:</span>
+                <span>{t('notes')}:</span>
                 <span>{printPayment.note}</span>
               </div>
             )}
@@ -1519,7 +1530,7 @@ const DriverPayments = () => {
               }}
             >
               <div>
-                <div>Owner:</div>
+                <div>{t('owner')}:</div>
                 <div
                   style={{
                     fontWeight: 'bold',
@@ -1530,7 +1541,7 @@ const DriverPayments = () => {
                 </div>
               </div>
               <div>
-                <div>Driver:</div>
+                <div>{t('driver')}:</div>
                 <div
                   style={{
                     fontWeight: 'bold',
@@ -1555,7 +1566,7 @@ const DriverPayments = () => {
                     marginBottom: '30px',
                   }}
                 >
-                  Owner Signature:
+                  {t('ownerSignature')}:
                 </div>
                 <div
                   style={{
@@ -1573,7 +1584,7 @@ const DriverPayments = () => {
                     marginBottom: '30px',
                   }}
                 >
-                  Driver Signature:
+                  {t('driverSignature')}:
                 </div>
                 <div
                   style={{
@@ -1597,7 +1608,7 @@ const DriverPayments = () => {
                 paddingTop: '8px',
               }}
             >
-              Generated by DriverApp —{' '}
+              {t('generatedBy')} —{' '}
               {new Date().toLocaleDateString('en-IN')}
             </div>
           </div>
@@ -1607,22 +1618,24 @@ const DriverPayments = () => {
       <div className="print-area" style={{ display: 'none' }}>
         {printTrip && (
           <div>
-            <div className="print-heading">TRIP RECEIPT</div>
+            <div className="print-heading">
+              {t('tripReceipt').toUpperCase()}
+            </div>
 
             <div className="print-row">
-              <span>Route:</span>
+              <span>{t('route')}:</span>
               <span>
                 {tripFrom(printTrip)} → {tripTo(printTrip)}
               </span>
             </div>
 
             <div className="print-row">
-              <span>Cargo:</span>
+              <span>{t('cargo')}:</span>
               <span>{tripCargo(printTrip) || '—'}</span>
             </div>
 
             <div className="print-row">
-              <span>Date:</span>
+              <span>{t('date')}:</span>
               <span>
                 {new Date(
                   printTrip.createdAt || printTrip.tripDate
@@ -1631,7 +1644,7 @@ const DriverPayments = () => {
             </div>
 
             <br />
-            <strong>Expenses:</strong>
+            <strong>{t('expense')}:</strong>
             {(printTrip.expenses || []).map((e, i) => (
               <div key={i} className="print-row">
                 <span>
@@ -1643,7 +1656,7 @@ const DriverPayments = () => {
             ))}
 
             <br />
-            <strong>Repairs:</strong>
+            <strong>{t('repair')}:</strong>
             {(printTrip.repairs || []).map((r, i) => (
               <div key={i} className="print-row">
                 <span>{r.description}</span>
@@ -1653,28 +1666,30 @@ const DriverPayments = () => {
 
             <br />
             <div className="print-row">
-              <strong>Total Expenses:</strong>
+              <strong>{t('totalExpenses')}:</strong>
               <strong>₹{printTrip.totalExpenses || 0}</strong>
             </div>
 
             <div className="print-row">
-              <strong>Total Repairs:</strong>
+              <strong>{t('totalRepairs')}:</strong>
               <strong>₹{printTrip.totalRepairs || 0}</strong>
             </div>
 
             <div className="print-row">
-              <strong>Grand Total:</strong>
+              <strong>{t('grandTotal')}:</strong>
               <strong>₹{grandTotalTrip(printTrip)}</strong>
             </div>
 
             <div className="print-row">
-              <strong>Approved Amount:</strong>
+              <strong>
+                {t('approved')} {t('amount')}:
+              </strong>
               <strong>₹{tripApprovedAmount(printTrip)}</strong>
             </div>
 
             {printTrip.ownerNote && (
               <div className="print-row">
-                <span>Owner Note:</span>
+                <span>{t('ownerNote')}:</span>
                 <span>{printTrip.ownerNote}</span>
               </div>
             )}
@@ -1687,7 +1702,7 @@ const DriverPayments = () => {
               }}
             >
               <div>
-                Owner Signature:
+                {t('ownerSignature')}:
                 <div
                   style={{
                     borderTop: '1px solid #000',
@@ -1696,11 +1711,11 @@ const DriverPayments = () => {
                     paddingTop: '4px',
                   }}
                 >
-                  {printTrip.ownerId?.name || 'Owner'}
+                  {printTrip.ownerId?.name || t('owner')}
                 </div>
               </div>
               <div>
-                Driver Signature:
+                {t('driverSignature')}:
                 <div
                   style={{
                     borderTop: '1px solid #000',
@@ -1711,7 +1726,7 @@ const DriverPayments = () => {
                 >
                   {printTrip.driverId?.name ||
                     getUser()?.name ||
-                    'Driver'}
+                    t('driver')}
                 </div>
               </div>
             </div>
@@ -1726,7 +1741,7 @@ const DriverPayments = () => {
                 paddingTop: '8px',
               }}
             >
-              Generated by DriverApp —{' '}
+              {t('generatedBy')} —{' '}
               {new Date().toLocaleDateString('en-IN')}
             </div>
           </div>

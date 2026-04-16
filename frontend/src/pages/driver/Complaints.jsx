@@ -1,16 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import API from '../../api/axios'
 import { getDriverActiveContract } from '../../api/contractAPI'
 import { getMyComplaints } from '../../api/complaintAPI'
-
-const DRIVER_TYPES = [
-  { value: 'payment_nahi_diya', label: 'Payment Nahi Di' },
-  { value: 'zyada_kaam', label: 'Zyada Kaam Karaya' },
-  { value: 'unsafe_conditions', label: 'Unsafe Conditions' },
-  { value: 'misbehavior', label: 'Misbehavior' },
-  { value: 'other', label: 'Koi Aur' },
-]
 
 const STATUS_STYLE = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -29,6 +22,16 @@ const fmtDate = (d) =>
     : '—'
 
 const DriverComplaints = () => {
+  const { t } = useTranslation()
+
+  const DRIVER_TYPES = [
+    { value: 'payment_nahi_diya', label: t('paymentNotGiven') },
+    { value: 'zyada_kaam', label: t('overwork') },
+    { value: 'unsafe_conditions', label: t('unsafeConditions') },
+    { value: 'misbehavior', label: t('misbehavior') },
+    { value: 'other', label: t('other') },
+  ]
+
   const [tab, setTab] = useState('mine')
   const [complaints, setComplaints] = useState([])
   const [loading, setLoading] = useState(true)
@@ -46,12 +49,12 @@ const DriverComplaints = () => {
       setComplaints(res.data?.complaints ?? [])
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Load nahi hua'
+        e.response?.data?.message || t('complaintLoadError')
       )
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const loadContract = useCallback(async () => {
     setCLoading(true)
@@ -60,12 +63,12 @@ const DriverComplaints = () => {
       setContract(res.data?.contract || null)
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Contract load nahi hua'
+        e.response?.data?.message || t('contractLoadError')
       )
     } finally {
       setCLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (tab === 'mine') loadMine()
@@ -81,7 +84,7 @@ const DriverComplaints = () => {
       !complaintType ||
       !description.trim()
     ) {
-      toast.error('Sab fields bharein')
+      toast.error(t('allFieldsRequired'))
       return
     }
 
@@ -91,7 +94,7 @@ const DriverComplaints = () => {
       againstUserId != null ? String(againstUserId) : ''
 
     if (!againstIdStr) {
-      toast.error('Owner ID nahi mili — contract check karein')
+      toast.error(t('ownerIdMissing'))
       return
     }
 
@@ -121,7 +124,7 @@ const DriverComplaints = () => {
         },
       })
 
-      toast.success('Complaint darj ho gayi!')
+      toast.success(t('complaintSubmitted'))
 
       setDescription('')
       setComplaintType('')
@@ -131,7 +134,7 @@ const DriverComplaints = () => {
     } catch (err) {
       toast.error(
         err.response?.data?.message ||
-          'Complaint nahi gayi. Dobara try karein.'
+          t('complaintSubmitError')
       )
     } finally {
       setSubmitting(false)
@@ -155,7 +158,7 @@ const DriverComplaints = () => {
                   : 'bg-gray-100 text-gray-600'
               }`}
             >
-              Meri Complaints
+              {t('myComplaints')}
             </button>
             <button
               type="button"
@@ -166,7 +169,7 @@ const DriverComplaints = () => {
                   : 'bg-gray-100 text-gray-600'
               }`}
             >
-              Nayi Complaint
+              {t('newComplaint')}
             </button>
           </div>
 
@@ -177,7 +180,7 @@ const DriverComplaints = () => {
               </div>
             ) : complaints.length === 0 ? (
               <p className="text-center text-gray-500">
-                Koi complaint nahi
+                {t('noComplaints')}
               </p>
             ) : (
               <ul className="space-y-4">
@@ -196,11 +199,20 @@ const DriverComplaints = () => {
                           'bg-gray-100 text-gray-600'
                         }`}
                       >
-                        {c.status}
+                        {c.status === 'pending'
+                          ? t('pending')
+                          : c.status === 'under_review'
+                            ? t('underReview')
+                            : c.status === 'rejected'
+                              ? t('rejected')
+                              : c.status === 'resolved'
+                                ? t('completed')
+                                : c.status}
                       </span>
                     </div>
                     <p className="mt-2 text-sm font-medium text-gray-900">
-                      Khilaf: {c.againstUser?.name || 'Owner'}
+                      {t('againstLabel')}:{' '}
+                      {c.againstUser?.name || 'Owner'}
                     </p>
                     <p className="mt-1 text-sm text-gray-600">
                       {c.description}
@@ -210,7 +222,7 @@ const DriverComplaints = () => {
                     </p>
                     {c.status === 'resolved' && c.adminNote ? (
                       <p className="mt-2 rounded-lg bg-green-50 p-2 text-xs text-green-900">
-                        Admin: {c.adminNote}
+                        {t('adminNote')}: {c.adminNote}
                       </p>
                     ) : null}
                     {Array.isArray(c.evidence) &&
@@ -224,7 +236,7 @@ const DriverComplaints = () => {
                             rel="noreferrer"
                             className="text-xs font-medium text-green-700 underline"
                           >
-                            Proof {i + 1}
+                            {t('proofLabel')} {i + 1}
                           </a>
                         ))}
                       </div>
@@ -246,12 +258,11 @@ const DriverComplaints = () => {
               className="space-y-4"
             >
               <p className="text-sm font-medium text-gray-800">
-                Kiske khilaf (Owner)
+                {t('againstOwner')}
               </p>
               {!owner ? (
                 <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                  Abhi koi active / signed contract nahi — pehle job join
-                  karein.
+                  {t('noActiveContract')}
                 </p>
               ) : (
                 <div className="rounded-2xl border border-green-200 bg-green-50 p-4">
@@ -268,7 +279,7 @@ const DriverComplaints = () => {
               )}
 
               <label className="block text-sm font-medium text-gray-700">
-                Complaint Type
+                {t('complaint')}
               </label>
               <select
                 value={complaintType}
@@ -277,7 +288,9 @@ const DriverComplaints = () => {
                 }
                 className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
               >
-                <option value="">Type chunein…</option>
+                <option value="">
+                  {t('complaintTypePlaceholder')}
+                </option>
                 {DRIVER_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
                     {t.label}
@@ -286,7 +299,7 @@ const DriverComplaints = () => {
               </select>
 
               <label className="block text-sm font-medium text-gray-700">
-                Description
+                {t('description')}
               </label>
               <textarea
                 rows={4}
@@ -294,13 +307,13 @@ const DriverComplaints = () => {
                 onChange={(e) =>
                   setDescription(e.target.value)
                 }
-                placeholder="Kya hua? Detail mein likhein..."
+                placeholder={t('complaintDescPlaceholder')}
                 className="w-full rounded-xl border border-gray-200 p-3 text-sm"
               />
 
               <div>
                 <label className="text-sm font-medium text-gray-700">
-                  Proof (optional)
+                  {t('evidence')}
                 </label>
                 <input
                   type="file"
@@ -334,8 +347,8 @@ const DriverComplaints = () => {
                 }`}
               >
                 {submitting
-                  ? 'Bhej raha hai...'
-                  : 'Complaint Darj Karein'}
+                  ? t('loading')
+                  : t('submit')}
               </button>
             </form>
           )}

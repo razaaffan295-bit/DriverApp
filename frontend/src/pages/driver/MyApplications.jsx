@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getDriverApplications } from '../../api/driverAPI'
@@ -17,23 +18,24 @@ const formatApplied = (d) => {
   }
 }
 
-const getSalaryDisplay = (job) => {
-  if (!job) return '—'
-  if (job.salaryType === 'monthly') {
-    return `₹${job.salaryPerMonth || 0}/month`
-  }
-  if (job.salaryType === 'hourly') {
-    return `₹${job.salaryPerHour || 0}/ghanta`
-  }
-  return `₹${job.salaryPerDay || 0}/din`
-}
-
 const DriverApplications = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [applications, setApplications] = useState([])
   const [activeContract, setActiveContract] = useState(null)
   const [filter, setFilter] = useState('sab')
   const [loading, setLoading] = useState(true)
+
+  const getSalaryDisplay = (job) => {
+    if (!job) return '—'
+    if (job.salaryType === 'monthly') {
+      return `₹${job.salaryPerMonth || 0}/${t('perMonth')}`
+    }
+    if (job.salaryType === 'hourly') {
+      return `₹${job.salaryPerHour || 0}/${t('perHour')}`
+    }
+    return `₹${job.salaryPerDay || 0}/${t('perDay')}`
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -46,12 +48,12 @@ const DriverApplications = () => {
       setActiveContract(contractRes?.data?.contract ?? null)
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Applications load nahi ho payeen.'
+        e.response?.data?.message || t('appsLoadError')
       )
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     loadData()
@@ -90,7 +92,7 @@ const DriverApplications = () => {
     if (status === 'pending') {
       return (
         <div className="rounded-lg bg-yellow-100 px-3 py-2 text-sm text-yellow-700">
-          ⏳ Owner ka reply aane ka wait karein
+          ⏳ {t('waitingForReply')}
         </div>
       )
     }
@@ -98,13 +100,13 @@ const DriverApplications = () => {
       return (
         <div className="space-y-2">
           <div className="rounded-lg bg-green-100 px-3 py-2 text-sm text-green-700">
-            ✅ Congratulations! Accept ho gaye
+            ✅ {t('congratsAccepted')}
           </div>
           <Link
             to="/driver/active-job"
             className="inline-block rounded-lg border border-green-600 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
           >
-            Joining Letter / Active Kaam
+            {t('joiningLetter')}
           </Link>
         </div>
       )
@@ -113,13 +115,13 @@ const DriverApplications = () => {
       return (
         <div className="space-y-2">
           <div className="rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-800">
-            ✅ Kaam chal raha hai
+            ✅ {t('workInProgressMsg')}
           </div>
           <Link
             to="/driver/active-job"
             className="inline-block rounded-lg border border-emerald-600 px-4 py-2 text-sm text-emerald-800 hover:bg-emerald-50"
           >
-            Active Kaam Dekho
+            {t('viewActiveWork')}
           </Link>
         </div>
       )
@@ -127,13 +129,13 @@ const DriverApplications = () => {
     if (status === 'terminated') {
       return (
         <div className="rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-500">
-          Kaam Khatam — Resign Ho Gayi
+          {t('workEnded')}
         </div>
       )
     }
     return (
       <div className="rounded-lg bg-red-100 px-3 py-2 text-sm text-red-500">
-        ❌ Is baar nahi hua, doosri jobs try karein
+        ❌ {t('tryOtherJobs')}
       </div>
     )
   }
@@ -143,14 +145,17 @@ const DriverApplications = () => {
       style={{ minHeight: '100vh', background: '#F0FDF4' }}
     >
       <div className="p-4 md:p-6 pb-8">
+        <h1 className="mb-4 text-xl font-bold text-gray-800">
+          {t('applications')}
+        </h1>
         <div className="mb-6 flex flex-wrap gap-2">
           {[
-            { key: 'sab', label: 'Sab' },
-            { key: 'pending', label: 'Pending' },
-            { key: 'accepted', label: 'Accepted' },
-            { key: 'active', label: 'Active' },
-            { key: 'rejected', label: 'Rejected' },
-            { key: 'terminated', label: 'Terminated' },
+            { key: 'sab', label: t('all') },
+            { key: 'pending', label: t('pending') },
+            { key: 'accepted', label: t('approved') },
+            { key: 'active', label: t('active') },
+            { key: 'rejected', label: t('rejected') },
+            { key: 'terminated', label: t('terminated') },
           ].map(({ key, label }) => (
             <button
               key={key}
@@ -168,17 +173,17 @@ const DriverApplications = () => {
         </div>
 
         {loading ? (
-          <p className="text-sm text-gray-500">Loading...</p>
+          <p className="text-sm text-gray-500">{t('loading')}</p>
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center">
             <p className="text-gray-700">
-              Aapne abhi koi job apply nahi ki
+              {t('noApplications')}
             </p>
             <Link
               to="/driver/jobs"
               className="mt-4 inline-block rounded-xl bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
             >
-              Jobs Dhundho
+              {t('findJobs')}
             </Link>
           </div>
         ) : (
@@ -222,15 +227,15 @@ const DriverApplications = () => {
                     {getSalaryDisplay(job)}
                   </p>
                   <p className="text-sm text-gray-600">
-                    {job?.duration ?? '—'} din
+                    {job?.duration ?? '—'} {t('durationDaysLabel')}
                   </p>
                   <p className="mt-2 text-xs text-gray-400">
-                    Applied {formatApplied(app.appliedAt)}
+                    {t('appliedOn')} {formatApplied(app.appliedAt)}
                   </p>
                   <div className="mt-4">
                     {realStatus === 'terminated' ? (
                       <div className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full inline-block">
-                        Kaam Khatam — Resign Ho Gayi
+                        {t('workEnded')}
                       </div>
                     ) : (
                       statusBlock(realStatus)
@@ -239,7 +244,7 @@ const DriverApplications = () => {
 
                   {realStatus === 'terminated' ? null : app.status === 'rejected' ? (
                     <span className="mt-2 block text-xs italic text-gray-400">
-                      Message option band hai
+                      {t('messagingDisabled')}
                     </span>
                   ) : (
                     <button
@@ -247,7 +252,7 @@ const DriverApplications = () => {
                       onClick={() => navigate('/driver/messages')}
                       className="mt-3 rounded-lg border border-green-400 px-3 py-1 text-sm text-green-600 hover:bg-green-50"
                     >
-                      Message Karo
+                      {t('messageBtn')}
                     </button>
                   )}
                 </li>

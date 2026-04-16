@@ -144,7 +144,7 @@ const OwnerLayout = () => {
   const sidebarLinks = [
     { path: '/owner/dashboard', label: t('dashboard'), icon: '🏠' },
     { path: '/owner/profile', label: t('profile'), icon: '👤' },
-    { path: '/owner/vehicles', label: t('vehicles'), icon: '🚛' },
+    { path: '/owner/vehicles', label: t('myVehicles'), icon: '🚛' },
     { path: '/owner/post-job', label: t('postJob'), icon: '📝' },
     { path: '/owner/jobs', label: t('myJobs'), icon: '💼' },
     { path: '/owner/applications', label: t('applications'), icon: '📋' },

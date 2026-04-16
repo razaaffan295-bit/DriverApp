@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
 import {
@@ -8,24 +9,24 @@ import {
 } from '../../utils/pdfUpload'
 import { getContractById, completeContract } from '../../api/contractAPI'
 
-const getSalaryDisplay = (contract) => {
+const getSalaryDisplay = (contract, t) => {
   if (!contract) return '₹0'
   const cat = contract.vehicleCategory
   const type = contract.salaryType
 
   if (cat === 'transport') {
-    return `₹${contract.salaryPerMonth || 0}/month`
+    return `₹${contract.salaryPerMonth || 0}/${t('perMonth')}`
   }
   if (type === 'hourly') {
-    return `₹${contract.salaryPerHour || 0}/ghanta`
+    return `₹${contract.salaryPerHour || 0}/${t('perHour')}`
   }
   if (type === 'monthly') {
-    return `₹${contract.salaryPerMonth || 0}/month`
+    return `₹${contract.salaryPerMonth || 0}/${t('perMonth')}`
   }
-  return `₹${contract.salaryPerDay || 0}/din`
+  return `₹${contract.salaryPerDay || 0}/${t('perDay')}`
 }
 
-const getTotalKamayi = (contract) => {
+const getTotalKamayi = (contract, t) => {
   if (!contract) return 0
   const type = contract.salaryType
   const cat = contract.vehicleCategory
@@ -40,21 +41,22 @@ const getTotalKamayi = (contract) => {
     return (contract.salaryPerMonth || 0) * months
   }
   if (type === 'hourly') {
-    return 'Ghante ke hisaab se'
+    return t('hourlyBasis2')
   }
   return (contract.salaryPerDay || 0) * dur
 }
 
-const contractSalaryTypeLabel = (c) => {
+const contractSalaryTypeLabel = (c, t) => {
   if (!c) return '—'
-  if (c.vehicleCategory === 'transport') return 'Monthly (Transport)'
-  if (c.salaryType === 'hourly') return 'Per Hour'
-  if (c.salaryType === 'monthly') return 'Per Month'
-  if (c.salaryType === 'daily') return 'Per Day'
+  if (c.vehicleCategory === 'transport') return t('monthlyTransport2')
+  if (c.salaryType === 'hourly') return t('perHourLabel2')
+  if (c.salaryType === 'monthly') return t('perMonthLabel2')
+  if (c.salaryType === 'daily') return t('perDayLabel2')
   return String(c.salaryType || '—')
 }
 
 const ViewContract = () => {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
@@ -83,13 +85,13 @@ const ViewContract = () => {
       setContract(res.data?.contract ?? null)
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Contract load nahi hua'
+        err.response?.data?.message || t('contractLoadError2')
       )
       setContract(null)
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, t])
 
   useEffect(() => {
     fetchContract()
@@ -101,12 +103,43 @@ const ViewContract = () => {
         'contract',
         {
           jobTitle: contract?.jobId?.title || '',
+          vehicleType: contract?.jobId?.vehicleType || '',
           driverName: contract?.driverId?.name || '',
           ownerName: contract?.ownerId?.name || '',
-          salary: getSalaryDisplay(contract),
+          salary: getSalaryDisplay(contract, t),
+          salaryType: contractSalaryTypeLabel(contract, t),
           startDate: contract?.startDate
             ? new Date(contract.startDate)
-              .toLocaleDateString('en-IN')
+              .toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })
+            : '',
+          createdAt: contract?.createdAt
+            ? new Date(contract.createdAt)
+              .toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })
+            : '',
+          duration: contract?.duration || 0,
+          workLocation: contract?.workLocation || '',
+          terms: contract?.terms || '',
+          safetyConditions: contract?.safetyConditions || '',
+          hasBhatta: contract?.hasBhatta || false,
+          dailyBhatta: contract?.dailyBhatta || 0,
+          hasHourlyBonus: contract?.hasHourlyBonus || false,
+          salaryPerHour: contract?.salaryPerHour || 0,
+          driverSigned: contract?.driverSigned || false,
+          driverSignedAt: contract?.driverSignedAt
+            ? new Date(contract.driverSignedAt)
+              .toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })
             : '',
           status: contract?.status || '',
         },
@@ -121,7 +154,7 @@ const ViewContract = () => {
     if (!contract?._id) return
     if (
       !window.confirm(
-        'Kya aap sure hain? Contract complete mark ho jayega.'
+        t('confirmComplete')
       )
     ) {
       return
@@ -130,12 +163,12 @@ const ViewContract = () => {
       setCompleting(true)
       await completeContract(contract._id)
       toast.success(
-        'Contract complete ho gaya! Ab rating de sakte hain.'
+        t('contractCompleted')
       )
       await fetchContract()
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Complete nahi hua'
+        err.response?.data?.message || t('contractCompleteError')
       )
     } finally {
       setCompleting(false)
@@ -164,14 +197,20 @@ const ViewContract = () => {
     >
         <div className="mx-auto max-w-4xl px-4 py-6">
           {loading ? (
-            <div className="flex justify-center items-center h-64">
+            <div
+              className="flex justify-center items-center h-64"
+              role="status"
+              aria-label={t('loading')}
+            >
               <div
                 className="w-8 h-8 border-2 border-blue-700 border-t-transparent rounded-full animate-spin"
                 aria-hidden
               />
             </div>
           ) : !contract ? (
-            <p className="text-center text-gray-600">Contract nahi mila</p>
+            <p className="text-center text-gray-600">
+              {t('contractNotFound')}
+            </p>
           ) : (
             <>
               <button
@@ -179,19 +218,19 @@ const ViewContract = () => {
                 onClick={() => navigate(-1)}
                 className="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6 text-sm"
               >
-                ← Wapas Jaao
+                {t('backBtn2')}
               </button>
 
               <div className="no-print mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h1 className="text-2xl font-bold text-gray-800">
-                  Joining Letter
+                  {t('contractDetails')}
                 </h1>
                 <button
                   type="button"
                   onClick={handlePrint}
                   className="bg-gray-700 text-white px-4 py-2 rounded-xl text-sm"
                 >
-                  PDF Download Karo
+                  {t('downloadPDF')}
                 </button>
               </div>
 
@@ -200,10 +239,10 @@ const ViewContract = () => {
                   <span className="text-2xl">⏳</span>
                   <div>
                     <div className="font-semibold text-yellow-800">
-                      Driver ke sign karne ka wait hai
+                      {t('waitingDriverSign')}
                     </div>
                     <div className="text-sm text-yellow-600">
-                      Driver ne abhi sign nahi kiya
+                      {t('driverNotSignedYet')}
                     </div>
                   </div>
                 </div>
@@ -215,22 +254,22 @@ const ViewContract = () => {
                     <span className="text-2xl">✅</span>
                     <div>
                       <div className="font-bold text-green-800">
-                        Contract Active Hai — Kaam Chal Raha Hai!
+                        {t('workInProgressContract')}
                       </div>
                       <div className="text-sm text-green-600">
-                        Driver ne{' '}
-                        {formatDate(contract.driverSignedAt)} ko sign kiya
+                        {t('driverSignedOn')}{' '}
+                        {formatDate(contract.driverSignedAt)}
                       </div>
                     </div>
                   </div>
                   <div className="text-left sm:text-right">
                     <div className="text-xl font-bold text-green-700">
-                      {typeof getTotalKamayi(contract) === 'string'
-                        ? getTotalKamayi(contract)
-                        : `₹${getTotalKamayi(contract)}`}
+                      {typeof getTotalKamayi(contract, t) === 'string'
+                        ? getTotalKamayi(contract, t)
+                        : `₹${getTotalKamayi(contract, t)}`}
                     </div>
                     <div className="text-xs text-green-600">
-                      Total Contract Value
+                      {t('totalContractValue')}
                     </div>
                   </div>
                 </div>
@@ -239,10 +278,10 @@ const ViewContract = () => {
               {contract.status === 'completed' && (
                 <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6">
                   <p className="font-bold text-blue-900">
-                    ✅ Contract Complete Ho Gaya
+                    ✅ {t('contractCompletedMsg')}
                   </p>
                   <p className="mt-1 text-sm text-blue-800">
-                    Ab dono rating de sakte hain
+                    {t('nowBothCanRate')}
                   </p>
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                     <button
@@ -250,104 +289,120 @@ const ViewContract = () => {
                       onClick={() => navigate('/owner/ratings')}
                       className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                     >
-                      Rating Do
+                      {t('giveRatingBtn')}
                     </button>
                     <button
                       type="button"
                       onClick={() => fetchContract()}
                       className="rounded-xl border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-800 hover:bg-blue-50"
                     >
-                      History Dekho
+                      {t('viewHistoryBtn')}
                     </button>
                   </div>
                 </div>
               )}
 
-              <div className="print-area bg-white rounded-2xl border border-gray-100 p-6 mb-6">
-                <div className="print-heading">JOINING LETTER</div>
+              <div
+                className="print-area bg-white rounded-2xl border border-gray-100 p-6 mb-6"
+                aria-label={`${t('viewContract')} · ${t('status')}: ${contract.status}`}
+              >
+                <div className="print-heading">
+                  {t('joiningLetterHeading').toUpperCase()}
+                </div>
 
                 <div className="print-row">
-                  <span>Date:</span>
+                  <span>{t('dateLabel2')}:</span>
                   <span>{formatDate(contract.createdAt)}</span>
                 </div>
 
                 <div className="print-row">
-                  <span>Owner:</span>
+                  <span>{t('owner')}:</span>
                   <span>{contract.ownerId?.name}</span>
                 </div>
 
                 <div className="print-row">
-                  <span>Driver:</span>
+                  <span>{t('driver')}:</span>
                   <span>{contract.driverId?.name}</span>
                 </div>
 
                 <div className="print-row">
-                  <span>Kaam:</span>
+                  <span>{t('workLabel2')}:</span>
                   <span>
                     {contract.jobId?.title} — {contract.jobId?.vehicleType}
                   </span>
                 </div>
 
                 <div className="print-row">
-                  <span>Location:</span>
+                  <span>{t('locationLabel4')}:</span>
                   <span>{contract.workLocation}</span>
                 </div>
 
                 <div className="print-row">
-                  <span>Start Date:</span>
+                  <span>{t('startDate')}:</span>
                   <span>{formatDate(contract.startDate)}</span>
                 </div>
 
+                {contract.endDate ? (
+                  <div className="print-row">
+                    <span>{t('endDate')}:</span>
+                    <span>{formatDate(contract.endDate)}</span>
+                  </div>
+                ) : null}
+
                 <div className="print-row">
-                  <span>Duration:</span>
-                  <span>{contract.duration} din</span>
+                  <span>{t('durationLabel5')}:</span>
+                  <span>
+                    {contract.duration} {t('days')}
+                  </span>
                 </div>
 
                 <div className="print-row">
-                  <span>Salary Type:</span>
-                  <span>{contractSalaryTypeLabel(contract)}</span>
+                  <span>{t('salaryTypeLabel2')}:</span>
+                  <span>{contractSalaryTypeLabel(contract, t)}</span>
                 </div>
 
                 <div className="print-row">
-                  <span>Rate:</span>
+                  <span>{t('salary')}:</span>
                   <span>{getSalaryDisplay(contract)}</span>
                 </div>
 
                 {contract.hasBhatta && contract.dailyBhatta > 0 && (
                   <div className="print-row">
-                    <span>Daily Bhatta:</span>
-                    <span>₹{contract.dailyBhatta}/din</span>
+                    <span>{t('bhatta')}:</span>
+                    <span>
+                      ₹{contract.dailyBhatta}/{t('perDay')}
+                    </span>
                   </div>
                 )}
 
                 {contract.hasHourlyBonus &&
                   contract.salaryPerHour > 0 && (
                     <div className="print-row">
-                      <span>Hourly Bonus:</span>
+                      <span>{t('bonus')}:</span>
                       <span>
-                        ₹{contract.salaryPerHour}/ghanta
+                        ₹{contract.salaryPerHour}/{t('perHour')}
                       </span>
                     </div>
                   )}
 
                 <div className="print-row">
-                  <span>Total Kamayi:</span>
+                  <span>{t('totalEarningsLabel3')}:</span>
                   <span>
-                    {typeof getTotalKamayi(contract) === 'string'
-                      ? getTotalKamayi(contract)
-                      : `₹${getTotalKamayi(contract)}`}
+                    {typeof getTotalKamayi(contract, t) === 'string'
+                      ? getTotalKamayi(contract, t)
+                      : `₹${getTotalKamayi(contract, t)}`}
                   </span>
                 </div>
 
                 <div style={{ marginTop: '16px' }}>
-                  <strong>Shartein:</strong>
+                  <strong>{t('termsLabel3')}:</strong>
                   <p style={{ whiteSpace: 'pre-line', marginTop: '8px' }}>
                     {contract.terms}
                   </p>
                 </div>
 
                 <div style={{ marginTop: '16px' }}>
-                  <strong>Safety Conditions:</strong>
+                  <strong>{t('safetyConditionsLabel')}:</strong>
                   <p style={{ whiteSpace: 'pre-line', marginTop: '8px' }}>
                     {contract.safetyConditions}
                   </p>
@@ -361,17 +416,17 @@ const ViewContract = () => {
                   }}
                 >
                   <div>
-                    <div>Owner Signature:</div>
+                    <div>{t('ownerSignature')}:</div>
                     <div style={{ marginTop: '8px', fontWeight: 'bold' }}>
                       {contract.ownerId?.name}
                     </div>
                   </div>
                   <div>
-                    <div>Driver Signature:</div>
+                    <div>{t('driverSignature')}:</div>
                     <div style={{ marginTop: '8px', fontWeight: 'bold' }}>
                       {contract.driverSigned
                         ? contract.driverId?.name
-                        : '(Abhi sign nahi kiya)'}
+                        : t('notSignedYet2')}
                     </div>
                     {contract.driverSignedAt && (
                       <div style={{ fontSize: '11px', color: '#666' }}>
@@ -391,7 +446,7 @@ const ViewContract = () => {
                     paddingTop: '10px',
                   }}
                 >
-                  Generated by DriverApp —{' '}
+                  {t('generatedBy')} —{' '}
                   {new Date().toLocaleDateString('en-IN')}
                 </div>
               </div>
@@ -407,8 +462,8 @@ const ViewContract = () => {
                     <div className="text-2xl mb-1">✅</div>
                     <div className="text-sm font-medium">
                       {completing
-                        ? 'Ho raha hai...'
-                        : 'Kaam Complete Karo'}
+                        ? t('completingProgress')
+                        : t('completeWorkBtn')}
                     </div>
                   </button>
                   <button
@@ -418,7 +473,7 @@ const ViewContract = () => {
                   >
                     <div className="text-2xl mb-1">📅</div>
                     <div className="text-sm font-medium text-gray-700">
-                      Attendance Dekho
+                      {t('viewAttendanceBtn')}
                     </div>
                   </button>
                   <button
@@ -428,7 +483,7 @@ const ViewContract = () => {
                   >
                     <div className="text-2xl mb-1">💰</div>
                     <div className="text-sm font-medium text-gray-700">
-                      Payment Karo
+                      {t('makePaymentBtn2')}
                     </div>
                   </button>
                   <button
@@ -438,7 +493,7 @@ const ViewContract = () => {
                   >
                     <div className="text-2xl mb-1">⚠️</div>
                     <div className="text-sm font-medium text-gray-700">
-                      Complaint
+                      {t('complaintBtn2')}
                     </div>
                   </button>
                 </div>

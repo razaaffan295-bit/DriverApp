@@ -47,8 +47,8 @@ const sendMessage = async (req, res) => {
       text.length > 40 ? `${text.substring(0, 40)}...` : text;
     await Notification.create({
       userId: receiverId,
-      title: "Naya Message!",
-      message: `${sender?.name || "Koi"} ne aapko message kiya: "${previewBody}"`,
+      title: "New Message!",
+      message: `${sender?.name || "Someone"} sent you a message: "${previewBody}"`,
       type: "new_message",
       link:
         receiverUser?.role === "driver"

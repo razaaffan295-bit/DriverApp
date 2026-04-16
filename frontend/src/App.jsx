@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route,
 import { Toaster } from 'react-hot-toast'
 import ProtectedRoute from 
   './components/common/ProtectedRoute'
+import SubscriptionGuard from './components/SubscriptionGuard'
 import OwnerLayout from './layouts/OwnerLayout'
 import DriverLayout from './layouts/DriverLayout'
 
@@ -74,6 +75,7 @@ import AdminDashboard from
 import AdminUsers from './pages/admin/Users'
 import AdminComplaints from './pages/admin/Complaints'
 import AdminSubscriptions from './pages/admin/Subscriptions'
+import SubscriptionManager from './pages/admin/SubscriptionManager'
 import OwnerComplaints from './pages/owner/Complaints'
 import DriverComplaints from './pages/driver/Complaints'
 import OwnerRatings from './pages/owner/Ratings'
@@ -121,7 +123,9 @@ function App() {
         <Route
           element={
             <ProtectedRoute role="owner">
-              <OwnerLayout />
+              <SubscriptionGuard>
+                <OwnerLayout />
+              </SubscriptionGuard>
             </ProtectedRoute>
           }
         >
@@ -150,7 +154,9 @@ function App() {
         <Route
           element={
             <ProtectedRoute role="driver">
-              <DriverLayout />
+              <SubscriptionGuard>
+                <DriverLayout />
+              </SubscriptionGuard>
             </ProtectedRoute>
           }
         >
@@ -195,6 +201,14 @@ function App() {
           element={
             <ProtectedRoute role="admin">
               <AdminSubscriptions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/subscription-manager"
+          element={
+            <ProtectedRoute role="admin">
+              <SubscriptionManager />
             </ProtectedRoute>
           }
         />

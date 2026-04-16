@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import { getUser, setAuth, getToken } from '../../utils/helpers'
 import { STATES, VEHICLE_TYPES } from '../../utils/constants'
@@ -9,6 +10,7 @@ import {
 } from '../../api/driverAPI'
 
 const DriverProfile = () => {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('details')
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -81,12 +83,12 @@ const DriverProfile = () => {
       })
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Profile load nahi ho paya.'
+        e.response?.data?.message || t('profileLoadError')
       )
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (!getUser()) return
@@ -129,7 +131,7 @@ const DriverProfile = () => {
       )
 
       if (res.data.success) {
-        toast.success('Photo upload ho gayi!')
+        toast.success(t('photoUploaded'))
         setUser((prev) =>
           prev ? { ...prev, profilePhoto: res.data.photo } : prev
         )
@@ -143,7 +145,7 @@ const DriverProfile = () => {
       }
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Photo upload nahi hui'
+        err.response?.data?.message || t('photoUploadError')
       )
     }
   }
@@ -168,11 +170,11 @@ const DriverProfile = () => {
 
       if (res.data?.success) {
         setBankUpiQr(res.data.photo)
-        toast.success('QR code upload ho gaya!')
+        toast.success(t('qrUploaded'))
       }
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'QR upload nahi hua'
+        err.response?.data?.message || t('qrUploadError')
       )
     }
   }
@@ -204,7 +206,7 @@ const DriverProfile = () => {
         docFiles.other
 
       if (!hasFiles) {
-        toast.error('Koi file select nahi ki')
+        toast.error(t('noFileSelected'))
         return
       }
 
@@ -218,7 +220,7 @@ const DriverProfile = () => {
         },
       })
 
-      toast.success('Documents upload ho gaye!')
+      toast.success(t('docsUploaded'))
       setDocFiles({
         license: null,
         aadhar: null,
@@ -228,7 +230,7 @@ const DriverProfile = () => {
       await loadProfile()
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Upload nahi hua'
+        err.response?.data?.message || t('docUploadError')
       )
     } finally {
       setDocUploading(false)
@@ -239,11 +241,11 @@ const DriverProfile = () => {
   const handleSave = async (e) => {
     e.preventDefault()
     if (!name?.trim()) {
-      toast.error('Naam zaroori hai')
+      toast.error(t('nameRequired'))
       return
     }
     if (skills.length === 0) {
-      toast.error('Kam se kam ek skill chuniye')
+      toast.error(t('skillRequired'))
       return
     }
     setSaveLoading(true)
@@ -276,10 +278,10 @@ const DriverProfile = () => {
       }
       setUser(nextUser)
       setAuth(getToken(), nextUser)
-      toast.success('Profile save ho gaya!')
+      toast.success(t('profileSaved'))
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Save nahi ho paya.'
+        err.response?.data?.message || t('saveError')
       )
     } finally {
       setSaveLoading(false)
@@ -292,7 +294,7 @@ const DriverProfile = () => {
     >
       <div className="p-4 md:p-6 pb-8">
         {loading ? (
-          <p className="text-sm text-gray-500">Loading...</p>
+          <p className="text-sm text-gray-500">{t('loading')}</p>
         ) : (
           <div className="mb-6 overflow-hidden rounded-2xl border border-gray-100 bg-white">
             <div className="flex flex-wrap border-b border-gray-100">
@@ -305,7 +307,7 @@ const DriverProfile = () => {
                     : 'text-gray-500'
                 }`}
               >
-                Meri Details
+                {t('myDetails')}
               </button>
               <button
                 type="button"
@@ -316,7 +318,7 @@ const DriverProfile = () => {
                     : 'text-gray-500'
                 }`}
               >
-                Mere Documents
+                {t('myDocuments')}
               </button>
             </div>
 
@@ -339,7 +341,7 @@ const DriverProfile = () => {
                     </div>
                     <label className="mt-3 cursor-pointer">
                       <span className="inline-block rounded-full bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100">
-                        Photo Change Karein
+                        {t('photo')} {t('update')}
                       </span>
                       <input
                         type="file"
@@ -353,7 +355,7 @@ const DriverProfile = () => {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Naam <span className="text-red-500">*</span>
+                        {t('name')} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -365,7 +367,7 @@ const DriverProfile = () => {
                     </div>
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Phone
+                        {t('phone')}
                       </label>
                       <input
                         type="text"
@@ -377,7 +379,8 @@ const DriverProfile = () => {
 
                     <div className="sm:col-span-2">
                       <p className="mb-2 text-sm font-medium text-gray-700">
-                        Skills <span className="text-red-500">*</span>
+                        {t('skills')}{' '}
+                        <span className="text-red-500">*</span>
                       </p>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {VEHICLE_TYPES.map((t) => {
@@ -406,7 +409,7 @@ const DriverProfile = () => {
 
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Experience
+                        {t('experience')}
                       </label>
                       <div className="flex min-h-[44px] items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white">
                         <input
@@ -418,13 +421,13 @@ const DriverProfile = () => {
                           className="min-w-0 flex-1 border-0 px-3 py-2 text-sm focus:ring-0"
                         />
                         <span className="flex items-center border-l border-gray-200 bg-gray-50 px-3 text-sm text-gray-600">
-                          saal
+                          {t('years')}
                         </span>
                       </div>
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        License Number
+                        {t('licenseNumber')}
                       </label>
                       <input
                         type="text"
@@ -438,7 +441,7 @@ const DriverProfile = () => {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        License Type
+                        {t('licenseType')}
                       </label>
                       <select
                         value={licenseType}
@@ -447,7 +450,7 @@ const DriverProfile = () => {
                         }
                         className="input-field w-full"
                       >
-                        <option value="">Chuniye</option>
+                        <option value="">{t('select')}</option>
                         <option value="HMV">HMV</option>
                         <option value="LMV">LMV</option>
                         <option value="Both">Both</option>
@@ -455,7 +458,7 @@ const DriverProfile = () => {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        License Expiry
+                        {t('licenseExpiry')}
                       </label>
                       <input
                         type="date"
@@ -468,7 +471,7 @@ const DriverProfile = () => {
                     </div>
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        About
+                        {t('about')}
                       </label>
                       <textarea
                         rows={3}
@@ -479,7 +482,7 @@ const DriverProfile = () => {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        State
+                        {t('state')}
                       </label>
                       <select
                         required
@@ -487,7 +490,9 @@ const DriverProfile = () => {
                         onChange={(e) => setStateVal(e.target.value)}
                         className="input-field w-full"
                       >
-                        <option value="">State chuniye</option>
+                        <option value="">
+                          {t('state')} {t('select')}
+                        </option>
                         {STATES.map((s) => (
                           <option key={s} value={s}>
                             {s}
@@ -497,7 +502,7 @@ const DriverProfile = () => {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        District
+                        {t('city')}
                       </label>
                       <input
                         type="text"
@@ -513,12 +518,12 @@ const DriverProfile = () => {
 
                   <div className="border-t border-gray-200 pt-4">
                     <h3 className="mb-4 text-base font-semibold text-gray-800">
-                      Bank Details
+                      {t('bankDetails')}
                     </h3>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="sm:col-span-2">
                         <label className="mb-1 block text-sm font-medium text-gray-700">
-                          UPI ID (Payment ke liye)
+                          {t('upiId')}
                         </label>
                         <input
                           type="text"
@@ -530,13 +535,12 @@ const DriverProfile = () => {
                           className="input-field w-full"
                         />
                         <div className="mt-2 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-900">
-                          ⚠️ UPI ID sahi se bharo — owner isi pe
-                          payment karega
+                          ⚠️ {t('upiWarning')}
                         </div>
                       </div>
                       <div className="sm:col-span-2">
                         <label className="mb-1 block text-sm font-medium text-gray-700">
-                          Ya QR Code Upload Karo
+                          {t('uploadQrCode')}
                         </label>
                         <input
                           type="file"
@@ -558,14 +562,14 @@ const DriverProfile = () => {
                                 onClick={() => setBankUpiQr('')}
                                 className="mt-2 text-xs text-red-600"
                               >
-                                QR hatao
+                                {t('removeQr')}
                               </button>
                             </div>
                           )}
                       </div>
                       <div className="sm:col-span-2">
                         <label className="mb-1 block text-sm font-medium text-gray-700">
-                          Account Holder Name
+                          {t('accountName')}
                         </label>
                         <input
                           type="text"
@@ -578,7 +582,7 @@ const DriverProfile = () => {
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">
-                          Account Number
+                          {t('bankAccount')}
                         </label>
                         <input
                           type="text"
@@ -591,7 +595,7 @@ const DriverProfile = () => {
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">
-                          IFSC Code
+                          {t('ifsc')}
                         </label>
                         <input
                           type="text"
@@ -612,7 +616,7 @@ const DriverProfile = () => {
                     disabled={saveLoading}
                     className="min-h-[44px] rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
                   >
-                    {saveLoading ? 'Saving...' : 'Profile Save Karein'}
+                    {saveLoading ? t('loading') : t('save')}
                   </button>
                 </form>
               )}
@@ -633,7 +637,7 @@ const DriverProfile = () => {
                     >
                       <span>✅</span>
                       <span style={{ fontSize: '13px' }}>
-                        License uploaded
+                        {t('licenseUploaded')}
                       </span>
                       <a
                         href={documents.license}
@@ -645,7 +649,7 @@ const DriverProfile = () => {
                           marginLeft: 'auto',
                         }}
                       >
-                        View
+                        {t('view')}
                       </a>
                     </div>
                   ) : null}
@@ -663,7 +667,7 @@ const DriverProfile = () => {
                     >
                       <span>✅</span>
                       <span style={{ fontSize: '13px' }}>
-                        Aadhar uploaded
+                        {t('aadharUploaded')}
                       </span>
                       <a
                         href={documents.aadhar}
@@ -675,7 +679,7 @@ const DriverProfile = () => {
                           marginLeft: 'auto',
                         }}
                       >
-                        View
+                        {t('view')}
                       </a>
                     </div>
                   ) : null}
@@ -693,7 +697,7 @@ const DriverProfile = () => {
                     >
                       <span>✅</span>
                       <span style={{ fontSize: '13px' }}>
-                        Document photo uploaded
+                        {t('docPhotoUploaded')}
                       </span>
                       <a
                         href={documents.photo}
@@ -705,7 +709,7 @@ const DriverProfile = () => {
                           marginLeft: 'auto',
                         }}
                       >
-                        View
+                        {t('view')}
                       </a>
                     </div>
                   ) : null}
@@ -723,7 +727,7 @@ const DriverProfile = () => {
                     >
                       <span>✅</span>
                       <span style={{ fontSize: '13px' }}>
-                        Other document uploaded
+                        {t('otherDocUploaded')}
                       </span>
                       <a
                         href={documents.other}
@@ -735,14 +739,14 @@ const DriverProfile = () => {
                           marginLeft: 'auto',
                         }}
                       >
-                        View
+                        {t('view')}
                       </a>
                     </div>
                   ) : null}
 
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Driving License
+                      {t('drivingLicense')}
                     </label>
                     <input
                       type="file"
@@ -757,13 +761,13 @@ const DriverProfile = () => {
                     />
                     {docFiles.license ? (
                       <p className="mt-1 text-xs text-gray-600">
-                        Selected: {docFiles.license.name}
+                        {t('selected')}: {docFiles.license.name}
                       </p>
                     ) : null}
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Aadhar Card
+                      {t('aadharCard')}
                     </label>
                     <input
                       type="file"
@@ -778,13 +782,13 @@ const DriverProfile = () => {
                     />
                     {docFiles.aadhar ? (
                       <p className="mt-1 text-xs text-gray-600">
-                        Selected: {docFiles.aadhar.name}
+                        {t('selected')}: {docFiles.aadhar.name}
                       </p>
                     ) : null}
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Photo
+                      {t('photo')}
                     </label>
                     <input
                       type="file"
@@ -799,13 +803,13 @@ const DriverProfile = () => {
                     />
                     {docFiles.photo ? (
                       <p className="mt-1 text-xs text-gray-600">
-                        Selected: {docFiles.photo.name}
+                        {t('selected')}: {docFiles.photo.name}
                       </p>
                     ) : null}
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Other document
+                      {t('document')}
                     </label>
                     <input
                       type="file"
@@ -820,7 +824,7 @@ const DriverProfile = () => {
                     />
                     {docFiles.other ? (
                       <p className="mt-1 text-xs text-gray-600">
-                        Selected: {docFiles.other.name}
+                        {t('selected')}: {docFiles.other.name}
                       </p>
                     ) : null}
                   </div>
@@ -828,7 +832,7 @@ const DriverProfile = () => {
                   {docUploading ? (
                     <div>
                       <div className="mb-1 flex justify-between text-xs text-gray-600">
-                        <span>Upload ho raha hai...</span>
+                        <span>{t('uploadingProgress')}</span>
                         <span>{docUploadProgress}%</span>
                       </div>
                       <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
@@ -859,12 +863,12 @@ const DriverProfile = () => {
                     }}
                   >
                     {docUploading
-                      ? 'Upload ho raha hai...'
-                      : '📄 Documents Upload Karo'}
+                      ? t('loading')
+                      : `📄 ${t('upload')}`}
                   </button>
 
                   <p className="text-sm text-gray-500">
-                    Documents verify hone ke baad Verified badge milega
+                    {t('documentsVerifyNote')}
                   </p>
                 </div>
               )}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import { getDriverDetail } from '../../api/ownerAPI'
 
@@ -19,6 +20,7 @@ const getThumbUrl = (url) => {
 }
 
 const DriverDetail = () => {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
 
@@ -33,7 +35,7 @@ const DriverDetail = () => {
         const res = await getDriverDetail(id)
         setData(res.data || null)
       } catch (e) {
-        toast.error(e.response?.data?.message || 'Load nahi hua')
+        toast.error(e.response?.data?.message || t('driverLoadError'))
         setData(null)
       } finally {
         setLoading(false)
@@ -104,20 +106,27 @@ const DriverDetail = () => {
     >
         <div className="mx-auto max-w-3xl px-4 py-6">
           <button type="button" onClick={() => navigate(-1)} className="text-gray-500 text-sm mb-4">
-            ← Wapas
+            {t('backBtn')}
           </button>
 
           {loading ? (
-            <div className="flex justify-center py-16">
+            <div
+              className="flex justify-center py-16"
+              role="status"
+              aria-label={t('loading')}
+            >
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
             </div>
           ) : !driver ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-gray-600">
-              Driver nahi mila
+              {t('driverNotFound')}
             </div>
           ) : (
             <>
-              <div className="bg-white rounded-2xl p-6 mb-6 border border-gray-100">
+              <div
+                className="bg-white rounded-2xl p-6 mb-6 border border-gray-100"
+                aria-label={t('profile')}
+              >
                 <div className="flex items-center gap-4">
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-3xl font-bold text-blue-700">
                     {driver?.profilePhoto ? (
@@ -142,7 +151,7 @@ const DriverDetail = () => {
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {driver?.isVerified ? (
                         <span className="bg-green-100 text-green-600 text-xs px-2 py-1 rounded-full">
-                          ✓ Verified
+                          ✓ {t('verifiedLabel')}
                         </span>
                       ) : null}
                       <span
@@ -150,14 +159,14 @@ const DriverDetail = () => {
                           activeContract ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                         }`}
                       >
-                        {activeContract ? '✅ Active' : 'No Active Job'}
+                        {activeContract ? t('activeStatus') : t('noActiveJobLabel')}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2 mt-2">
                       {renderStars(Math.round(Number(avgRating) || 0))}
                       <span className="text-sm text-gray-600">
-                        {avgRating} ({totalRatings} reviews)
+                        {avgRating} ({totalRatings} {t('review')})
                       </span>
                     </div>
                   </div>
@@ -174,7 +183,7 @@ const DriverDetail = () => {
                 ) : null}
 
                 <div className="mt-3 text-sm text-gray-500">
-                  {profile?.experience != null ? `${profile.experience} saal experience` : '—'}
+                  {profile?.experience != null ? `${profile.experience} ${t('experienceText')}` : '—'}
                 </div>
                 <div className="text-sm text-gray-500">
                   {profile?.licenseType || '—'} — {profile?.licenseNumber || '—'}
@@ -297,7 +306,13 @@ const DriverDetail = () => {
                                 fontWeight: '500',
                               }}
                             >
-                              {doc.label}
+                              {doc.key === 'license'
+                                ? t('licenseDoc')
+                                : doc.key === 'aadhar'
+                                  ? t('aadharDoc')
+                                  : doc.key === 'photo'
+                                    ? t('photoDoc')
+                                    : t('otherDoc')}
                             </span>
                           </a>
                         ))}
@@ -311,74 +326,89 @@ const DriverDetail = () => {
                     onClick={() => navigate(messageUrl)}
                     className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm"
                   >
-                    Message Karo
+                    {t('messageBtnLabel')}
                   </button>
                   <button
                     type="button"
                     onClick={() => navigate('/owner/complaints')}
                     className="border border-red-300 text-red-500 px-4 py-2 rounded-xl text-sm"
                   >
-                    Complaint Karo
+                    {t('complaintBtnLabel')}
                   </button>
                 </div>
               </div>
 
               {activeContract ? (
-                <div className="bg-green-50 border border-green-200 rounded-2xl p-6 mb-6">
+                <div
+                  className="bg-green-50 border border-green-200 rounded-2xl p-6 mb-6"
+                  aria-label={t('contract')}
+                >
                   <div className="text-green-800 font-bold text-lg mb-4">
-                    ✅ Abhi Kaam Chal Raha Hai
+                    {t('workInProgress2')}
                   </div>
 
                   <div className="space-y-2 text-sm text-gray-700">
                     <div>
-                      <strong>Job:</strong> {activeContract.jobId?.title || '—'}
+                      <strong>{t('job')}:</strong> {activeContract.jobId?.title || '—'}
                     </div>
                     <div>
-                      <strong>Gadi:</strong> {activeContract.jobId?.vehicleId?.vehicleType || '—'} —{' '}
+                      <strong>{t('vehicleLabel4')}:</strong> {activeContract.jobId?.vehicleId?.vehicleType || '—'} —{' '}
                       {activeContract.jobId?.vehicleId?.vehicleNumber || '—'}
                     </div>
                     <div>
-                      <strong>Category:</strong> {activeContract.vehicleCategory || '—'}
+                      <strong>{t('categoryLabel3')}:</strong> {activeContract.vehicleCategory || '—'}
                     </div>
                     <div>
-                      <strong>Salary:</strong>{' '}
+                      <strong>{t('salaryLabel2')}:</strong>{' '}
                       {activeContract.salaryType === 'daily'
-                        ? `₹${activeContract.salaryPerDay}/din`
+                        ? `₹${activeContract.salaryPerDay}/${t('perDay')}`
                         : activeContract.salaryType === 'monthly'
-                          ? `₹${activeContract.salaryPerMonth}/month`
-                          : `₹${activeContract.salaryPerHour}/ghanta`}
+                          ? `₹${activeContract.salaryPerMonth}/${t('perMonth')}`
+                          : `₹${activeContract.salaryPerHour}/${t('perHour')}`}
                     </div>
                     {activeContract.hasBhatta ? (
-                      <div>+ ₹{activeContract.dailyBhatta} bhatta/din</div>
+                      <div>
+                        + ₹{activeContract.dailyBhatta} {t('bhatta')}/{t('perDay')}
+                      </div>
                     ) : null}
                     <div>
-                      <strong>Start Date:</strong> {formatDate(activeContract.startDate)}
+                      <strong>{t('startDate')}:</strong> {formatDate(activeContract.startDate)}
                     </div>
                     <div>
-                      <strong>Duration:</strong> {activeContract.duration} din
+                      <strong>{t('duration')}:</strong> {activeContract.duration} {t('days')}
                     </div>
-                    <div className="font-semibold text-green-800">{daysLeft} din baaki</div>
+                    <div className="font-semibold text-green-800">
+                      {daysLeft} {t('daysLeftLabel')}
+                    </div>
                   </div>
 
                   {attendanceSummary ? (
                     <div className="bg-white rounded-xl p-4 mt-4">
-                      <div className="font-semibold text-gray-800">Is Mahine Ki Attendance:</div>
+                      <div className="font-semibold text-gray-800">
+                        {t('thisMonthAttendance')}:
+                      </div>
                       <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                         <div className="rounded-xl bg-green-50 p-3">
-                          <div className="text-green-700 font-bold">{attendanceSummary.presentDays} din</div>
-                          <div className="text-xs text-gray-500">Present</div>
+                          <div className="text-green-700 font-bold">
+                            {attendanceSummary.presentDays} {t('days')}
+                          </div>
+                          <div className="text-xs text-gray-500">{t('presentLabel')}</div>
                         </div>
                         <div className="rounded-xl bg-red-50 p-3">
-                          <div className="text-red-600 font-bold">{attendanceSummary.absentDays} din</div>
-                          <div className="text-xs text-gray-500">Absent</div>
+                          <div className="text-red-600 font-bold">
+                            {attendanceSummary.absentDays} {t('days')}
+                          </div>
+                          <div className="text-xs text-gray-500">{t('absentLabel')}</div>
                         </div>
                         <div className="rounded-xl bg-yellow-50 p-3">
-                          <div className="text-yellow-700 font-bold">{attendanceSummary.halfDays} din</div>
-                          <div className="text-xs text-gray-500">Half Day</div>
+                          <div className="text-yellow-700 font-bold">
+                            {attendanceSummary.halfDays} {t('days')}
+                          </div>
+                          <div className="text-xs text-gray-500">{t('halfDayLabel')}</div>
                         </div>
                         <div className="rounded-xl bg-blue-50 p-3">
                           <div className="text-blue-700 font-bold">₹{attendanceSummary.grossTotal}</div>
-                          <div className="text-xs text-gray-500">Salary</div>
+                          <div className="text-xs text-gray-500">{t('salaryLabel3')}</div>
                         </div>
                       </div>
                     </div>
@@ -386,12 +416,14 @@ const DriverDetail = () => {
 
                   {paymentSummary ? (
                     <div className="bg-white rounded-xl p-4 mt-3 text-sm text-gray-700">
-                      <div className="font-semibold text-gray-800">Payment Status:</div>
+                      <div className="font-semibold text-gray-800">
+                        {t('paymentsStatus')}:
+                      </div>
                       <div className="mt-2">
-                        Total Paid: <strong>₹{paymentSummary.totalPaid}</strong>
+                        {t('totalPaidLabel')}: <strong>₹{paymentSummary.totalPaid}</strong>
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        Last Payment: {formatDate(paymentSummary.lastPayment?.ownerPaidAt)}
+                        {t('lastPaymentLabel')}: {formatDate(paymentSummary.lastPayment?.ownerPaidAt)}
                       </div>
                     </div>
                   ) : null}
@@ -402,32 +434,32 @@ const DriverDetail = () => {
                       onClick={() => navigate('/owner/attendance')}
                       className="bg-white border rounded-xl p-3 text-center text-sm"
                     >
-                      📅 Attendance
+                      📅 {t('attendance')}
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate('/owner/payments')}
                       className="bg-white border rounded-xl p-3 text-center text-sm"
                     >
-                      💰 Payment Karo
+                      💰 {t('payments')}
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate(`/owner/contracts/${activeContract._id}`)}
                       className="bg-white border rounded-xl p-3 text-center text-sm"
                     >
-                      📋 Contract Dekho
+                      📋 {t('viewContract')}
                     </button>
                     <button
                       type="button"
                       onClick={() => {
                         const vid = activeContract.jobId?.vehicleId?._id
                         if (vid) navigate(`/owner/vehicles/${vid}`)
-                        else toast.error('Gadi nahi mili')
+                        else toast.error(t('vehicleNotFound'))
                       }}
                       className="bg-white border rounded-xl p-3 text-center text-sm"
                     >
-                      🚗 Gadi Dekho
+                      🚗 {t('viewVehicleBtn')}
                     </button>
                   </div>
                 </div>
@@ -435,11 +467,15 @@ const DriverDetail = () => {
 
               {(ratings || []).length > 0 ? (
                 <div className="bg-white rounded-2xl p-6 mb-6 border border-gray-100">
-                  <h2 className="text-lg font-semibold mb-4 text-gray-800">Driver Ki Ratings</h2>
+                  <h2 className="text-lg font-semibold mb-4 text-gray-800">
+                    {t('ratings')}
+                  </h2>
                   <div className="text-center mb-4">
                     <div className="text-4xl font-bold text-blue-700">{avgRating}</div>
                     <div className="mt-2">{renderStars(Math.round(Number(avgRating) || 0))}</div>
-                    <div className="text-sm text-gray-500 mt-1">{totalRatings} reviews</div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      {totalRatings} {t('review')}
+                    </div>
                   </div>
                   {(ratings || []).map((r) => (
                     <div key={r._id} className="border-b pb-3 mb-3">
@@ -462,7 +498,9 @@ const DriverDetail = () => {
 
               {(contractHistory || []).length > 0 ? (
                 <div className="bg-white rounded-2xl p-6 mb-6 border border-gray-100">
-                  <h2 className="text-lg font-semibold mb-4 text-gray-800">Purana Kaam History</h2>
+                  <h2 className="text-lg font-semibold mb-4 text-gray-800">
+                    {t('workHistoryLabel')}
+                  </h2>
                   {contractHistory.map((c) => (
                     <div key={c._id} className="bg-gray-50 rounded-xl p-4 mb-3">
                       <div className="flex items-start justify-between gap-3">
@@ -471,7 +509,9 @@ const DriverDetail = () => {
                           <div className="text-sm text-gray-600">
                             {c.jobId?.vehicleType || 'Vehicle'} · {c.jobId?.vehicleId?.vehicleNumber || '—'}
                           </div>
-                          <div className="text-xs text-gray-400">Start: {formatDate(c.startDate)}</div>
+                          <div className="text-xs text-gray-400">
+                            {t('startDate')}: {formatDate(c.startDate)}
+                          </div>
                         </div>
                         <div className="text-right">
                           <span
@@ -481,9 +521,11 @@ const DriverDetail = () => {
                                 : 'bg-red-100 text-red-500'
                             }`}
                           >
-                            {c.status === 'completed' ? 'Complete' : 'Resign'}
+                            {c.status === 'completed' ? t('completeLabel') : t('resignLabel')}
                           </span>
-                          <div className="mt-2 text-xs text-gray-400">{c.duration} din</div>
+                          <div className="mt-2 text-xs text-gray-400">
+                            {c.duration} {t('days')}
+                          </div>
                         </div>
                       </div>
                     </div>

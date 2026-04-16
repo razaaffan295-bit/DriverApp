@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getUser, setAuth, getToken } from '../utils/helpers'
 import axios from '../api/axios'
+import { useTranslation } from 'react-i18next'
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -20,6 +21,7 @@ const loadRazorpayScript = () => {
 
 const Subscription = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const user = getUser()
   const [loading, setLoading] = useState(false)
   const isOwner = user?.role === 'owner'
@@ -53,7 +55,7 @@ const Subscription = () => {
 
       if (!window.Razorpay) {
         toast.error(
-          'Razorpay load nahi hua. Internet check karein.'
+          t('razorpayLoadError')
         )
         return
       }
@@ -64,8 +66,8 @@ const Subscription = () => {
         currency: 'INR',
         name: 'DriverApp',
         description: isOwner
-          ? 'Owner Subscription ₹499/month'
-          : 'Driver Subscription ₹99/month',
+          ? t('ownerSubDescription')
+          : t('driverSubDescription'),
         order_id: order.id,
         handler: async (response) => {
           try {
@@ -94,7 +96,7 @@ const Subscription = () => {
               }
 
               toast.success(
-                'Payment successful! Subscription active!'
+                t('paymentSuccess')
               )
 
               if (isOwner) {
@@ -104,7 +106,7 @@ const Subscription = () => {
               }
             }
           } catch (err) {
-            toast.error('Payment verify nahi hua')
+            toast.error(t('paymentVerifyError'))
           }
         },
         prefill: {
@@ -128,7 +130,7 @@ const Subscription = () => {
       console.error('Payment error:', err)
       toast.error(
         err.response?.data?.message ||
-          'Kuch galat hua. Dobara try karein.'
+          t('paymentError')
       )
     } finally {
       setLoading(false)
@@ -179,7 +181,7 @@ const Subscription = () => {
             marginBottom: '8px',
           }}
         >
-          Subscription Chahiye
+          {t('subscriptionNeeded')}
         </h1>
 
         <p
@@ -191,8 +193,8 @@ const Subscription = () => {
           }}
         >
           {isOwner
-            ? 'Job post karne ke liye monthly subscription lo'
-            : 'Jobs apply karne ke liye monthly subscription lo'}
+            ? t('ownerSubNote')
+            : t('driverSubNote')}
         </p>
 
         <div
@@ -218,7 +220,7 @@ const Subscription = () => {
               fontSize: '14px',
             }}
           >
-            per month
+            {t('perMonth3')}
           </div>
 
           <div
@@ -229,18 +231,18 @@ const Subscription = () => {
           >
             {(isOwner
               ? [
-                  'Unlimited job posts',
-                  'Driver profiles dekho',
-                  'Attendance + Payments',
-                  'Complaint system',
-                  '30 din valid',
+                  t('ownerFeature1'),
+                  t('ownerFeature2'),
+                  t('ownerFeature3'),
+                  t('ownerFeature4'),
+                  t('ownerFeature5'),
                 ]
               : [
-                  'Unlimited job apply',
-                  'Owner se direct contact',
-                  'Attendance track karo',
-                  'Payment receive karo',
-                  '30 din valid',
+                  t('driverFeature1'),
+                  t('driverFeature2'),
+                  t('driverFeature3'),
+                  t('driverFeature4'),
+                  t('driverFeature5'),
                 ]
             ).map((item, i) => (
               <div
@@ -289,8 +291,11 @@ const Subscription = () => {
           }}
         >
           {loading
-            ? 'Loading...'
-            : `Pay ₹${isOwner ? 499 : 99} - Subscribe`}
+            ? t('paymentLoadingBtn')
+            : t('payAndSubscribeBtn').replace(
+                '{amount}',
+                isOwner ? '499' : '99'
+              )}
         </button>
 
         <p
@@ -300,7 +305,7 @@ const Subscription = () => {
             color: '#9CA3AF',
           }}
         >
-          Secure payment by Razorpay
+          {t('securePayment')}
         </p>
       </div>
     </div>

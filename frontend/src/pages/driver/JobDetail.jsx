@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getJobDetail, applyJob } from '../../api/driverAPI'
@@ -19,6 +20,7 @@ const formatDate = (d) => {
 }
 
 const JobDetail = () => {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
   const [job, setJob] = useState(null)
@@ -36,13 +38,13 @@ const JobDetail = () => {
       setHasApplied(!!data.hasApplied)
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Job load nahi ho payi.'
+        e.response?.data?.message || t('jobLoadError')
       )
       navigate('/driver/jobs')
     } finally {
       setLoading(false)
     }
-  }, [id, navigate])
+  }, [id, navigate, t])
 
   useEffect(() => {
     loadJob()
@@ -86,12 +88,12 @@ const JobDetail = () => {
   const getSalaryDisplay = (job) => {
     if (!job) return '₹0'
     if (job.salaryType === 'monthly') {
-      return `₹${job.salaryPerMonth || 0}/month`
+      return `₹${job.salaryPerMonth || 0}/${t('perMonth')}`
     }
     if (job.salaryType === 'hourly') {
-      return `₹${job.salaryPerHour || 0}/ghanta`
+      return `₹${job.salaryPerHour || 0}/${t('perHour')}`
     }
-    return `₹${job.salaryPerDay || 0}/din`
+    return `₹${job.salaryPerDay || 0}/${t('perDay')}`
   }
 
   const getTotalKamayi = (job) => {
@@ -101,7 +103,7 @@ const JobDetail = () => {
       return (job.salaryPerMonth || 0) * months
     }
     if (job.salaryType === 'hourly') {
-      return 'Ghante ke hisaab se'
+      return t('hourlyBasis')
     }
     return (job.salaryPerDay || 0) * (job.duration || 0)
   }
@@ -121,7 +123,7 @@ const JobDetail = () => {
       }
       await applyJob(id)
       toast.success(
-        'Apply ho gaya! Owner ka reply aane tak wait karein'
+        t('appliedSuccess')
       )
       setHasApplied(true)
     } catch (err) {
@@ -152,11 +154,11 @@ const JobDetail = () => {
             onClick={() => navigate('/driver/jobs')}
             className="mb-4 text-sm font-medium text-green-700 hover:text-green-800"
           >
-            ← Wapas Jaao
+            ← {t('back')}
           </button>
 
           {loading ? (
-            <p className="text-sm text-gray-500">Loading...</p>
+            <p className="text-sm text-gray-500">{t('loading')}</p>
           ) : !job ? null : (
             <>
               <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
@@ -189,7 +191,7 @@ const JobDetail = () => {
 
                 <div className="mb-4 mt-6 rounded-2xl border border-gray-100 bg-white p-5">
                   <h3 className="mb-3 font-semibold text-gray-800">
-                    Owner ki Rating
+                    {t('ownerRatingTitle')}
                   </h3>
 
                   {!ownerRating ||
@@ -197,10 +199,10 @@ const JobDetail = () => {
                     <div className="py-4 text-center">
                       <div className="mb-2 text-3xl">★</div>
                       <p className="text-sm text-gray-400">
-                        Abhi koi rating nahi
+                        {t('noRatingYet')}
                       </p>
                       <p className="mt-1 text-xs text-gray-400">
-                        Pehle driver hain — rate karne wale
+                        {t('firstDrivers')}
                       </p>
                     </div>
                   ) : (
@@ -228,7 +230,7 @@ const JobDetail = () => {
                             ))}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {ownerRating.total} drivers ne rate kiya
+                            {ownerRating.total} {t('driversRated')}
                           </div>
                         </div>
                       </div>
@@ -280,7 +282,7 @@ const JobDetail = () => {
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <div>
                     <p className="text-xs font-medium text-gray-500">
-                      Salary
+                      {t('salary')}
                     </p>
                     <p className="font-semibold text-green-700">
                       {getSalaryDisplay(job)}
@@ -288,15 +290,15 @@ const JobDetail = () => {
                   </div>
                   <div>
                     <p className="text-xs font-medium text-gray-500">
-                      Duration
+                      {t('duration')}
                     </p>
                     <p className="font-medium text-gray-900">
-                      {job.duration} din
+                      {job.duration} {t('days')}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-gray-500">
-                      Start Date
+                      {t('startDate')}
                     </p>
                     <p className="font-medium text-gray-900">
                       {formatDate(job.startDate)}
@@ -304,7 +306,7 @@ const JobDetail = () => {
                   </div>
                   <div>
                     <p className="text-xs font-medium text-gray-500">
-                      Location
+                      {t('locationLabel')}
                     </p>
                     <p className="font-medium text-gray-900">
                       {job.location?.state},{' '}
@@ -313,7 +315,7 @@ const JobDetail = () => {
                   </div>
                   <div className="sm:col-span-2">
                     <p className="text-xs font-medium text-gray-500">
-                      Vehicle Type
+                      {t('vehicleType')}
                     </p>
                     <p className="font-medium text-gray-900">
                       {job.vehicleType}
@@ -323,7 +325,7 @@ const JobDetail = () => {
 
                 <div className="mt-8 border-t border-gray-100 pt-6">
                   <h3 className="mb-2 text-base font-semibold text-gray-800">
-                    Kaam ki Details
+                    {t('description')}
                   </h3>
                   <p className="whitespace-pre-wrap text-sm text-gray-600">
                     {job.description || '—'}
@@ -335,13 +337,13 @@ const JobDetail = () => {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-lg font-bold text-green-700">
-                      Total Kamayi:{' '}
+                      {t('totalEarningsLabel2')}:{' '}
                       {typeof totalKamai === 'string'
                         ? totalKamai
                         : `₹${totalKamai}`}
                     </p>
                     <p className="text-sm text-gray-500">
-                      {job.duration} din × {getSalaryDisplay(job)}
+                      {job.duration} {t('days')} × {getSalaryDisplay(job)}
                     </p>
                   </div>
                   <button
@@ -351,10 +353,10 @@ const JobDetail = () => {
                     className="rounded-xl bg-green-600 px-8 py-3 text-center text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {applied
-                      ? 'Applied ✓'
+                      ? t('appliedDone')
                       : applyLoading
-                        ? 'Apply ho raha hai...'
-                        : 'Apply Karein'}
+                        ? t('loading')
+                        : t('applyJob')}
                   </button>
                 </div>
               </div>

@@ -4,9 +4,11 @@ import { toast } from 'react-hot-toast'
 import API from '../../api/axios'
 import { setAuth } from '../../utils/helpers'
 import { STATES } from '../../utils/constants'
+import { useTranslation } from 'react-i18next'
 
 const Signup = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -37,19 +39,19 @@ const Signup = () => {
       !formData.state ||
       !formData.district.trim()
     ) {
-      setError('Sab fields zaroori hain')
+      setError(t('allFieldsRequired'))
       return false
     }
     if (!/^\d{10}$/.test(formData.phone.trim())) {
-      setError('Phone number exactly 10 digits ka hona chahiye')
+      setError(t('phoneMustBe10'))
       return false
     }
     if (formData.password.length < 6) {
-      setError('Password kam se kam 6 characters ka hona chahiye')
+      setError(t('passwordMin6'))
       return false
     }
     if (formData.password !== formData.confirmPassword) {
-      setError('Confirm password password se match nahi karta')
+      setError(t('passwordMismatch'))
       return false
     }
     return true
@@ -73,7 +75,7 @@ const Signup = () => {
       })
       if (data.success && data.token && data.user) {
         setAuth(data.token, data.user)
-        toast.success('Account ban gaya!')
+        toast.success(t('accountCreated'))
         if (data.user.role === 'owner') {
           navigate('/owner/dashboard')
         } else {
@@ -83,7 +85,7 @@ const Signup = () => {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          'Kuch galat hua, dobara try karein'
+          t('signupFailed')
       )
     } finally {
       setLoading(false)
@@ -97,7 +99,7 @@ const Signup = () => {
           DriverApp
         </h1>
         <p className="text-gray-500 text-sm text-center mb-6">
-          Naya account banayein
+          {t('createAccount')}
         </p>
 
         <div className="bg-gray-100 rounded-xl p-1 flex mb-6">
@@ -110,7 +112,7 @@ const Signup = () => {
                 : 'text-gray-500 bg-transparent'
             }`}
           >
-            Gadi Owner
+            {t('vehicleOwnerBtn')}
           </button>
           <button
             type="button"
@@ -121,7 +123,7 @@ const Signup = () => {
                 : 'text-gray-500 bg-transparent'
             }`}
           >
-            Driver
+            {t('driverBtn')}
           </button>
         </div>
 
@@ -134,7 +136,7 @@ const Signup = () => {
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="text-sm font-medium text-gray-700 mb-1 block">
-              Naam
+              {t('nameLabel')}
             </label>
             <input
               className="input-field"
@@ -147,7 +149,7 @@ const Signup = () => {
           </div>
           <div className="mb-4">
             <label className="text-sm font-medium text-gray-700 mb-1 block">
-              Phone Number
+              {t('phoneNumberLabel')}
             </label>
             <input
               className="input-field"
@@ -161,7 +163,7 @@ const Signup = () => {
           </div>
           <div className="mb-4">
             <label className="text-sm font-medium text-gray-700 mb-1 block">
-              Password
+              {t('passwordLabel')}
             </label>
             <input
               className="input-field"
@@ -174,7 +176,7 @@ const Signup = () => {
           </div>
           <div className="mb-4">
             <label className="text-sm font-medium text-gray-700 mb-1 block">
-              Confirm Password
+              {t('confirmPasswordLabel')}
             </label>
             <input
               className="input-field"
@@ -187,7 +189,7 @@ const Signup = () => {
           </div>
           <div className="mb-4">
             <label className="text-sm font-medium text-gray-700 mb-1 block">
-              State
+              {t('stateLabel')}
             </label>
             <select
               className="input-field"
@@ -195,7 +197,7 @@ const Signup = () => {
               value={formData.state}
               onChange={handleChange}
             >
-              <option value="">State chuniye</option>
+              <option value="">{t('stateSelect')}</option>
               {STATES.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -205,7 +207,7 @@ const Signup = () => {
           </div>
           <div className="mb-4">
             <label className="text-sm font-medium text-gray-700 mb-1 block">
-              District
+              {t('district')}
             </label>
             <input
               className="input-field"
@@ -222,17 +224,17 @@ const Signup = () => {
             className="btn-primary"
             disabled={loading}
           >
-            {loading ? 'Creating...' : 'Account Banao'}
+            {loading ? t('creatingProgress') : t('createAccountBtn')}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-4">
-          Pehle se account hai?{' '}
+          {t('alreadyHaveAccount')}{' '}
           <Link
             to="/login"
             className="text-blue-600 font-semibold"
           >
-            Login karein
+            {t('loginLink')}
           </Link>
         </p>
       </div>

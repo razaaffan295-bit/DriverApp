@@ -24,6 +24,7 @@ const attendanceRoutes =
 const paymentRoutes =
   require("./routes/paymentRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const adminSubRoutes = require('./routes/adminSubscriptionRoutes')
 const complaintRoutes =
   require("./routes/complaintRoutes");
 const ratingRoutes = require("./routes/ratingRoutes");
@@ -170,6 +171,7 @@ app.use("/api/contracts", contractRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
+app.use('/api/admin/subscriptions', adminSubRoutes)
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/ratings", ratingRoutes);
 app.use("/api/resign", resignRoutes);
@@ -177,6 +179,9 @@ app.use('/api/trips', tripRoutes)
 app.use('/api/invites', inviteRoutes)
 app.use('/api/subscription', subscriptionRoutes)
 app.use('/api/upload', uploadRoutes)
+
+const { runSubscriptionCron } = require('./cron/subscriptionCron')
+runSubscriptionCron()
 
 const Sentry = require("@sentry/node");
 Sentry.setupExpressErrorHandler(app);

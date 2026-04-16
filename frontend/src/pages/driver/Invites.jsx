@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { acceptInvite, getDriverInvites, rejectInvite } from '../../api/inviteAPI'
 
 const DriverInvites = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [invites, setInvites] = useState([])
@@ -20,12 +22,14 @@ const DriverInvites = () => {
         setInvites(res.data?.invites || [])
       } catch (e) {
         setInvites([])
-        toast.error(e.response?.data?.message || 'Invites load nahi hue')
+        toast.error(
+          e.response?.data?.message || t('invitesLoadError')
+        )
       } finally {
         setLoading(false)
       }
     })()
-  }, [])
+  }, [t])
 
   const fmtDate = (date) => {
     if (!date) return '—'
@@ -41,15 +45,23 @@ const DriverInvites = () => {
       style={{ minHeight: '100vh', background: '#F0FDF4' }}
     >
         <div className="mx-auto max-w-2xl px-4 py-6">
+          <h1 className="mb-4 text-xl font-bold text-gray-800">
+            {t('invites')}
+          </h1>
           {loading ? (
             <div className="flex justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent"
+                aria-label={t('loading')}
+              />
             </div>
           ) : invites.length === 0 ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center">
-              <p className="text-lg font-semibold text-gray-700">Koi invite nahi aaya abhi</p>
+              <p className="text-lg font-semibold text-gray-700">
+                {t('noInvitesYet')}
+              </p>
               <p className="mt-2 text-sm text-gray-500">
-                Jab koi owner directly add karega — yahan dikhega
+                {t('noInvitesMsg')}
               </p>
             </div>
           ) : (
@@ -59,9 +71,11 @@ const DriverInvites = () => {
                 className="bg-white rounded-2xl p-6 mb-4 border border-blue-100 shadow-sm"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="font-bold text-gray-900">🎯 Kaam Ka Offer!</div>
+                  <div className="font-bold text-gray-900">
+                    🎯 {t('workOffer')}
+                  </div>
                   <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                    Offer
+                    {t('offer')}
                   </span>
                 </div>
 
@@ -87,11 +101,12 @@ const DriverInvites = () => {
 
                 <div className="mt-4 text-sm text-gray-700">
                   <div>
-                    <strong>Gadi:</strong> {inv.vehicleId?.vehicleType || '—'}{' '}
+                    <strong>{t('vehicleLabel')}:</strong>{' '}
+                    {inv.vehicleId?.vehicleType || '—'}{' '}
                     {inv.vehicleId?.vehicleNumber ? `— ${inv.vehicleId.vehicleNumber}` : ''}
                   </div>
                   <div className="mt-1">
-                    <strong>Category:</strong>{' '}
+                    <strong>{t('categoryLabel')}:</strong>{' '}
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold">
                       {inv.vehicleCategory}
                     </span>
@@ -101,53 +116,73 @@ const DriverInvites = () => {
                 <div className="bg-gray-50 rounded-xl p-4 mt-4">
                   {inv.salaryType === 'monthly' ? (
                     <div className="text-sm">
-                      Monthly Salary: <strong>₹{inv.salaryPerMonth}/month</strong>
+                      {t('monthlySalaryLabel')}:{' '}
+                      <strong>
+                        ₹{inv.salaryPerMonth}/{t('perMonth')}
+                      </strong>
                     </div>
                   ) : inv.salaryType === 'daily' ? (
                     <div className="text-sm">
-                      Daily Rate: <strong>₹{inv.salaryPerDay}/din</strong>
+                      {t('dailyRateLabel')}:{' '}
+                      <strong>
+                        ₹{inv.salaryPerDay}/{t('perDay')}
+                      </strong>
                     </div>
                   ) : (
                     <div className="text-sm">
-                      Hourly Rate: <strong>₹{inv.salaryPerHour}/ghanta</strong>
+                      {t('hourlyRateLabel')}:{' '}
+                      <strong>
+                        ₹{inv.salaryPerHour}/{t('perHour')}
+                      </strong>
                     </div>
                   )}
                   {inv.hasBhatta ? (
-                    <div className="mt-1 text-sm">+ Daily Bhatta: ₹{inv.dailyBhatta}/din</div>
+                    <div className="mt-1 text-sm">
+                      + {t('dailyBhattaLabel')}: ₹{inv.dailyBhatta}/
+                      {t('perDay')}
+                    </div>
                   ) : null}
                   {inv.hasHourlyBonus ? (
-                    <div className="mt-1 text-sm">+ Hourly Bonus: ₹{inv.salaryPerHour}/ghanta</div>
+                    <div className="mt-1 text-sm">
+                      + {t('hourlyBonusLabel')}: ₹{inv.salaryPerHour}/
+                      {t('perHour')}
+                    </div>
                   ) : null}
                   {inv.vehicleCategory === 'transport' ? (
                     <div className="mt-1 text-sm">
-                      Trip Type:{' '}
-                      {inv.transportType === 'company_trip' ? 'Company Trip' : 'Malik Trip'}
+                      {t('tripTypeLabel')}:{' '}
+                      {inv.transportType === 'company_trip'
+                        ? t('companyTrip')
+                        : t('malikTrip')}
                     </div>
                   ) : null}
                 </div>
 
                 <div className="mt-4 text-sm text-gray-700 space-y-1">
                   <div>
-                    <strong>Duration:</strong> {inv.duration} din
+                    <strong>{t('durationLabel2')}:</strong>{' '}
+                    {inv.duration} {t('days')}
                   </div>
                   <div>
-                    <strong>Start Date:</strong> {fmtDate(inv.startDate)}
+                    <strong>{t('startDateLabel')}:</strong>{' '}
+                    {fmtDate(inv.startDate)}
                   </div>
                   <div>
-                    <strong>Work Location:</strong> {inv.workLocation || '—'}
+                    <strong>{t('workLocation')}:</strong>{' '}
+                    {inv.workLocation || '—'}
                   </div>
                 </div>
 
                 {inv.terms ? (
                   <div className="mt-4 text-sm text-gray-700">
-                    <strong>Shartein:</strong>
+                    <strong>{t('termsLabel')}:</strong>
                     <p className="mt-1 whitespace-pre-line">{inv.terms}</p>
                   </div>
                 ) : null}
 
                 {inv.safetyConditions ? (
                   <div className="mt-4 text-sm text-gray-700">
-                    <strong>Safety:</strong>
+                    <strong>{t('safetyLabel')}:</strong>
                     <p className="mt-1 whitespace-pre-line">{inv.safetyConditions}</p>
                   </div>
                 ) : null}
@@ -157,7 +192,7 @@ const DriverInvites = () => {
                     <input
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
-                      placeholder="Reject karne ki wajah..."
+                      placeholder={t('inviteRejectReasonPlaceholder')}
                       className="input-field w-full"
                     />
                     <button
@@ -166,18 +201,21 @@ const DriverInvites = () => {
                       onClick={async () => {
                         try {
                           await rejectInvite({ inviteId: inv._id, reason: rejectReason.trim() })
-                          toast.success('Offer reject kar diya')
+                          toast.success(t('offerRejected'))
                           const res = await getDriverInvites()
                           setInvites(res.data?.invites || [])
                           setRejectingId(null)
                           setRejectReason('')
                         } catch (e) {
-                          toast.error(e.response?.data?.message || 'Reject nahi hua')
+                          toast.error(
+                            e.response?.data?.message ||
+                              t('rejectError')
+                          )
                         }
                       }}
                       className="mt-3 w-full rounded-xl bg-red-600 py-3 text-sm font-semibold text-white"
                     >
-                      Confirm Reject
+                      {t('confirm')}
                     </button>
                     <button
                       type="button"
@@ -187,7 +225,7 @@ const DriverInvites = () => {
                       }}
                       className="mt-2 w-full text-sm text-gray-500"
                     >
-                      Cancel
+                      {t('cancel')}
                     </button>
                   </div>
                 ) : (
@@ -199,24 +237,29 @@ const DriverInvites = () => {
                         try {
                           setAcceptingId(inv._id)
                           await acceptInvite({ inviteId: inv._id })
-                          toast.success('Offer accept kar liya! Kaam shuru ho gaya!')
+                          toast.success(t('offerAccepted'))
                           navigate('/driver/active-job')
                         } catch (e) {
-                          toast.error(e.response?.data?.message || 'Accept nahi hua')
+                          toast.error(
+                            e.response?.data?.message ||
+                              t('acceptError')
+                          )
                         } finally {
                           setAcceptingId(null)
                         }
                       }}
                       className="w-full rounded-xl bg-green-600 py-3 text-sm font-semibold text-white mb-2 disabled:opacity-60"
                     >
-                      {acceptingId === inv._id ? 'Accept ho raha hai...' : '✅ Accept Karo — Kaam Shuru Karein'}
+                      {acceptingId === inv._id
+                        ? t('loading')
+                        : `✅ ${t('confirm')} — ${t('startWork')}`}
                     </button>
                     <button
                       type="button"
                       onClick={() => setRejectingId(inv._id)}
                       className="w-full rounded-xl border border-red-400 py-3 text-sm font-semibold text-red-500"
                     >
-                      ❌ Reject Karo
+                      ❌ {t('declineOffer')}
                     </button>
                   </div>
                 )}

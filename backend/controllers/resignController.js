@@ -50,8 +50,8 @@ const requestResign = async (req, res) => {
 
     await Notification.create({
       userId: contract.ownerId._id || contract.ownerId,
-      title: "Driver ne Resign Kiya!",
-      message: `${req.user.name} ne resign request bheja hai. Approve ya reject karein.`,
+      title: "Resign Request",
+      message: `${req.user.name} sent a resign request. Please approve or reject.`,
       type: "complaint_update",
       link: "/owner/drivers",
       isRead: false,
@@ -155,8 +155,8 @@ const handleResign = async (req, res) => {
           const vehicle = await Vehicle.findById(job.vehicleId).lean();
           await Notification.create({
             userId: uid(req),
-            title: "Gadi Mein Driver Nahi!",
-            message: `${resign.driverId.name} ke resign ke baad aapki ${vehicle?.vehicleType || "gadi"} (${vehicle?.vehicleNumber || ""}) mein koi driver nahi hai. Naya driver hire karein.`,
+            title: "Driver Needed",
+            message: `${resign.driverId.name} resigned. Your ${vehicle?.vehicleType || "vehicle"} (${vehicle?.vehicleNumber || ""}) has no driver assigned. Please hire a new driver.`,
             type: "new_application",
             link: "/owner/drivers",
             isRead: false,
@@ -166,9 +166,9 @@ const handleResign = async (req, res) => {
 
       await Notification.create({
         userId: resign.driverId._id,
-        title: "Resign Approve Ho Gayi!",
+        title: "Resign Approved",
         message:
-          "Owner ne aapki resign approve kar di. Ab aap naya kaam dhundh sakte hain.",
+          "Your resign request was approved. You can look for new work now.",
         type: "complaint_update",
         link: "/driver/active-job",
         isRead: false,
@@ -176,8 +176,8 @@ const handleResign = async (req, res) => {
     } else {
       await Notification.create({
         userId: resign.driverId._id,
-        title: "Resign Reject Ho Gayi",
-        message: `Owner ne resign reject ki. ${respText}`,
+        title: "Resign Rejected",
+        message: `Your resign request was rejected. ${respText}`,
         type: "complaint_update",
         link: "/driver/active-job",
         isRead: false,

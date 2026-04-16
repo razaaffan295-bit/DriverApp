@@ -94,8 +94,8 @@ const giveRating = async (req, res) => {
 
     await Notification.create({
       userId: ratedToId,
-      title: "Nayi Rating Mili!",
-      message: `${rater?.name || "User"} ne aapko ${n} star diya.`,
+      title: "New Rating",
+      message: `${rater?.name || "User"} gave you ${n} stars.`,
       type: "complaint_update",
       link:
         req.user.role === "owner"

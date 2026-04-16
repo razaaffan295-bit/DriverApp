@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import { STATES, VEHICLE_TYPES } from '../../utils/constants'
 import { getVehicles, createJob } from '../../api/ownerAPI'
 import { checkSubscription } from '../../api/subscriptionAPI'
 
 const PostJob = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [vehicles, setVehicles] = useState([])
   const [vehiclesLoading, setVehiclesLoading] = useState(true)
@@ -48,7 +50,7 @@ const PostJob = () => {
       setVehicles(data?.vehicles ?? [])
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Gadiyaan load nahi ho payeen.'
+        e.response?.data?.message || t('vehiclesLoadError')
       )
     } finally {
       setVehiclesLoading(false)
@@ -62,7 +64,7 @@ const PostJob = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.vehicleType || !form.vehicleId) {
-      toast.error('Vehicle type aur gadi zaroori hain')
+      toast.error(t('vehicleRequired'))
       return
     }
     try {
@@ -100,11 +102,11 @@ const PostJob = () => {
         startDate: form.startDate,
         vehicleId: form.vehicleId,
       })
-      toast.success('Job post ho gayi!')
+      toast.success(t('jobPosted'))
       navigate('/owner/jobs')
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Job post nahi ho payi.'
+        err.response?.data?.message || t('jobPostError')
       )
     } finally {
       setSubmitLoading(false)
@@ -118,13 +120,13 @@ const PostJob = () => {
         <div className="p-4 md:p-6">
           <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
               {vehiclesLoading ? (
-                <p className="text-sm text-gray-500">Loading...</p>
+                <p className="text-sm text-gray-500">{t('loading')}</p>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Vehicle Type
+                        {t('vehicleType')}
                       </label>
                       <select
                         required
@@ -137,17 +139,17 @@ const PostJob = () => {
                         }
                         className="input-field w-full"
                       >
-                        <option value="">Vehicle type chuniye</option>
-                        {VEHICLE_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
+                        <option value="">{t('vehicleTypeSelect')}</option>
+                        {VEHICLE_TYPES.map((vtType) => (
+                          <option key={vtType} value={vtType}>
+                            {vtType}
                           </option>
                         ))}
                       </select>
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Job Title
+                        {t('jobTitle')}
                       </label>
                       <input
                         type="text"
@@ -156,7 +158,7 @@ const PostJob = () => {
                         onChange={(e) =>
                           setForm((f) => ({ ...f, title: e.target.value }))
                         }
-                        placeholder="JCB Operator chahiye"
+                        placeholder={t('jobTitlePlaceholder')}
                         className="input-field w-full"
                       />
                     </div>
@@ -165,7 +167,7 @@ const PostJob = () => {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Kaam ki Jagah / Category
+                        {t('workCategory')}
                       </label>
                       <select
                         required
@@ -188,13 +190,13 @@ const PostJob = () => {
                         className="input-field w-full"
                       >
                         <option value="mining">
-                          Mining/Construction (JCB, Poclain, Haiva, Crane, Excavator)
+                          {t('miningCategory')}
                         </option>
                         <option value="road">
-                          Road Work (Roller, Grader, Compactor)
+                          {t('roadCategory')}
                         </option>
                         <option value="transport">
-                          Highway/Transport (Truck, Dumper, Gas Tanker)
+                          {t('transportCategory')}
                         </option>
                       </select>
                     </div>
@@ -202,7 +204,7 @@ const PostJob = () => {
                       {form.vehicleCategory !== 'transport' ? (
                         <>
                           <label className="mb-1 block text-sm font-medium text-gray-700">
-                            Salary Ka Type
+                            {t('salaryTypeLabel')}
                           </label>
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                             <button
@@ -224,7 +226,7 @@ const PostJob = () => {
                                   : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                               }`}
                             >
-                              ○ Monthly Fixed
+                              ○ {t('monthly')}
                             </button>
                             <button
                               type="button"
@@ -245,7 +247,7 @@ const PostJob = () => {
                                   : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                               }`}
                             >
-                              ○ Per Din
+                              ○ {t('daily')}
                             </button>
                             <button
                               type="button"
@@ -266,17 +268,17 @@ const PostJob = () => {
                                   : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                               }`}
                             >
-                              ○ Per Ghanta
+                              ○ {t('hourly')}
                             </button>
                           </div>
                         </>
                       ) : (
                         <>
                           <label className="mb-1 block text-sm font-medium text-gray-700">
-                            Salary Ka Type
+                            {t('salaryTypeLabel')}
                           </label>
                           <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-700">
-                            Monthly Fixed
+                            {t('monthly')}
                           </div>
                         </>
                       )}
@@ -285,7 +287,7 @@ const PostJob = () => {
 
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Job Description
+                      {t('description')}
                     </label>
                     <textarea
                       required
@@ -297,7 +299,7 @@ const PostJob = () => {
                           description: e.target.value,
                         }))
                       }
-                      placeholder="Kaam ki details likhein — site ka kaam, experience chahiye, etc."
+                      placeholder={t('descriptionPlaceholder')}
                       className="input-field w-full resize-y"
                     />
                   </div>
@@ -307,7 +309,7 @@ const PostJob = () => {
                       {form.vehicleCategory === 'transport' ? (
                         <>
                           <label className="mb-1 block text-sm font-medium text-gray-700">
-                            Monthly Salary
+                            {t('salaryPerMonth')}
                           </label>
                           <div className="flex min-h-[44px] items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white">
                             <span className="flex items-center border-r border-gray-200 bg-gray-50 px-3 text-gray-600">
@@ -329,7 +331,7 @@ const PostJob = () => {
                       ) : form.salaryType === 'monthly' ? (
                         <>
                           <label className="mb-1 block text-sm font-medium text-gray-700">
-                            Monthly Salary
+                            {t('salaryPerMonth')}
                           </label>
                           <div className="flex min-h-[44px] items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white">
                             <span className="flex items-center border-r border-gray-200 bg-gray-50 px-3 text-gray-600">
@@ -351,7 +353,7 @@ const PostJob = () => {
                       ) : form.salaryType === 'daily' ? (
                         <>
                           <label className="mb-1 block text-sm font-medium text-gray-700">
-                            Per Din Salary
+                            {t('salaryPerDay')}
                           </label>
                           <div className="flex min-h-[44px] items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white">
                             <span className="flex items-center border-r border-gray-200 bg-gray-50 px-3 text-gray-600">
@@ -373,7 +375,7 @@ const PostJob = () => {
                       ) : (
                         <>
                           <label className="mb-1 block text-sm font-medium text-gray-700">
-                            Per Ghanta Rate
+                            {t('salaryPerHour')}
                           </label>
                           <div className="flex min-h-[44px] items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white">
                             <span className="flex items-center border-r border-gray-200 bg-gray-50 px-3 text-gray-600">
@@ -396,7 +398,7 @@ const PostJob = () => {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Duration
+                        {t('durationLabel4')}
                       </label>
                       <div className="flex min-h-[44px] items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white">
                         <input
@@ -414,7 +416,7 @@ const PostJob = () => {
                           className="min-w-0 flex-1 border-0 px-3 py-2 text-sm focus:ring-0"
                         />
                         <span className="flex items-center border-l border-gray-200 bg-gray-50 px-3 text-sm text-gray-600">
-                          din
+                          {t('perDayUnit')}
                         </span>
                       </div>
                     </div>
@@ -427,10 +429,10 @@ const PostJob = () => {
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <p className="text-sm font-semibold text-gray-800">
-                                Daily Bhatta milega?
+                                {t('dailyBhattaQuestion')}
                               </p>
                               <p className="mt-1 text-xs text-gray-600">
-                                Har present din extra milega
+                                {t('bhattaNote')}
                               </p>
                             </div>
                             <button
@@ -458,7 +460,7 @@ const PostJob = () => {
                           {form.hasBhatta && (
                             <div className="mt-3">
                               <label className="mb-1 block text-sm font-medium text-gray-700">
-                                Bhatta Per Din
+                                {t('bhatta')}
                               </label>
                               <div className="flex min-h-[44px] items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white">
                                 <span className="flex items-center border-r border-gray-200 bg-gray-50 px-3 text-gray-600">
@@ -483,10 +485,10 @@ const PostJob = () => {
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <p className="text-sm font-semibold text-gray-800">
-                                Hourly bonus bhi milega?
+                                {t('hourlyBonusQuestion')}
                               </p>
                               <p className="mt-1 text-xs text-gray-600">
-                                Ghante ke hisaab se extra
+                                {t('hourlyBonusNote')}
                               </p>
                             </div>
                             <button
@@ -514,7 +516,7 @@ const PostJob = () => {
                           {form.hasHourlyBonus && (
                             <div className="mt-3">
                               <label className="mb-1 block text-sm font-medium text-gray-700">
-                                Hourly Rate
+                                {t('salaryPerHour')}
                               </label>
                               <div className="flex min-h-[44px] items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white">
                                 <span className="flex items-center border-r border-gray-200 bg-gray-50 px-3 text-gray-600">
@@ -539,7 +541,7 @@ const PostJob = () => {
 
                   {form.vehicleCategory === 'transport' && (
                     <div className="rounded-2xl border border-gray-100 bg-white p-4">
-                      <p className="text-sm font-semibold text-gray-800">Trip Ka Type</p>
+                      <p className="text-sm font-semibold text-gray-800">{t('tripTypeLabel2')}</p>
                       <div className="mt-3 grid gap-2">
                         <button
                           type="button"
@@ -550,9 +552,9 @@ const PostJob = () => {
                               : 'border-gray-200 bg-white'
                           }`}
                         >
-                          <p className="text-sm font-semibold text-gray-800">○ Company Trip</p>
+                          <p className="text-sm font-semibold text-gray-800">{t('companyTripTitle')}</p>
                           <p className="mt-1 text-xs text-gray-600">
-                            Company fixed trip paisa deti hai. Driver ko hisab nahi dena. Sirf repair request kar sakta hai.
+                            {t('companyTripDesc')}
                           </p>
                         </button>
                         <button
@@ -564,9 +566,9 @@ const PostJob = () => {
                               : 'border-gray-200 bg-white'
                           }`}
                         >
-                          <p className="text-sm font-semibold text-gray-800">○ Malik Trip</p>
+                          <p className="text-sm font-semibold text-gray-800">{t('malikTripTitle')}</p>
                           <p className="mt-1 text-xs text-gray-600">
-                            Malik expense deta hai. Driver sab kharcha likhta hai. Har trip ke baad request bhejta hai.
+                            {t('malikTripDesc')}
                           </p>
                         </button>
                       </div>
@@ -576,7 +578,7 @@ const PostJob = () => {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Start Date
+                        {t('startDateLabel2')}
                       </label>
                       <input
                         type="date"
@@ -594,7 +596,7 @@ const PostJob = () => {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Vehicle
+                        {t('vehicleLabel3')}
                       </label>
                       <select
                         required
@@ -607,7 +609,7 @@ const PostJob = () => {
                         }
                         className="input-field w-full"
                       >
-                        <option value="">Gadi chuniye</option>
+                        <option value="">{t('vehicleSelect')}</option>
                         {vehicles.map((v) => (
                           <option key={v._id} value={v._id}>
                             {v.vehicleType} — {v.vehicleNumber || v.vehicleModel || v._id}
@@ -620,7 +622,7 @@ const PostJob = () => {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        State
+                        {t('stateLabel')}
                       </label>
                       <select
                         required
@@ -636,7 +638,7 @@ const PostJob = () => {
                         }
                         className="input-field w-full"
                       >
-                        <option value="">State chuniye</option>
+                        <option value="">{t('stateSelect')}</option>
                         {STATES.map((s) => (
                           <option key={s} value={s}>
                             {s}
@@ -646,7 +648,7 @@ const PostJob = () => {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        District
+                        {t('districtLabel')}
                       </label>
                       <input
                         type="text"
@@ -669,7 +671,7 @@ const PostJob = () => {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        City
+                        {t('cityLabel')}
                       </label>
                       <input
                         type="text"
@@ -689,7 +691,7 @@ const PostJob = () => {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Address
+                        {t('addressLabel')}
                       </label>
                       <input
                         type="text"
@@ -704,7 +706,7 @@ const PostJob = () => {
                             },
                           }))
                         }
-                        placeholder="Site ka address"
+                        placeholder={t('addressPlaceholder')}
                         className="input-field w-full"
                       />
                     </div>
@@ -715,12 +717,11 @@ const PostJob = () => {
                     disabled={submitLoading || vehicles.length === 0}
                     className="btn-primary min-h-[44px] disabled:opacity-60"
                   >
-                    {submitLoading ? 'Post ho raha hai...' : 'Job Post Karo'}
+                    {submitLoading ? t('postingProgress') : t('postJobBtn')}
                   </button>
                   {vehicles.length === 0 && !vehiclesLoading && (
                     <p className="text-sm text-amber-700">
-                      Pehle profile par apni gadi add karein, phir job post kar
-                      paayenge.
+                      {t('addVehicleFirst')}
                     </p>
                   )}
                 </form>

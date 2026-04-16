@@ -5,6 +5,7 @@ import {
   useNavigate,
   useSearchParams,
 } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import {
   MdDashboard,
@@ -40,6 +41,7 @@ const fmtDate = (d) =>
 
 const AdminUsers = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
 
   const roleFromUrl =
@@ -83,12 +85,12 @@ const AdminUsers = () => {
       setTotal(res.data?.total ?? 0)
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Load nahi hua'
+        e.response?.data?.message || t('usersLoadError')
       )
     } finally {
       setLoading(false)
     }
-  }, [applied])
+  }, [applied, t])
 
   useEffect(() => {
     load()
@@ -110,12 +112,12 @@ const AdminUsers = () => {
   const handleLogout = () => {
     clearAuth()
     navigate('/admin/login')
-    toast.success('Logout ho gaye!')
+    toast.success(t('logoutSuccess'))
   }
 
   const onBlock = async () => {
     if (!blockTarget || !blockReason.trim()) {
-      toast.error('Reason likhein')
+      toast.error(t('reasonRequired2'))
       return
     }
     setBlocking(true)
@@ -127,13 +129,13 @@ const AdminUsers = () => {
       if (blockDuration === '30') body.blockDays = 30
       else if (blockDuration === '90') body.blockDays = 90
       await blockUser(body)
-      toast.success('User block ho gaya!')
+      toast.success(t('userBlocked'))
       setBlockTarget(null)
       setBlockReason('')
       load()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Block nahi hua'
+        e.response?.data?.message || t('blockError')
       )
     } finally {
       setBlocking(false)
@@ -143,11 +145,11 @@ const AdminUsers = () => {
   const onUnblock = async (userId) => {
     try {
       await unblockUser({ userId })
-      toast.success('User unblock ho gaya!')
+      toast.success(t('userUnblocked'))
       load()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Nahi hua'
+        e.response?.data?.message || t('unblockError')
       )
     }
   }
@@ -155,11 +157,11 @@ const AdminUsers = () => {
   const onVerify = async (userId) => {
     try {
       await verifyUser({ userId })
-      toast.success('User verify ho gaya!')
+      toast.success(t('userVerified'))
       load()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Nahi hua'
+        e.response?.data?.message || t('verifyError')
       )
     }
   }
@@ -171,7 +173,7 @@ const AdminUsers = () => {
       <aside className="fixed left-0 top-0 z-30 hidden h-screen w-64 flex-col bg-gradient-to-b from-violet-900 to-purple-950 shadow-xl md:flex">
         <div className="border-b border-white/10 px-6 py-5">
           <span className="text-lg font-bold text-white">
-            Admin Panel
+            {t('adminPanel')}
           </span>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
@@ -182,7 +184,7 @@ const AdminUsers = () => {
             }
           >
             <MdDashboard className="h-5 w-5 shrink-0" />
-            Dashboard
+            {t('dashboard')}
           </NavLink>
           <NavLink
             to="/admin/users"
@@ -192,25 +194,25 @@ const AdminUsers = () => {
             }
           >
             <MdPeople className="h-5 w-5 shrink-0" />
-            Saare Users
+            {t('allUsers')}
           </NavLink>
           <NavLink
             to="/admin/users?role=owner"
             className={sidebarInactive}
           >
             <MdPeople className="h-5 w-5 shrink-0" />
-            Owners
+            {t('owners')}
           </NavLink>
           <NavLink
             to="/admin/users?role=driver"
             className={sidebarInactive}
           >
             <MdPeople className="h-5 w-5 shrink-0" />
-            Drivers
+            {t('drivers')}
           </NavLink>
           <Link to="/admin/dashboard" className={sidebarInactive}>
             <MdWork className="h-5 w-5 shrink-0" />
-            Jobs
+            {t('jobs2')}
           </Link>
           <NavLink
             to="/admin/complaints"
@@ -219,7 +221,7 @@ const AdminUsers = () => {
             }
           >
             <MdWarning className="h-5 w-5 shrink-0" />
-            Complaints
+            {t('complaints2')}
           </NavLink>
           <NavLink
             to="/admin/subscriptions"
@@ -228,18 +230,27 @@ const AdminUsers = () => {
             }
           >
             <MdSubscriptions className="h-5 w-5 shrink-0" />
-            Subscriptions
+            {t('subscriptions2')}
           </NavLink>
           <Link to="/admin/subscriptions" className={sidebarInactive}>
             <MdAttachMoney className="h-5 w-5 shrink-0" />
-            Revenue
+            {t('revenue')}
           </Link>
+          <NavLink
+            to="/admin/subscription-manager"
+            className={({ isActive }) =>
+              isActive ? sidebarActive : sidebarInactive
+            }
+          >
+            <MdPeople className="h-5 w-5 shrink-0" />
+            Sub Manager
+          </NavLink>
         </nav>
       </aside>
 
       <header className="fixed left-0 right-0 top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm md:left-64 md:px-6">
         <h1 className="text-lg font-semibold text-gray-800">
-          Users
+          {t('usersTitle')}
         </h1>
         <div className="flex items-center gap-3">
           <span className="hidden rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-800 sm:inline">
@@ -251,7 +262,7 @@ const AdminUsers = () => {
             className="flex items-center gap-1 text-sm font-medium text-red-600"
           >
             <MdLogout className="h-4 w-4" />
-            Logout
+            {t('logoutBtn')}
           </button>
         </div>
       </header>
@@ -269,7 +280,7 @@ const AdminUsers = () => {
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                Sab
+                {t('allFilter')}
               </button>
               <button
                 type="button"
@@ -282,7 +293,7 @@ const AdminUsers = () => {
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                Owner
+                {t('owners')}
               </button>
               <button
                 type="button"
@@ -295,20 +306,20 @@ const AdminUsers = () => {
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                Driver
+                {t('drivers')}
               </button>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs font-medium text-gray-600">
-                  State
+                  {t('stateLabel2')}
                 </label>
                 <select
                   value={stateFilter}
                   onChange={(e) => setStateFilter(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
                 >
-                  <option value="">Sab</option>
+                  <option value="">{t('allFilter')}</option>
                   {STATES.map((s) => (
                     <option key={s} value={s}>
                       {s}
@@ -318,14 +329,14 @@ const AdminUsers = () => {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600">
-                  Vehicle Type
+                  {t('vehicleTypeLabel2')}
                 </label>
                 <select
                   value={vehicleType}
                   onChange={(e) => setVehicleType(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
                 >
-                  <option value="">Sab</option>
+                  <option value="">{t('allFilter')}</option>
                   {VEHICLE_TYPES.map((v) => (
                     <option key={v} value={v}>
                       {v}
@@ -338,7 +349,7 @@ const AdminUsers = () => {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Naam ya phone..."
+              placeholder={t('searchPlaceholder2')}
               className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
             />
             <button
@@ -346,12 +357,12 @@ const AdminUsers = () => {
               onClick={applyFilters}
               className="mt-4 w-full rounded-xl bg-purple-700 py-2.5 text-sm font-semibold text-white sm:w-auto sm:px-8"
             >
-              Filter Lagao
+              {t('applyFilter')}
             </button>
           </div>
 
           <p className="mt-4 text-sm text-gray-600">
-            {total} users mile
+            {total} {t('usersFound')}
           </p>
 
           {loading ? (
@@ -398,7 +409,7 @@ const AdminUsers = () => {
                           {u.location?.district}
                         </p>
                         <p className="text-xs text-gray-400">
-                          Join: {fmtDate(u.createdAt)}
+                          {t('joinLabel')}: {fmtDate(u.createdAt)}
                         </p>
                         {u.vehicles?.length ? (
                           <div className="mt-2 flex flex-wrap gap-1">
@@ -435,11 +446,11 @@ const AdminUsers = () => {
                               : 'bg-green-100 text-green-700'
                           }`}
                         >
-                          {u.isBlocked ? 'Blocked' : 'Active'}
+                          {u.isBlocked ? t('blockedLabel') : t('activeLabel')}
                         </span>
                         {u.isVerified ? (
                           <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-800">
-                            Verified
+                            {t('verifiedLabel2')}
                           </span>
                         ) : null}
                       </div>
@@ -450,7 +461,7 @@ const AdminUsers = () => {
                             onClick={() => onVerify(u._id)}
                             className="rounded-lg bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700"
                           >
-                            Verify Karo
+                            {t('verifyBtn')}
                           </button>
                         ) : null}
                         {!u.isBlocked && u.role !== 'admin' ? (
@@ -463,7 +474,7 @@ const AdminUsers = () => {
                             }}
                             className="rounded-lg bg-red-100 px-3 py-1 text-xs font-semibold text-red-500"
                           >
-                            Block Karo
+                            {t('blockBtn')}
                           </button>
                         ) : null}
                         {u.isBlocked ? (
@@ -472,7 +483,7 @@ const AdminUsers = () => {
                             onClick={() => onUnblock(u._id)}
                             className="rounded-lg bg-green-100 px-3 py-1 text-xs font-semibold text-green-700"
                           >
-                            Unblock Karo
+                            {t('unblockBtn')}
                           </button>
                         ) : null}
                       </div>
@@ -489,19 +500,19 @@ const AdminUsers = () => {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center">
           <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900">
-              User ko Block Karo
+              {t('blockUserTitle')}
             </h3>
             <p className="mt-1 text-sm text-gray-600">
               {blockTarget.name}
             </p>
             <p className="mt-4 text-sm font-medium text-gray-700">
-              Block Duration
+              {t('blockDurationLabel')}
             </p>
             <div className="mt-2 space-y-2">
               {[
-                { id: '30', label: '30 din' },
-                { id: '90', label: '90 din' },
-                { id: 'perm', label: 'Permanent ban' },
+                { id: '30', label: t('days30') },
+                { id: '90', label: t('days90') },
+                { id: 'perm', label: t('permanentBan') },
               ].map((o) => (
                 <label
                   key={o.id}
@@ -518,13 +529,13 @@ const AdminUsers = () => {
               ))}
             </div>
             <label className="mt-4 block text-sm font-medium text-gray-700">
-              Reason
+              {t('reasonLabel4')}
             </label>
             <textarea
               rows={3}
               value={blockReason}
               onChange={(e) => setBlockReason(e.target.value)}
-              placeholder="Block karne ki wajah..."
+              placeholder={t('blockReasonPlaceholder')}
               className="mt-1 w-full rounded-xl border border-gray-200 p-3 text-sm"
             />
             <div className="mt-4 flex gap-2">
@@ -534,14 +545,14 @@ const AdminUsers = () => {
                 onClick={onBlock}
                 className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
               >
-                {blocking ? '…' : 'Block Karo'}
+                {blocking ? '…' : t('blockBtn2')}
               </button>
               <button
                 type="button"
                 onClick={() => setBlockTarget(null)}
                 className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-700"
               >
-                Cancel
+                {t('cancel')}
               </button>
             </div>
           </div>

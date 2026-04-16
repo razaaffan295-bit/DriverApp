@@ -265,8 +265,8 @@ const completeTrip = async (req, res) => {
     if (ownerRef) {
       await Notification.create({
         userId: ownerRef,
-        title: 'Trip Submit Ho Gayi!',
-        message: `${trip.driverId?.name || 'Driver'} ne trip submit ki. ${fromLabel} → ${toLabel}. Total kharcha: ₹${totalExpenses}`,
+        title: 'Trip Submitted',
+        message: `${trip.driverId?.name || 'Driver'} submitted a trip. ${fromLabel} → ${toLabel}. Total expense: ₹${totalExpenses}`,
         type: 'trip_submitted',
         link: '/owner/trips',
         isRead: false,
@@ -451,12 +451,12 @@ const handleTrip = async (req, res) => {
         userId: driverRef,
         title:
           act === 'approved'
-            ? 'Trip Approve Ho Gayi!'
-            : 'Trip Reject Ho Gayi',
+            ? 'Trip Approved'
+            : 'Trip Rejected',
         message:
           act === 'approved'
-            ? `Aapki trip approve ho gayi. Amount: ₹${trip.approvedAmount}`
-            : `Aapki trip reject ho gayi. ${trip.ownerNote || ''}`,
+            ? `Your trip was approved. Amount: ₹${trip.approvedAmount}`
+            : `Your trip was rejected. ${trip.ownerNote || ''}`,
         type: 'trip_update',
         link: '/driver/trips',
         isRead: false,
@@ -519,8 +519,8 @@ const createRepairRequest = async (req, res) => {
 
     await Notification.create({
       userId: contract.ownerId,
-      title: 'Repair Request Aayi!',
-      message: `Driver ne ₹${amount} repair request ki: ${description}`,
+      title: 'Repair Requested',
+      message: `The driver requested a repair of ₹${amount}: ${description}`,
       type: 'payment_received',
       link: '/owner/trips',
       isRead: false,
@@ -568,11 +568,11 @@ const reviewRepairRequest = async (req, res) => {
     await Notification.create({
       userId: repair.driverId,
       title:
-        action === 'approved' ? 'Repair Approved!' : 'Repair Reject Ho Gayi',
+        action === 'approved' ? 'Repair Approved' : 'Repair Rejected',
       message:
         action === 'approved'
-          ? `₹${repair.amount} repair approve ho gayi.`
-          : `Repair reject: ${ownerNote}`,
+          ? `Your ₹${repair.amount} repair was approved.`
+          : `Repair rejected: ${ownerNote}`,
       type: 'payment_received',
       link: '/driver/trips',
       isRead: false,

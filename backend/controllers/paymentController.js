@@ -342,8 +342,8 @@ const makePayment = async (req, res) => {
 
       await Notification.create({
         userId: tripPay.driverId,
-        title: "Trip Payment Aayi Hai!",
-        message: `₹${tripAmt} trip payment mark ki gayi hai. UTR check karke confirm karein.`,
+        title: "Trip Payment Received!",
+        message: `₹${tripAmt} trip payment was marked as paid. Please verify the UTR and confirm.`,
         type: "payment_received",
         link: "/driver/payments",
         isRead: false,
@@ -507,8 +507,8 @@ const makePayment = async (req, res) => {
 
     await Notification.create({
       userId: driverId,
-      title: "Payment Aayi Hai!",
-      message: `₹${amt} ki payment mark ki gayi hai. UTR check karke confirm karein.`,
+      title: "Payment Received!",
+      message: `₹${amt} payment was marked as paid. Please verify the UTR and confirm.`,
       type: "payment_received",
       link: "/driver/payments",
       isRead: false,
@@ -616,8 +616,8 @@ const confirmPayment = async (req, res) => {
 
     await Notification.create({
       userId: payment.ownerId,
-      title: "Driver ne Payment Confirm Ki!",
-      message: `₹${payment.amount} payment confirm ho gayi.`,
+      title: "Payment Confirmed",
+      message: `The driver confirmed the ₹${payment.amount} payment.`,
       type: "payment_received",
       link: "/owner/payments",
       isRead: false,
@@ -686,8 +686,8 @@ const rejectPayment = async (req, res) => {
 
     await Notification.create({
       userId: payment.ownerId,
-      title: "Driver ne Payment Reject Ki!",
-      message: `Driver ne ₹${payment.amount} payment reject ki. Reason: ${reason || "Nahi bataya"}`,
+      title: "Payment Rejected",
+      message: `The driver rejected the ₹${payment.amount} payment. Reason: ${reason || "Not provided"}`,
       type: "payment_received",
       link: "/owner/payments",
       isRead: false,
@@ -789,8 +789,8 @@ const requestAdvance = async (req, res) => {
 
     await Notification.create({
       userId: contract.ownerId,
-      title: "Advance Request Aayi!",
-      message: `Driver ne ₹${ramt} advance maanga hai.`,
+      title: "Advance Requested",
+      message: `The driver requested an advance of ₹${ramt}.`,
       type: "payment_received",
       link: "/owner/payments",
       isRead: false,
@@ -851,8 +851,8 @@ const handleAdvance = async (req, res) => {
 
       await Notification.create({
         userId: adv.driverId,
-        title: "Advance reject ho gayi",
-        message: "Owner ne advance request reject kar di.",
+        title: "Advance Rejected",
+        message: "The owner rejected your advance request.",
         type: "payment_received",
         link: "/driver/payments",
         isRead: false,
@@ -905,7 +905,7 @@ const handleAdvance = async (req, res) => {
     await Notification.create({
       userId: adv.driverId,
       title: "Advance Approved!",
-      message: `₹${appr} advance approve ho gayi.`,
+      message: `Your advance of ₹${appr} was approved.`,
       type: "payment_received",
       link: "/driver/payments",
       isRead: false,
@@ -1053,8 +1053,8 @@ const requestPayment = async (req, res) => {
 
     await Notification.create({
       userId: ownerIdRef,
-      title: "Payment Request Aayi!",
-      message: `${req.user.name || "Driver"} ne ₹${requestAmt} ki payment request ki hai.`,
+      title: "Payment Requested",
+      message: `${req.user.name || "Driver"} requested a payment of ₹${requestAmt}.`,
       type: "payment_received",
       link: "/owner/payments",
       isRead: false,
@@ -1190,8 +1190,8 @@ const createTripPaymentRequest = async (req, res) => {
 
     await Notification.create({
       userId: ownerIdRef,
-      title: "Trip Payment Request!",
-      message: `Driver ne trip payment request ki hai. Amount: ₹${amt}`,
+      title: "Trip Payment Requested",
+      message: `The driver requested trip payment. Amount: ₹${amt}`,
       type: "payment_request",
       link: "/owner/payments",
       isRead: false,

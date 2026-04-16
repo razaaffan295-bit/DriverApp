@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getOwnerJobs, closeJob } from '../../api/ownerAPI'
@@ -16,18 +17,19 @@ const formatJobDate = (d) => {
   }
 }
 
-const getSalaryDisplay = (job) => {
+const getSalaryDisplay = (job, t) => {
   if (!job) return '₹0'
   if (job.salaryType === 'monthly') {
-    return `₹${job.salaryPerMonth || 0}/month`
+    return `₹${job.salaryPerMonth || 0}/${t('perMonth')}`
   }
   if (job.salaryType === 'hourly') {
-    return `₹${job.salaryPerHour || 0}/ghanta`
+    return `₹${job.salaryPerHour || 0}/${t('perHour')}`
   }
-  return `₹${job.salaryPerDay || 0}/din`
+  return `₹${job.salaryPerDay || 0}/${t('perDay')}`
 }
 
 const OwnerJobs = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [jobs, setJobs] = useState([])
   const [filter, setFilter] = useState('sab')
@@ -41,7 +43,7 @@ const OwnerJobs = () => {
       setJobs(data?.jobs ?? [])
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Jobs load nahi ho payeen.'
+        e.response?.data?.message || t('jobsLoadError')
       )
     } finally {
       setLoading(false)
@@ -71,11 +73,11 @@ const OwnerJobs = () => {
     setCloseLoadingId(id)
     try {
       await closeJob(id)
-      toast.success('Job band kar di gayi')
+      toast.success(t('jobClosed'))
       await loadJobs()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Close nahi ho paya.'
+        e.response?.data?.message || t('jobCloseError')
       )
     } finally {
       setCloseLoadingId(null)
@@ -88,22 +90,24 @@ const OwnerJobs = () => {
     >
         <div className="p-4 md:p-6">
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-xl font-bold text-gray-800">Meri Jobs</h2>
+            <h2 className="text-xl font-bold text-gray-800">
+              {t('myJobs')}
+            </h2>
             <button
               type="button"
               onClick={() => navigate('/owner/post-job')}
               className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
             >
-              + Job Post Karo
+              {t('postJobBtn2')}
             </button>
           </div>
 
           <div className="mb-6 flex flex-wrap gap-2">
             {[
-              { key: 'sab', label: 'Sab' },
-              { key: 'open', label: 'Open' },
-              { key: 'filled', label: 'Filled' },
-              { key: 'closed', label: 'Closed' },
+              { key: 'sab', label: t('all') },
+              { key: 'open', label: t('active') },
+              { key: 'filled', label: t('filledLabel') },
+              { key: 'closed', label: t('completed') },
             ].map(({ key, label }) => (
               <button
                 key={key}
@@ -121,13 +125,13 @@ const OwnerJobs = () => {
           </div>
 
           {loading ? (
-            <p className="text-sm text-gray-500">Loading...</p>
+            <p className="text-sm text-gray-500">{t('loading')}</p>
           ) : filteredJobs.length === 0 ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center">
               <p className="text-gray-600">
                 {jobs.length === 0
-                  ? 'Abhi koi job post nahi ki'
-                  : 'Is filter mein koi job nahi'}
+                  ? t('noJobs')
+                  : t('noFilterJobs')}
               </p>
               {jobs.length === 0 && (
                 <button
@@ -135,7 +139,7 @@ const OwnerJobs = () => {
                   onClick={() => navigate('/owner/post-job')}
                   className="mt-4 rounded-xl bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                 >
-                  + Pehli Job Post Karein
+                  {t('postFirstJob')}
                 </button>
               )}
             </div>
@@ -165,7 +169,11 @@ const OwnerJobs = () => {
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusBadge(j.status)}`}
                       >
-                        {j.status}
+                        {j.status === 'open'
+                          ? t('active')
+                          : j.status === 'closed'
+                            ? t('completed')
+                            : j.status}
                       </span>
                     </div>
                     <h3 className="mb-1 mt-3 text-lg font-semibold text-gray-900">
@@ -181,15 +189,15 @@ const OwnerJobs = () => {
                     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="font-bold text-blue-700">
-                          {getSalaryDisplay(j)}
+                          {getSalaryDisplay(j, t)}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {j.duration} din
+                          {j.duration} {t('durationDays2')}
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm text-gray-600">
-                          Applications: {appCount}
+                          {t('applications')}: {appCount}
                         </span>
                         <button
                           type="button"
@@ -199,7 +207,7 @@ const OwnerJobs = () => {
                           }}
                           className="rounded-lg border border-blue-700 px-3 py-1 text-sm text-blue-700"
                         >
-                          Dekho
+                          {t('viewBtn')}
                         </button>
                         {j.status === 'open' && (
                           <button
@@ -212,8 +220,8 @@ const OwnerJobs = () => {
                             className="text-sm font-medium text-red-500 hover:text-red-600 disabled:opacity-50"
                           >
                             {closeLoadingId === j._id
-                              ? 'Band ho rahi...'
-                              : 'Close Karo'}
+                              ? t('closingProgress')
+                              : t('closeJobBtn')}
                           </button>
                         )}
                       </div>

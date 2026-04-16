@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   useNavigate,
   useSearchParams,
@@ -16,6 +17,7 @@ import {
 } from '../../api/ownerAPI'
 
 const OwnerProfile = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -69,7 +71,7 @@ const OwnerProfile = () => {
       setVehicles(vRes.data?.vehicles ?? [])
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Data load nahi ho paya. Dobara try karein.'
+        e.response?.data?.message || t('dataLoadError')
       )
     } finally {
       setLoading(false)
@@ -96,7 +98,7 @@ const OwnerProfile = () => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      toast.error('Sirf image file chuniye')
+      toast.error(t('onlyImageAllowed'))
       e.target.value = ''
       return
     }
@@ -110,7 +112,7 @@ const OwnerProfile = () => {
       )
 
       if (res.data?.success) {
-        toast.success('Photo upload ho gayi!')
+        toast.success(t('photoUploaded2'))
         const url = res.data.photo
         setUser((u) =>
           u ? { ...u, profilePhoto: url } : u
@@ -126,7 +128,7 @@ const OwnerProfile = () => {
     } catch (err) {
       toast.error(
         err.response?.data?.message ||
-          'Photo upload nahi hui'
+          t('photoUploadError2')
       )
     }
     e.target.value = ''
@@ -135,7 +137,7 @@ const OwnerProfile = () => {
   const handleSaveProfile = async (e) => {
     e.preventDefault()
     if (!name?.trim()) {
-      toast.error('Naam zaroori hai')
+      toast.error(t('nameRequired2'))
       return
     }
     setSaveLoading(true)
@@ -156,10 +158,10 @@ const OwnerProfile = () => {
       setUser(nextUser)
       setAuth(getToken(), nextUser)
       
-      toast.success('Profile save ho gaya!')
+      toast.success(t('profileSaved2'))
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Save nahi ho paya. Dobara try karein.'
+        err.response?.data?.message || t('profileSaveError')
       )
     } finally {
       setSaveLoading(false)
@@ -169,11 +171,11 @@ const OwnerProfile = () => {
   const handleVehicleSubmit = async (e) => {
     e.preventDefault()
     if (!vehicleForm.vehicleType) {
-      toast.error('Vehicle type chuniye')
+      toast.error(t('vehicleTypeRequired'))
       return
     }
     if (!vehicleForm.state || !vehicleForm.district?.trim()) {
-      toast.error('State aur district zaroori hain')
+      toast.error(t('stateDistrictRequired'))
       return
     }
     setAddVehicleLoading(true)
@@ -185,7 +187,7 @@ const OwnerProfile = () => {
         state: vehicleForm.state,
         district: vehicleForm.district.trim(),
       })
-      toast.success('Gadi add ho gayi!')
+      toast.success(t('vehicleAdded'))
       setVehicleForm({
         vehicleType: '',
         vehicleNumber: '',
@@ -198,7 +200,7 @@ const OwnerProfile = () => {
       setVehicles(vRes.data?.vehicles ?? [])
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Gadi add nahi ho payi.'
+        err.response?.data?.message || t('vehicleAddError')
       )
     } finally {
       setAddVehicleLoading(false)
@@ -209,12 +211,12 @@ const OwnerProfile = () => {
     setDeleteId(id)
     try {
       await deleteVehicle(id)
-      toast.success('Gadi hata di gayi')
+      toast.success(t('vehicleDeleted'))
       const vRes = await getVehicles()
       setVehicles(vRes.data?.vehicles ?? [])
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Delete nahi ho paya.'
+        err.response?.data?.message || t('vehicleDeleteError')
       )
     } finally {
       setDeleteId(null)
@@ -227,7 +229,7 @@ const OwnerProfile = () => {
     >
         <div className="p-4 md:p-6">
           {loading && (
-            <p className="mb-4 text-sm text-gray-500">Loading...</p>
+            <p className="mb-4 text-sm text-gray-500">{t('loading')}</p>
           )}
 
           <div className="mb-6 overflow-hidden rounded-2xl border border-gray-100 bg-white">
@@ -241,7 +243,7 @@ const OwnerProfile = () => {
                     : 'text-gray-500'
                 }`}
               >
-                Meri Details
+                {t('profile')}
               </button>
               <button
                 type="button"
@@ -252,7 +254,7 @@ const OwnerProfile = () => {
                     : 'text-gray-500'
                 }`}
               >
-                Meri Gadiyaan
+                {t('myVehicles')}
               </button>
             </div>
 
@@ -275,7 +277,7 @@ const OwnerProfile = () => {
                     </div>
                     <label className="mt-3 cursor-pointer">
                       <span className="inline-block rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
-                        Photo Change Karein
+                        {t('upload')} {t('photo')}
                       </span>
                       <input
                         type="file"
@@ -289,7 +291,7 @@ const OwnerProfile = () => {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Naam <span className="text-red-500">*</span>
+                        {t('name')} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -301,7 +303,7 @@ const OwnerProfile = () => {
                     </div>
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Phone
+                        {t('phone')}
                       </label>
                       <input
                         type="text"
@@ -312,7 +314,7 @@ const OwnerProfile = () => {
                     </div>
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Company Name
+                        {t('companyName')}
                       </label>
                       <input
                         type="text"
@@ -328,7 +330,7 @@ const OwnerProfile = () => {
                     </div>
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        About
+                        {t('about')}
                       </label>
                       <textarea
                         rows={3}
@@ -341,14 +343,14 @@ const OwnerProfile = () => {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        State
+                        {t('state')}
                       </label>
                       <select
                         value={stateVal}
                         onChange={(e) => setStateVal(e.target.value)}
                         className="input-field w-full"
                       >
-                        <option value="">State chuniye</option>
+                        <option value="">{t('stateSelect')}</option>
                         {STATES.map((s) => (
                           <option key={s} value={s}>
                             {s}
@@ -358,7 +360,7 @@ const OwnerProfile = () => {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        District
+                        {t('district')}
                       </label>
                       <input
                         type="text"
@@ -374,7 +376,7 @@ const OwnerProfile = () => {
                     disabled={saveLoading}
                     className="btn-primary min-h-[44px] disabled:opacity-60"
                   >
-                    {saveLoading ? 'Saving...' : 'Profile Save Karein'}
+                    {saveLoading ? t('loading') : t('save')}
                   </button>
                 </form>
               )}
@@ -383,14 +385,14 @@ const OwnerProfile = () => {
                 <div>
                   <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h2 className="text-lg font-semibold text-gray-800">
-                      Meri Gadiyaan
+                      {t('myVehicles')}
                     </h2>
                     <button
                       type="button"
                       onClick={() => setShowAddForm((v) => !v)}
                       className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                     >
-                      + Nayi Gadi Add Karein
+                      + {t('addNewVehicle')}
                     </button>
                   </div>
 
@@ -400,12 +402,12 @@ const OwnerProfile = () => {
                       className="mb-6 rounded-2xl bg-blue-50 p-4 sm:p-6"
                     >
                       <h3 className="mb-4 font-semibold text-gray-800">
-                        Nayi Gadi Add Karein
+                        {t('addNewVehicle')}
                       </h3>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="sm:col-span-2">
                           <label className="mb-1 block text-sm font-medium text-gray-700">
-                            Vehicle Type
+                            {t('vehicleType')}
                           </label>
                           <select
                             value={vehicleForm.vehicleType}
@@ -418,17 +420,17 @@ const OwnerProfile = () => {
                             className="input-field w-full"
                             required
                           >
-                            <option value="">Vehicle type chuniye</option>
-                            {VEHICLE_TYPES.map((t) => (
-                              <option key={t} value={t}>
-                                {t}
+                            <option value="">{t('vehicleTypeSelect')}</option>
+                            {VEHICLE_TYPES.map((vt) => (
+                              <option key={vt} value={vt}>
+                                {vt}
                               </option>
                             ))}
                           </select>
                         </div>
                         <div>
                           <label className="mb-1 block text-sm font-medium text-gray-700">
-                            Vehicle Number
+                            {t('vehicleNumber')}
                           </label>
                           <input
                             type="text"
@@ -445,7 +447,7 @@ const OwnerProfile = () => {
                         </div>
                         <div>
                           <label className="mb-1 block text-sm font-medium text-gray-700">
-                            Vehicle Model
+                            {t('vehicleModel')}
                           </label>
                           <input
                             type="text"
@@ -462,7 +464,7 @@ const OwnerProfile = () => {
                         </div>
                         <div>
                           <label className="mb-1 block text-sm font-medium text-gray-700">
-                            State
+                            {t('state')}
                           </label>
                           <select
                             value={vehicleForm.state}
@@ -475,7 +477,7 @@ const OwnerProfile = () => {
                             className="input-field w-full"
                             required
                           >
-                            <option value="">State chuniye</option>
+                            <option value="">{t('stateSelect')}</option>
                             {STATES.map((s) => (
                               <option key={s} value={s}>
                                 {s}
@@ -485,7 +487,7 @@ const OwnerProfile = () => {
                         </div>
                         <div>
                           <label className="mb-1 block text-sm font-medium text-gray-700">
-                            District
+                            {t('district')}
                           </label>
                           <input
                             type="text"
@@ -507,14 +509,14 @@ const OwnerProfile = () => {
                           disabled={addVehicleLoading}
                           className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60"
                         >
-                          {addVehicleLoading ? 'Adding...' : 'Gadi Add Karein'}
+                          {addVehicleLoading ? t('addingProgress') : t('addVehicleBtn')}
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowAddForm(false)}
                           className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                         >
-                          Cancel
+                          {t('cancel')}
                         </button>
                       </div>
                     </form>
@@ -523,14 +525,14 @@ const OwnerProfile = () => {
                   {vehicles.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
                       <p className="text-gray-600">
-                        Abhi koi gadi add nahi ki
+                        {t('noVehiclesYet')}
                       </p>
                       <button
                         type="button"
                         onClick={() => setShowAddForm(true)}
                         className="mt-4 rounded-xl bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                       >
-                        + Nayi Gadi Add Karein
+                        + {t('addNewVehicle')}
                       </button>
                     </div>
                   ) : (
@@ -564,22 +566,22 @@ const OwnerProfile = () => {
                             </div>
                             <p className="mt-3 text-sm text-gray-600">
                               <span className="font-medium text-gray-700">
-                                Model:
+                                {t('modelLabel')}:
                               </span>{' '}
                               {v.vehicleModel || 'â€”'}
                             </p>
                             <p className="text-sm text-gray-600">
                               <span className="font-medium text-gray-700">
-                                Location:
+                                {t('locationLabel3')}:
                               </span>{' '}
                               {v.location?.state || 'â€”'},{' '}
                               {v.location?.district || 'â€”'}
                             </p>
                             <p className="text-sm text-gray-600">
                               <span className="font-medium text-gray-700">
-                                Driver:
+                                {t('driverLabel2')}:
                               </span>{' '}
-                              {driverName || 'Driver assigned nahi'}
+                              {driverName || t('noDriverAssigned')}
                             </p>
                             {!v.assignedDriver && (
                               <button
@@ -591,7 +593,7 @@ const OwnerProfile = () => {
                                 }}
                                 className="mt-3 text-sm font-medium text-red-500 hover:text-red-600 disabled:opacity-50"
                               >
-                                {deleteId === v._id ? 'Deleting...' : 'Delete'}
+                                {deleteId === v._id ? t('deletingProgress') : t('delete')}
                               </button>
                             )}
                           </li>

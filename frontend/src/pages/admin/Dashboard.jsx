@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import {
   MdDashboard,
@@ -35,6 +36,7 @@ const fmtDate = (d) =>
 
 const AdminDashboard = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [stats, setStats] = useState(null)
   const [pendingList, setPendingList] = useState([])
   const [loading, setLoading] = useState(true)
@@ -54,12 +56,12 @@ const AdminDashboard = () => {
       setPendingList(cRes.data?.complaints ?? [])
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Load nahi hua'
+        e.response?.data?.message || t('loadError3')
       )
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     load()
@@ -68,7 +70,7 @@ const AdminDashboard = () => {
   const handleLogout = () => {
     clearAuth()
     navigate('/admin/login')
-    toast.success('Logout ho gaye!')
+    toast.success(t('logoutSuccess'))
   }
 
   return (
@@ -78,7 +80,7 @@ const AdminDashboard = () => {
       <aside className="fixed left-0 top-0 z-30 hidden h-screen w-64 flex-col bg-gradient-to-b from-violet-900 to-purple-950 shadow-xl md:flex">
         <div className="border-b border-white/10 px-6 py-5">
           <span className="text-lg font-bold text-white">
-            Admin Panel
+            {t('adminPanel')}
           </span>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
@@ -90,7 +92,7 @@ const AdminDashboard = () => {
             }
           >
             <MdDashboard className="h-5 w-5 shrink-0" />
-            Dashboard
+            {t('dashboard')}
           </NavLink>
           <NavLink
             to="/admin/users"
@@ -99,7 +101,7 @@ const AdminDashboard = () => {
             }
           >
             <MdPeople className="h-5 w-5 shrink-0" />
-            Saare Users
+            {t('allUsers')}
           </NavLink>
           <NavLink
             to="/admin/users?role=owner"
@@ -108,7 +110,7 @@ const AdminDashboard = () => {
             }
           >
             <MdPeople className="h-5 w-5 shrink-0" />
-            Owners
+            {t('owners')}
           </NavLink>
           <NavLink
             to="/admin/users?role=driver"
@@ -117,11 +119,11 @@ const AdminDashboard = () => {
             }
           >
             <MdPeople className="h-5 w-5 shrink-0" />
-            Drivers
+            {t('drivers')}
           </NavLink>
           <Link to="/admin/dashboard" className={sidebarInactive}>
             <MdWork className="h-5 w-5 shrink-0" />
-            Jobs
+            {t('jobs2')}
           </Link>
           <NavLink
             to="/admin/complaints"
@@ -130,7 +132,7 @@ const AdminDashboard = () => {
             }
           >
             <MdWarning className="h-5 w-5 shrink-0" />
-            Complaints
+            {t('complaints2')}
           </NavLink>
           <NavLink
             to="/admin/subscriptions"
@@ -139,21 +141,30 @@ const AdminDashboard = () => {
             }
           >
             <MdSubscriptions className="h-5 w-5 shrink-0" />
-            Subscriptions
+            {t('subscriptions2')}
           </NavLink>
           <NavLink
             to="/admin/subscriptions"
             className={sidebarInactive}
           >
             <MdAttachMoney className="h-5 w-5 shrink-0" />
-            Revenue
+            {t('revenue')}
+          </NavLink>
+          <NavLink
+            to="/admin/subscription-manager"
+            className={({ isActive }) =>
+              isActive ? sidebarActive : sidebarInactive
+            }
+          >
+            <MdPeople className="h-5 w-5 shrink-0" />
+            Sub Manager
           </NavLink>
         </nav>
       </aside>
 
       <header className="fixed left-0 right-0 top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm md:left-64 md:px-6">
         <h1 className="text-lg font-semibold text-gray-800">
-          Admin Panel
+          {t('adminPanel')}
         </h1>
         <div className="flex items-center gap-3">
           <span className="hidden rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-800 sm:inline">
@@ -165,7 +176,7 @@ const AdminDashboard = () => {
             className="flex items-center gap-1 text-sm font-medium text-red-600"
           >
             <MdLogout className="h-4 w-4" />
-            Logout
+            {t('logoutBtn')}
           </button>
         </div>
       </header>
@@ -173,7 +184,7 @@ const AdminDashboard = () => {
       <main className="min-h-screen pb-24 pt-16 md:ml-64 md:pb-8">
         <div className="mx-auto max-w-4xl px-4 py-6">
           <h2 className="text-xl font-bold text-gray-900">
-            Admin Dashboard
+            {t('adminDashboard')}
           </h2>
 
           {loading ? (
@@ -185,7 +196,7 @@ const AdminDashboard = () => {
               <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
                 <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
                   <p className="text-xs text-blue-800">
-                    Total Owners
+                    {t('totalOwners')}
                   </p>
                   <p className="text-2xl font-bold text-blue-900">
                     {stats.totalOwners}
@@ -193,7 +204,7 @@ const AdminDashboard = () => {
                 </div>
                 <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
                   <p className="text-xs text-green-800">
-                    Total Drivers
+                    {t('totalDrivers')}
                   </p>
                   <p className="text-2xl font-bold text-green-900">
                     {stats.totalDrivers}
@@ -213,7 +224,7 @@ const AdminDashboard = () => {
                         : 'text-gray-600'
                     }`}
                   >
-                    Pending Complaints
+                    {t('pendingComplaints2')}
                   </p>
                   <p
                     className={`text-2xl font-bold ${
@@ -227,7 +238,7 @@ const AdminDashboard = () => {
                 </div>
                 <div className="rounded-2xl border border-purple-100 bg-purple-50 p-4">
                   <p className="text-xs text-purple-800">
-                    Active Contracts
+                    {t('activeContracts')}
                   </p>
                   <p className="text-2xl font-bold text-purple-900">
                     {stats.activeContracts}
@@ -237,12 +248,12 @@ const AdminDashboard = () => {
 
               <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Revenue
+                  {t('revenue')}
                 </h3>
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-4">
                     <p className="text-xs text-gray-600">
-                      Monthly Revenue
+                      {t('monthlyRevenue')}
                     </p>
                     <p className="text-xl font-bold text-purple-900">
                       {fmtMoney(stats.monthlyRevenue)}
@@ -250,7 +261,7 @@ const AdminDashboard = () => {
                   </div>
                   <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
                     <p className="text-xs text-gray-600">
-                      Total Revenue
+                      {t('totalRevenue')}
                     </p>
                     <p className="text-xl font-bold text-gray-900">
                       {fmtMoney(stats.totalRevenue)}
@@ -258,7 +269,7 @@ const AdminDashboard = () => {
                   </div>
                   <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
                     <p className="text-xs text-gray-600">
-                      Owner Revenue
+                      {t('ownerRevenue')}
                     </p>
                     <p className="text-xl font-bold text-blue-900">
                       {fmtMoney(stats.ownerRevenue)}
@@ -266,7 +277,7 @@ const AdminDashboard = () => {
                   </div>
                   <div className="rounded-xl border border-green-100 bg-green-50/50 p-4">
                     <p className="text-xs text-gray-600">
-                      Driver Revenue
+                      {t('driverRevenue')}
                     </p>
                     <p className="text-xl font-bold text-green-900">
                       {fmtMoney(stats.driverRevenue)}
@@ -274,26 +285,26 @@ const AdminDashboard = () => {
                   </div>
                 </div>
                 <p className="mt-4 text-xs text-gray-500">
-                  Jobs: {stats.totalJobs} total ·{' '}
-                  {stats.activeJobs} open
+                  {t('jobs2')}: {stats.totalJobs} {t('jobsStats')} ·{' '}
+                  {stats.activeJobs} {t('openLabel')}
                 </p>
               </div>
 
               <div className="mt-8">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-900">
-                    Pending Complaints
+                    {t('pendingComplaints2')}
                   </h3>
                   <Link
                     to="/admin/complaints"
                     className="text-sm font-medium text-purple-700"
                   >
-                    Sab dekho
+                    {t('viewAllBtn')}
                   </Link>
                 </div>
                 {pendingList.length === 0 ? (
                   <p className="text-sm text-gray-500">
-                    Koi pending complaint nahi
+                    {t('noPendingComplaints')}
                   </p>
                 ) : (
                   <ul className="space-y-3">
@@ -315,7 +326,7 @@ const AdminDashboard = () => {
                           to="/admin/complaints"
                           className="rounded-lg bg-purple-100 px-3 py-1.5 text-xs font-semibold text-purple-800"
                         >
-                          Dekho
+                          {t('view')}
                         </Link>
                       </li>
                     ))}
@@ -324,7 +335,7 @@ const AdminDashboard = () => {
               </div>
             </>
           ) : (
-            <p className="mt-8 text-gray-500">Stats load nahi hui</p>
+            <p className="mt-8 text-gray-500">{t('statsLoadError')}</p>
           )}
         </div>
       </main>

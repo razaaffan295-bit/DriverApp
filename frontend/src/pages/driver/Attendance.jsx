@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
@@ -69,6 +70,7 @@ const calcSalary = (contract, status, hours) => {
 }
 
 const DriverAttendance = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [contract, setContract] = useState(null)
@@ -217,13 +219,13 @@ const DriverAttendance = () => {
             </div>
           ) : !contract ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center">
-              <p className="text-gray-700">Koi active kaam nahi hai</p>
+              <p className="text-gray-700">{t('noActiveJob')}</p>
               <button
                 type="button"
                 onClick={() => navigate('/driver/jobs')}
                 className="mt-6 rounded-xl bg-green-600 px-6 py-3 text-sm font-medium text-white hover:bg-green-700"
               >
-                Jobs Dhundho
+                {t('findJobs')}
               </button>
             </div>
           ) : (
@@ -234,7 +236,7 @@ const DriverAttendance = () => {
                   onClick={handlePrint}
                   className="no-print bg-gray-700 text-white px-4 py-2 rounded-xl text-sm w-full mt-4"
                 >
-                  📄 Attendance PDF Download
+                  📄 {t('downloadPDF')}
                 </button>
               </div>
 
@@ -260,10 +262,10 @@ const DriverAttendance = () => {
                       marginBottom: '8px',
                     }}
                   >
-                    Transport Driver
+                    {t('transportDriver')}
                   </p>
                   <p style={{ fontSize: '14px', color: '#B45309' }}>
-                    Aapke liye daily attendance nahi hoti. Trip records bharein aur month end pe salary request karein.
+                    {t('transportAttendanceMsg')}
                   </p>
                   <button
                     onClick={() => navigate('/driver/trips')}
@@ -279,38 +281,38 @@ const DriverAttendance = () => {
                       fontSize: '14px',
                     }}
                   >
-                    Trip Records Dekho
+                    {t('viewTripRecords')}
                   </button>
                 </div>
               ) : (
                 <>
                   <div className="print-area" style={{ display: 'none' }}>
-                    <div className="print-heading">ATTENDANCE SHEET</div>
+                    <div className="print-heading">{t('attendanceSheet')}</div>
 
                     <div className="print-row">
-                      <span>Driver:</span>
+                      <span>{t('driver')}:</span>
                       <span>{user?.name}</span>
                     </div>
 
                     <div className="print-row">
-                      <span>Job:</span>
+                      <span>{t('job')}:</span>
                       <span>{contract?.jobId?.title}</span>
                     </div>
 
                     <div className="print-row">
-                      <span>Vehicle:</span>
+                      <span>{t('vehicle')}:</span>
                       <span>{contract?.jobId?.vehicleType}</span>
                     </div>
 
                     <div className="print-row">
-                      <span>Month:</span>
+                      <span>{t('month')}:</span>
                       <span>
                         {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
                       </span>
                     </div>
 
                     <div className="print-row">
-                      <span>Salary Type:</span>
+                      <span>{t('salaryType')}:</span>
                       <span>{contract?.salaryType}</span>
                     </div>
 
@@ -319,12 +321,12 @@ const DriverAttendance = () => {
                     <table className="print-table">
                       <thead>
                         <tr>
-                          <th>Date</th>
-                          <th>Status</th>
+                          <th>{t('date')}</th>
+                          <th>{t('status')}</th>
                           {(contract?.salaryType === 'hourly' ||
-                            contract?.hasHourlyBonus) && <th>Hours</th>}
-                          <th>Salary</th>
-                          <th>Note</th>
+                            contract?.hasHourlyBonus) && <th>{t('hours')}</th>}
+                          <th>{t('salary')}</th>
+                          <th>{t('notes')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -337,10 +339,10 @@ const DriverAttendance = () => {
                             </td>
                             <td>
                               {record.status === 'present'
-                                ? 'Present'
+                                ? t('present')
                                 : record.status === 'absent'
-                                  ? 'Absent'
-                                  : 'Half Day'}
+                                  ? t('absent')
+                                  : t('halfDay')}
                             </td>
                             {(contract?.salaryType === 'hourly' ||
                               contract?.hasHourlyBonus) && (
@@ -359,19 +361,19 @@ const DriverAttendance = () => {
                       <tbody>
                         <tr>
                           <td>
-                            <strong>Present Days</strong>
+                            <strong>{t('presentDays')}</strong>
                           </td>
                           <td>{summary.presentDays}</td>
                         </tr>
                         <tr>
                           <td>
-                            <strong>Absent Days</strong>
+                            <strong>{t('absentDays')}</strong>
                           </td>
                           <td>{summary.absentDays}</td>
                         </tr>
                         <tr>
                           <td>
-                            <strong>Half Days</strong>
+                            <strong>{t('halfDays')}</strong>
                           </td>
                           <td>{summary.halfDays}</td>
                         </tr>
@@ -379,14 +381,14 @@ const DriverAttendance = () => {
                           contract?.hasHourlyBonus) && (
                           <tr>
                             <td>
-                              <strong>Total Hours</strong>
+                              <strong>{t('totalHours')}</strong>
                             </td>
                             <td>{summary.totalHours}</td>
                           </tr>
                         )}
                         <tr>
                           <td>
-                            <strong>Total Salary</strong>
+                            <strong>{t('totalSalary')}</strong>
                           </td>
                           <td>
                             <strong>₹{summary.grossTotal}</strong>
@@ -403,7 +405,7 @@ const DriverAttendance = () => {
                       }}
                     >
                       <div>
-                        <div>Driver Signature:</div>
+                        <div>{t('driverSignature')}:</div>
                         <div
                           style={{
                             marginTop: '30px',
@@ -416,7 +418,7 @@ const DriverAttendance = () => {
                         </div>
                       </div>
                       <div>
-                        <div>Owner Signature:</div>
+                        <div>{t('ownerSignature')}:</div>
                         <div
                           style={{
                             marginTop: '30px',
@@ -445,7 +447,7 @@ const DriverAttendance = () => {
 
                   <div className="mb-6 rounded-2xl bg-green-50 p-4">
                     <p className="text-sm font-semibold text-green-900">
-                      {contract?.jobId?.title || 'Active Job'} · {contract?.jobId?.vehicleType || 'Vehicle'}
+                      {contract?.jobId?.title || t('activeJob')} · {contract?.jobId?.vehicleType || 'Vehicle'}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-green-900/80">
                       <span className="rounded-full bg-green-100 px-2 py-0.5 font-semibold">
@@ -453,23 +455,29 @@ const DriverAttendance = () => {
                       </span>
                       <span>
                         {contract?.salaryType === 'monthly'
-                          ? `₹${Number(contract?.salaryPerMonth) || 0}/month`
+                          ? `₹${Number(contract?.salaryPerMonth) || 0}/${t('perMonth')}`
                           : contract?.salaryType === 'daily'
-                            ? `₹${Number(contract?.salaryPerDay) || 0}/din`
-                            : `₹${Number(contract?.salaryPerHour) || 0}/ghanta`}
+                            ? `₹${Number(contract?.salaryPerDay) || 0}/${t('perDay')}`
+                            : `₹${Number(contract?.salaryPerHour) || 0}/${t('perHour')}`}
                       </span>
                       {contract?.hasBhatta && (
-                        <span>₹{Number(contract?.dailyBhatta) || 0}/din bhatta</span>
+                        <span>
+                          ₹{Number(contract?.dailyBhatta) || 0}/{t('perDay')}{' '}
+                          {t('bhatta')}
+                        </span>
                       )}
                       {contract?.hasHourlyBonus && (
-                        <span>₹{Number(contract?.salaryPerHour) || 0}/ghanta bonus</span>
+                        <span>
+                          ₹{Number(contract?.salaryPerHour) || 0}/{t('perHour')}{' '}
+                          {t('bonus')}
+                        </span>
                       )}
                     </div>
                   </div>
 
                   <div className="mb-6">
                     <label className="mb-1 block text-sm font-semibold text-gray-800">
-                      Month
+                      {t('month')}
                     </label>
                     <select
                       value={selectedMonth}
@@ -488,35 +496,39 @@ const DriverAttendance = () => {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-xl bg-gray-50 p-4 text-center">
                         <div className="text-2xl font-bold text-green-600">{summary.presentDays}</div>
-                        <div className="text-xs text-gray-600">Present</div>
+                        <div className="text-xs text-gray-600">{t('present')}</div>
                       </div>
                       <div className="rounded-xl bg-gray-50 p-4 text-center">
                         <div className="text-2xl font-bold text-red-500">{summary.absentDays}</div>
-                        <div className="text-xs text-gray-600">Absent</div>
+                        <div className="text-xs text-gray-600">{t('absent')}</div>
                       </div>
                       <div className="rounded-xl bg-gray-50 p-4 text-center">
                         <div className="text-2xl font-bold text-yellow-600">{summary.halfDays}</div>
-                        <div className="text-xs text-gray-600">Half Day</div>
+                        <div className="text-xs text-gray-600">{t('halfDay')}</div>
                       </div>
                       <div className="rounded-xl bg-gray-50 p-4 text-center">
                         <div className="text-2xl font-bold text-blue-700">₹{summary.grossTotal}</div>
-                        <div className="text-xs text-gray-600">Gross Total</div>
+                        <div className="text-xs text-gray-600">{t('totalEarned')}</div>
                       </div>
                       {showHoursInput && (
                         <div className="rounded-xl bg-gray-50 p-4 text-center">
                           <div className="text-2xl font-bold text-gray-900">{summary.totalHours}</div>
-                          <div className="text-xs text-gray-600">Total Hours</div>
+                          <div className="text-xs text-gray-600">{t('hours')}</div>
                         </div>
                       )}
                     </div>
                   </div>
 
                   <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-6">
-                    <h2 className="text-lg font-semibold text-gray-800">Record Add Karo</h2>
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      {t('addRecord')}
+                    </h2>
 
                     <div className="mt-4 grid gap-3">
                       <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">Tarikh</label>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          {t('selectDate')}
+                        </label>
                         <input
                           type="date"
                           value={form.date}
@@ -537,7 +549,7 @@ const DriverAttendance = () => {
                               : 'border-gray-200 bg-gray-100 text-gray-600'
                           }`}
                         >
-                          ✅ Present
+                          ✅ {t('present')}
                         </button>
                         <button
                           type="button"
@@ -549,7 +561,7 @@ const DriverAttendance = () => {
                               : 'border-gray-200 bg-gray-100 text-gray-600'
                           }`}
                         >
-                          🕐 Half Day
+                          🕐 {t('halfDay')}
                         </button>
                         <button
                           type="button"
@@ -561,14 +573,14 @@ const DriverAttendance = () => {
                               : 'border-gray-200 bg-gray-100 text-gray-600'
                           }`}
                         >
-                          ❌ Absent
+                          ❌ {t('absent')}
                         </button>
                       </div>
 
                       {(contract?.salaryType === 'hourly' || contract?.hasHourlyBonus) && form.status && (
                         <div>
                           <label className="mb-1 block text-sm font-medium text-gray-700">
-                            Aaj kitne ghante kaam kiya?
+                            {t('hoursWorkedToday')}
                           </label>
                           <input
                             type="number"
@@ -591,7 +603,7 @@ const DriverAttendance = () => {
                       {form.status && (
                         <div className="rounded-xl bg-gray-50 p-3 mt-3">
                           <p className="text-sm font-semibold text-green-700">
-                            Is din ki salary: ₹{salaryPreview}
+                            {t('todaySalary')}: ₹{salaryPreview}
                           </p>
                         </div>
                       )}
@@ -600,7 +612,7 @@ const DriverAttendance = () => {
                         <input
                           value={form.note}
                           onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
-                          placeholder="Koi note..."
+                          placeholder={t('addNote')}
                           className="input-field w-full"
                         />
                       </div>
@@ -618,7 +630,7 @@ const DriverAttendance = () => {
                               hoursWorked: Number(form.hoursWorked) || 0,
                               note: form.note || '',
                             })
-                            toast.success('Record save ho gaya!')
+                            toast.success(t('recordSaved'))
                             setForm((f) => ({ ...f, status: '', hoursWorked: '', note: '' }))
                             const res = await driverGetRecords({
                               month: selectedMonth,
@@ -652,15 +664,19 @@ const DriverAttendance = () => {
                         }}
                         className="w-full rounded-xl bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
                       >
-                        {saving ? 'Save ho raha hai...' : 'Record Save Karo'}
+                        {saving ? t('savingText') : t('saveRecord')}
                       </button>
                     </div>
                   </div>
 
                   <div className="rounded-2xl border border-gray-100 bg-white p-6">
-                    <h2 className="text-lg font-semibold text-gray-800">Mere Records</h2>
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      {t('myRecords')}
+                    </h2>
                     {records.length === 0 ? (
-                      <div className="py-8 text-center text-gray-400">Is mahine koi record nahi</div>
+                      <div className="py-8 text-center text-gray-400">
+                        {t('noRecordsThisMonth')}
+                      </div>
                     ) : (
                       <div className="mt-4">
                         {records.map((r) => (
@@ -679,10 +695,12 @@ const DriverAttendance = () => {
                                       : 'bg-yellow-100 text-yellow-700'
                                 }`}
                               >
-                                {r.status === 'half_day' ? 'Half Day' : r.status}
+                                {r.status === 'half_day' ? t('halfDay') : r.status}
                               </span>
                               {Number(r.hoursWorked) > 0 && (
-                                <p className="mt-1 text-xs text-gray-600">{Number(r.hoursWorked)} ghante</p>
+                                <p className="mt-1 text-xs text-gray-600">
+                                  {Number(r.hoursWorked)} {t('hours')}
+                                </p>
                               )}
                               {r.note && (
                                 <p className="mt-1 text-xs italic text-gray-600">{r.note}</p>
@@ -694,12 +712,12 @@ const DriverAttendance = () => {
                                 type="button"
                                 disabled={saving}
                                 onClick={async () => {
-                                  const ok = window.confirm('Pakka delete karein?')
+                                  const ok = window.confirm(t('confirmDelete'))
                                   if (!ok) return
                                   try {
                                     setSaving(true)
                                     await driverDeleteRecord(r._id)
-                                    toast.success('Delete ho gaya')
+                                    toast.success(t('recordDeleted'))
                                     const res = await driverGetRecords({
                                       month: selectedMonth,
                                       year: selectedYear,
@@ -732,7 +750,7 @@ const DriverAttendance = () => {
                                 }}
                                 className="mt-2 text-xs font-semibold text-red-400 hover:text-red-600 disabled:opacity-60"
                               >
-                                Delete
+                                {t('delete')}
                               </button>
                             </div>
                           </div>

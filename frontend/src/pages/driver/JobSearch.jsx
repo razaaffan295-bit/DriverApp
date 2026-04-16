@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { STATES, VEHICLE_TYPES } from '../../utils/constants'
@@ -18,6 +19,7 @@ const formatDate = (d) => {
 }
 
 const JobSearch = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [jobs, setJobs] = useState([])
   const [total, setTotal] = useState(0)
@@ -43,7 +45,7 @@ const JobSearch = () => {
         setJobs((prev) => (append ? [...prev, ...list] : list))
       } catch (e) {
         toast.error(
-          e.response?.data?.message || 'Jobs load nahi ho payeen.'
+          e.response?.data?.message || t('jobsLoadError')
         )
         if (!append) setJobs([])
       } finally {
@@ -51,7 +53,7 @@ const JobSearch = () => {
         setLoadingMore(false)
       }
     },
-    [filters.state, filters.vehicleType]
+    [filters.state, filters.vehicleType, t]
   )
 
   useEffect(() => {
@@ -81,12 +83,12 @@ const JobSearch = () => {
   const getSalaryDisplay = (job) => {
     if (!job) return '₹0'
     if (job.salaryType === 'monthly') {
-      return `₹${job.salaryPerMonth || 0}/month`
+      return `₹${job.salaryPerMonth || 0}/${t('perMonth')}`
     }
     if (job.salaryType === 'hourly') {
-      return `₹${job.salaryPerHour || 0}/ghanta`
+      return `₹${job.salaryPerHour || 0}/${t('perHour')}`
     }
-    return `₹${job.salaryPerDay || 0}/din`
+    return `₹${job.salaryPerDay || 0}/${t('perDay')}`
   }
 
   const getTotalKamayi = (job) => {
@@ -96,7 +98,7 @@ const JobSearch = () => {
       return (job.salaryPerMonth || 0) * months
     }
     if (job.salaryType === 'hourly') {
-      return 'Ghante ke hisaab se'
+      return t('hourlyBasis')
     }
     return (job.salaryPerDay || 0) * (job.duration || 0)
   }
@@ -106,11 +108,17 @@ const JobSearch = () => {
       style={{ minHeight: '100vh', background: '#F0FDF4' }}
     >
       <div className="p-4 md:p-6 pb-8">
+        <h1 className="mb-4 text-xl font-bold text-gray-800">
+          {t('jobSearch')}
+        </h1>
         <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-4">
+          <p className="mb-3 text-sm font-semibold text-gray-700">
+            {t('filter')}
+          </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="min-w-0 flex-1 sm:max-w-[200px]">
               <label className="mb-1 block text-xs font-medium text-gray-600">
-                State
+                {t('state')}
               </label>
               <select
                 value={filters.state}
@@ -119,7 +127,7 @@ const JobSearch = () => {
                 }
                 className="input-field w-full"
               >
-                <option value="">Sab States</option>
+                <option value="">{t('all')}</option>
                 {STATES.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -129,7 +137,7 @@ const JobSearch = () => {
             </div>
             <div className="min-w-0 flex-1 sm:max-w-[200px]">
               <label className="mb-1 block text-xs font-medium text-gray-600">
-                Vehicle Type
+                {t('vehicleType')}
               </label>
               <select
                 value={filters.vehicleType}
@@ -141,7 +149,7 @@ const JobSearch = () => {
                 }
                 className="input-field w-full"
               >
-                <option value="">Sab Types</option>
+                <option value="">{t('all')}</option>
                 {VEHICLE_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -155,18 +163,18 @@ const JobSearch = () => {
               onClick={handleDhundho}
               className="rounded-xl bg-green-600 px-6 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
             >
-              {loading ? 'Dhundh rahe...' : 'Dhundho'}
+              {loading ? t('loading') : t('search')}
             </button>
           </div>
         </div>
 
         {loading && jobs.length === 0 ? (
-          <p className="text-sm text-gray-500">Loading...</p>
+          <p className="text-sm text-gray-500">{t('loading')}</p>
         ) : jobs.length === 0 ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center">
-            <p className="text-gray-700">Koi job nahi mili</p>
+            <p className="text-gray-700">{t('noJobs')}</p>
             <p className="mt-1 text-sm text-gray-500">
-              Filter change karke try karein
+              {t('tryChangeFilter')}
             </p>
           </div>
         ) : (
@@ -181,9 +189,14 @@ const JobSearch = () => {
                     <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
                       {job.vehicleType}
                     </span>
-                    <span className="text-xl font-bold text-green-700">
-                      {getSalaryDisplay(job)}
-                    </span>
+                    <div className="text-right">
+                      <span className="block text-[10px] font-medium uppercase text-gray-500">
+                        {t('salary')}
+                      </span>
+                      <span className="text-xl font-bold text-green-700">
+                        {getSalaryDisplay(job)}
+                      </span>
+                    </div>
                   </div>
                   <h3 className="mb-1 mt-3 text-lg font-semibold text-gray-900">
                     {job.title}
@@ -198,11 +211,11 @@ const JobSearch = () => {
                     <span className="text-sm text-gray-600">
                       {job.ownerId?.totalRatings > 0
                         ? job.ownerId.avgRating
-                        : 'New'}
+                        : t('newOwner')}
                     </span>
                     {job.ownerId?.totalRatings > 0 ? (
                       <span className="text-xs text-gray-400">
-                        ({job.ownerId.totalRatings} reviews)
+                        ({job.ownerId.totalRatings} {t('reviews')})
                       </span>
                     ) : null}
                   </div>
@@ -211,13 +224,13 @@ const JobSearch = () => {
                     {job.location?.district}, {job.location?.city}
                   </p>
                   <p className="text-sm text-gray-500">
-                    📅 Start: {formatDate(job.startDate)}
+                    📅 {t('startLabel')}: {formatDate(job.startDate)}
                   </p>
                   <p className="text-sm text-gray-500">
-                    ⏱️ {job.duration} din
+                    ⏱️ {job.duration} {t('durationDays')}
                   </p>
                   <p className="text-sm text-gray-500">
-                    💰 Total (approx):{' '}
+                    💰 {t('totalApprox')}:{' '}
                     {typeof getTotalKamayi(job) === 'string'
                       ? getTotalKamayi(job)
                       : `₹${getTotalKamayi(job)}`}
@@ -229,7 +242,7 @@ const JobSearch = () => {
                     }
                     className="mt-4 rounded-lg border border-green-600 px-4 py-2 text-sm text-green-600 hover:bg-green-50"
                   >
-                    Job Details Dekho
+                    {t('jobDetailsBtn')}
                   </button>
                 </li>
               ))}
@@ -242,7 +255,7 @@ const JobSearch = () => {
                   onClick={handleLoadMore}
                   className="rounded-xl border border-green-600 px-6 py-2 text-sm font-medium text-green-700 hover:bg-green-50 disabled:opacity-60"
                 >
-                  {loadingMore ? 'Loading...' : 'Aur dikhao'}
+                  {loadingMore ? t('loading') : t('showMore')}
                 </button>
               </div>
             )}

@@ -16,6 +16,7 @@ import {
 } from 'react-icons/md'
 import { clearAuth } from '../../utils/helpers'
 import { getSubscriptions } from '../../api/adminAPI'
+import { useTranslation } from 'react-i18next'
 
 const sidebarInactive =
   'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-purple-100/90 hover:bg-white/10'
@@ -43,6 +44,7 @@ const daysRemaining = (end) => {
 
 const AdminSubscriptions = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [applied, setApplied] = useState({ role: '', status: '' })
@@ -59,7 +61,7 @@ const AdminSubscriptions = () => {
       setList(res.data?.subscriptions ?? [])
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Load nahi hua'
+        e.response?.data?.message || t('subsLoadError')
       )
     } finally {
       setLoading(false)
@@ -86,7 +88,7 @@ const AdminSubscriptions = () => {
   const handleLogout = () => {
     clearAuth()
     navigate('/admin/login')
-    toast.success('Logout ho gaye!')
+    toast.success(t('logoutSuccess'))
   }
 
   return (
@@ -96,7 +98,7 @@ const AdminSubscriptions = () => {
       <aside className="fixed left-0 top-0 z-30 hidden h-screen w-64 flex-col bg-gradient-to-b from-violet-900 to-purple-950 shadow-xl md:flex">
         <div className="border-b border-white/10 px-6 py-5">
           <span className="text-lg font-bold text-white">
-            Admin Panel
+            {t('adminPanel')}
           </span>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
@@ -107,7 +109,7 @@ const AdminSubscriptions = () => {
             }
           >
             <MdDashboard className="h-5 w-5 shrink-0" />
-            Dashboard
+            {t('dashboard')}
           </NavLink>
           <NavLink
             to="/admin/users"
@@ -116,25 +118,25 @@ const AdminSubscriptions = () => {
             }
           >
             <MdPeople className="h-5 w-5 shrink-0" />
-            Saare Users
+            {t('allUsers')}
           </NavLink>
           <NavLink
             to="/admin/users?role=owner"
             className={sidebarInactive}
           >
             <MdPeople className="h-5 w-5 shrink-0" />
-            Owners
+            {t('owners')}
           </NavLink>
           <NavLink
             to="/admin/users?role=driver"
             className={sidebarInactive}
           >
             <MdPeople className="h-5 w-5 shrink-0" />
-            Drivers
+            {t('drivers')}
           </NavLink>
           <Link to="/admin/dashboard" className={sidebarInactive}>
             <MdWork className="h-5 w-5 shrink-0" />
-            Jobs
+            {t('jobs2')}
           </Link>
           <NavLink
             to="/admin/complaints"
@@ -143,7 +145,7 @@ const AdminSubscriptions = () => {
             }
           >
             <MdWarning className="h-5 w-5 shrink-0" />
-            Complaints
+            {t('complaints2')}
           </NavLink>
           <NavLink
             to="/admin/subscriptions"
@@ -153,18 +155,27 @@ const AdminSubscriptions = () => {
             }
           >
             <MdSubscriptions className="h-5 w-5 shrink-0" />
-            Subscriptions
+            {t('subscriptions2')}
           </NavLink>
           <Link to="/admin/subscriptions" className={sidebarInactive}>
             <MdAttachMoney className="h-5 w-5 shrink-0" />
-            Revenue
+            {t('revenue')}
           </Link>
+          <NavLink
+            to="/admin/subscription-manager"
+            className={({ isActive }) =>
+              isActive ? sidebarActive : sidebarInactive
+            }
+          >
+            <MdPeople className="h-5 w-5 shrink-0" />
+            Sub Manager
+          </NavLink>
         </nav>
       </aside>
 
       <header className="fixed left-0 right-0 top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm md:left-64 md:px-6">
         <h1 className="text-lg font-semibold text-gray-800">
-          Subscriptions
+          {t('subscriptionsTitle')}
         </h1>
         <div className="flex items-center gap-3">
           <span className="hidden rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-800 sm:inline">
@@ -176,7 +187,7 @@ const AdminSubscriptions = () => {
             className="flex items-center gap-1 text-sm font-medium text-red-600"
           >
             <MdLogout className="h-4 w-4" />
-            Logout
+            {t('logoutBtn')}
           </button>
         </div>
       </header>
@@ -185,28 +196,28 @@ const AdminSubscriptions = () => {
         <div className="mx-auto max-w-4xl px-4 py-6">
           <div className="flex flex-wrap gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <div>
-              <label className="text-xs text-gray-600">Role</label>
+              <label className="text-xs text-gray-600">{t('roleLabel')}</label>
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
                 className="mt-1 block w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
               >
-                <option value="">All</option>
-                <option value="owner">Owner</option>
-                <option value="driver">Driver</option>
+                <option value="">{t('allOption')}</option>
+                <option value="owner">{t('owners')}</option>
+                <option value="driver">{t('drivers')}</option>
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-600">Status</label>
+              <label className="text-xs text-gray-600">{t('statusLabel2')}</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="mt-1 block w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
               >
-                <option value="">All</option>
-                <option value="active">Active</option>
-                <option value="expired">Expired</option>
-                <option value="cancelled">Cancelled</option>
+                <option value="">{t('allOption')}</option>
+                <option value="active">{t('activeOption')}</option>
+                <option value="expired">{t('expiredOption')}</option>
+                <option value="cancelled">{t('cancelledOption')}</option>
               </select>
             </div>
             <div className="flex items-end">
@@ -220,7 +231,7 @@ const AdminSubscriptions = () => {
                 }
                 className="rounded-xl bg-purple-700 px-5 py-2 text-sm font-semibold text-white"
               >
-                Filter
+                {t('filterBtn')}
               </button>
             </div>
           </div>
@@ -234,18 +245,18 @@ const AdminSubscriptions = () => {
                 {stats.ownerCount}
               </p>
               <p className="text-sm text-blue-800">
-                Revenue: {fmtMoney(stats.ownerRev)}
+                {t('revenueLabel2')}: {fmtMoney(stats.ownerRev)}
               </p>
             </div>
             <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
               <p className="text-sm text-green-900">
-                Driver subscriptions
+                {t('driverSubscriptions')}
               </p>
               <p className="text-2xl font-bold text-green-900">
                 {stats.driverCount}
               </p>
               <p className="text-sm text-green-800">
-                Revenue: {fmtMoney(stats.driverRev)}
+                {t('revenueLabel2')}: {fmtMoney(stats.driverRev)}
               </p>
             </div>
           </div>
@@ -298,12 +309,12 @@ const AdminSubscriptions = () => {
                       {fmtMoney(s.amount)}
                     </p>
                     <p className="text-xs text-gray-500">
-                      Start: {fmtDate(s.startDate)} · End:{' '}
-                      {fmtDate(s.endDate)}
+                      {t('startLabel5')}: {fmtDate(s.startDate)} ·{' '}
+                      {t('endLabel')}: {fmtDate(s.endDate)}
                     </p>
                     {dr !== null ? (
                       <p className="mt-1 text-xs text-gray-600">
-                        Days remaining: {dr}
+                        {t('daysRemainingLabel')}: {dr}
                       </p>
                     ) : null}
                   </li>

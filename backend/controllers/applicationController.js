@@ -236,8 +236,8 @@ const acceptApplication = async (req, res) => {
     const owner = await User.findById(oid).select("name");
     await Notification.create({
       userId: application.driverId,
-      title: "Application Accept Ho Gayi!",
-      message: `${owner?.name || "Owner"} ne aapki application accept kar li. Joining letter ka wait karein.`,
+      title: "Application Accepted",
+      message: `${owner?.name || "Owner"} accepted your application. Please wait for the joining letter.`,
       type: "application_accepted",
       link: "/driver/active-job",
       isRead: false,

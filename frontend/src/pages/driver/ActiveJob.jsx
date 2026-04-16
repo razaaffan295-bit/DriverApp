@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
@@ -12,53 +13,54 @@ import {
   requestResign,
 } from '../../api/resignAPI'
 
-const getSalaryDisplay = (contract) => {
-  if (!contract) return '₹0'
-  const cat = contract.vehicleCategory
-  const type = contract.salaryType
-
-  if (cat === 'transport') {
-    return `₹${contract.salaryPerMonth || 0}/month`
-  }
-  if (type === 'hourly') {
-    return `₹${contract.salaryPerHour || 0}/ghanta`
-  }
-  if (type === 'monthly') {
-    return `₹${contract.salaryPerMonth || 0}/month`
-  }
-  return `₹${contract.salaryPerDay || 0}/din`
-}
-
-const getTotalKamayi = (contract) => {
-  if (!contract) return 0
-  const type = contract.salaryType
-  const cat = contract.vehicleCategory
-  const dur = contract.duration || 0
-
-  if (cat === 'transport') {
-    const months = Math.ceil(dur / 30)
-    return (contract.salaryPerMonth || 0) * months
-  }
-  if (type === 'monthly') {
-    const months = Math.ceil(dur / 30)
-    return (contract.salaryPerMonth || 0) * months
-  }
-  if (type === 'hourly') {
-    return 'Ghante ke hisaab se'
-  }
-  return (contract.salaryPerDay || 0) * dur
-}
-
-const contractSalaryTypeLabel = (c) => {
-  if (!c) return '—'
-  if (c.vehicleCategory === 'transport') return 'Monthly (Transport)'
-  if (c.salaryType === 'hourly') return 'Per Hour'
-  if (c.salaryType === 'monthly') return 'Per Month'
-  if (c.salaryType === 'daily') return 'Per Day'
-  return String(c.salaryType || '—')
-}
-
 const ActiveJob = () => {
+  const { t } = useTranslation()
+
+  const getSalaryDisplay = (contract) => {
+    if (!contract) return '₹0'
+    const cat = contract.vehicleCategory
+    const type = contract.salaryType
+
+    if (cat === 'transport') {
+      return `₹${contract.salaryPerMonth || 0}/${t('perMonth2')}`
+    }
+    if (type === 'hourly') {
+      return `₹${contract.salaryPerHour || 0}/${t('perHour2')}`
+    }
+    if (type === 'monthly') {
+      return `₹${contract.salaryPerMonth || 0}/${t('perMonth2')}`
+    }
+    return `₹${contract.salaryPerDay || 0}/${t('perDay2')}`
+  }
+
+  const getTotalKamayi = (contract) => {
+    if (!contract) return 0
+    const type = contract.salaryType
+    const cat = contract.vehicleCategory
+    const dur = contract.duration || 0
+
+    if (cat === 'transport') {
+      const months = Math.ceil(dur / 30)
+      return (contract.salaryPerMonth || 0) * months
+    }
+    if (type === 'monthly') {
+      const months = Math.ceil(dur / 30)
+      return (contract.salaryPerMonth || 0) * months
+    }
+    if (type === 'hourly') {
+      return t('hourlyBasis')
+    }
+    return (contract.salaryPerDay || 0) * dur
+  }
+
+  const contractSalaryTypeLabel = (c) => {
+    if (!c) return '—'
+    if (c.vehicleCategory === 'transport') return t('monthlyTransport')
+    if (c.salaryType === 'hourly') return t('perHourLabel')
+    if (c.salaryType === 'monthly') return t('perMonthLabel')
+    if (c.salaryType === 'daily') return t('perDayLabel')
+    return String(c.salaryType || '—')
+  }
   const [contract, setContract] = useState(null)
   const [loading, setLoading] = useState(true)
   const [signing, setSigning] = useState(false)
@@ -158,11 +160,11 @@ const ActiveJob = () => {
     try {
       setSigning(true)
       await signContract(contract._id)
-      toast.success('Sign kar diya! Kaam shuru ho gaya!')
+      toast.success(t('contractSignedSuccess'))
       await fetchContract()
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Sign nahi hua'
+        err.response?.data?.message || t('signError')
       )
     } finally {
       setSigning(false)
@@ -187,11 +189,11 @@ const ActiveJob = () => {
   const submitResign = async (e) => {
     e.preventDefault()
     if (!resignForm.reason.trim()) {
-      toast.error('Reason likhein')
+      toast.error(t('reasonRequired'))
       return
     }
     if (!resignForm.lastWorkingDate) {
-      toast.error('Date chunein')
+      toast.error(t('dateRequired'))
       return
     }
     setResigning(true)
@@ -200,9 +202,7 @@ const ActiveJob = () => {
         reason: resignForm.reason.trim(),
         lastWorkingDate: resignForm.lastWorkingDate,
       })
-      toast.success(
-        'Resign request bhej di! Owner approve karega.'
-      )
+      toast.success(t('resignRequestSent'))
       setShowResignModal(false)
       setResignForm({ reason: '', lastWorkingDate: '' })
       const res = await getResignRequests()
@@ -218,7 +218,7 @@ const ActiveJob = () => {
       window.location.reload()
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Nahi hua'
+        err.response?.data?.message || t('resignError')
       )
     } finally {
       setResigning(false)
@@ -248,7 +248,7 @@ const ActiveJob = () => {
             <div className="flex justify-center items-center h-64">
               <div
                 className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin"
-                aria-hidden
+                aria-label={t('loading')}
               />
             </div>
           ) : (
@@ -260,10 +260,10 @@ const ActiveJob = () => {
                     <>
                       <div className="bg-gray-50 rounded-2xl p-6 text-center">
                         <h2 className="text-xl font-semibold text-gray-600">
-                          🚪 Aapka Kaam Khatam Ho Gaya
+                          🚪 {t('workEnded2')}
                         </h2>
                         <p className="text-sm text-gray-400 mb-6">
-                          Resign approve ho gayi thi
+                          {t('resignApproved')}
                         </p>
                         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
                           <button
@@ -271,14 +271,14 @@ const ActiveJob = () => {
                             onClick={() => navigate('/driver/jobs')}
                             className="bg-green-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-green-700"
                           >
-                            Naya Kaam Dhundho
+                            {t('findJobs')}
                           </button>
                           <button
                             type="button"
                             onClick={() => navigate('/driver/applications')}
                             className="border border-green-400 text-green-600 px-6 py-3 rounded-xl font-medium hover:bg-green-50"
                           >
-                            Meri Applications Dekho
+                            {t('viewMyApplications')}
                           </button>
                         </div>
                       </div>
@@ -286,17 +286,17 @@ const ActiveJob = () => {
                   ) : (
                     <>
                       <h2 className="text-xl font-semibold text-gray-700 mb-2">
-                        Abhi koi active kaam nahi hai
+                        {t('noActiveJob')}
                       </h2>
                       <p className="text-gray-400 text-sm mb-6">
-                        Jobs dhundho aur apply karo
+                        {t('searchAndApply')}
                       </p>
                       <button
                         type="button"
                         onClick={() => navigate('/driver/jobs')}
                         className="bg-green-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-green-700"
                       >
-                        Jobs Dhundho
+                        {t('findJobs')}
                       </button>
                     </>
                   )}
@@ -309,11 +309,10 @@ const ActiveJob = () => {
                     <span className="text-2xl">📄</span>
                     <div>
                       <div className="font-semibold text-yellow-800">
-                        Joining Letter Aaya Hai!
+                        {t('joiningLetterReceived')}
                       </div>
                       <div className="text-sm text-yellow-600">
-                        Padh ke sign karein — tabhi kaam shuru
-                        hoga
+                        {t('readAndSign')}
                       </div>
                     </div>
                   </div>
@@ -321,12 +320,12 @@ const ActiveJob = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div className="bg-white rounded-2xl p-5 border border-gray-100">
                       <h3 className="font-semibold text-gray-700 mb-3">
-                        Job Details
+                        {t('jobDetailsTitle')}
                       </h3>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Job
+                            {t('jobLabel')}
                           </span>
                           <span className="font-medium text-right">
                             {contract.jobId?.title || '—'}
@@ -334,7 +333,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Vehicle
+                            {t('vehicleLabel2')}
                           </span>
                           <span className="font-medium text-right">
                             {contract.jobId?.vehicleType || '—'}
@@ -342,7 +341,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Salary Type
+                            {t('salaryTypeLabel')}
                           </span>
                           <span className="font-medium text-right">
                             {contractSalaryTypeLabel(contract)}
@@ -350,7 +349,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Rate
+                            {t('rateLabel')}
                           </span>
                           <span className="font-bold text-green-700">
                             {getSalaryDisplay(contract)}
@@ -360,10 +359,10 @@ const ActiveJob = () => {
                           contract.dailyBhatta > 0 && (
                             <div className="flex justify-between gap-2">
                               <span className="text-gray-500 shrink-0">
-                                Daily Bhatta
+                                {t('dailyBhattaLabel2')}
                               </span>
                               <span className="font-medium text-right">
-                                ₹{contract.dailyBhatta}/din
+                                ₹{contract.dailyBhatta}/{t('perDay2')}
                               </span>
                             </div>
                           )}
@@ -371,24 +370,24 @@ const ActiveJob = () => {
                           contract.salaryPerHour > 0 && (
                             <div className="flex justify-between gap-2">
                               <span className="text-gray-500 shrink-0">
-                                Hourly Bonus
+                                {t('hourlyBonusLabel2')}
                               </span>
                               <span className="font-medium text-right">
-                                ₹{contract.salaryPerHour}/ghanta
+                                ₹{contract.salaryPerHour}/{t('perHour2')}
                               </span>
                             </div>
                           )}
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Duration
+                            {t('durationLabel3')}
                           </span>
                           <span className="font-medium">
-                            {duration} din
+                            {duration} {t('days')}
                           </span>
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Start Date
+                            {t('startDateLabel')}
                           </span>
                           <span className="font-medium text-right">
                             {formatDate(contract.startDate)}
@@ -396,7 +395,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Total Kamayi
+                            {t('totalEarningsLabel')}
                           </span>
                           <span className="font-bold text-green-700">
                             {typeof getTotalKamayi(contract) ===
@@ -410,12 +409,12 @@ const ActiveJob = () => {
 
                     <div className="bg-white rounded-2xl p-5 border border-gray-100">
                       <h3 className="font-semibold text-gray-700 mb-3">
-                        Owner Details
+                        {t('ownerDetailsTitle')}
                       </h3>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Naam
+                            {t('nameLabel')}
                           </span>
                           <span className="font-medium text-right">
                             {contract.ownerId?.name || '—'}
@@ -423,7 +422,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Location
+                            {t('locationLabel2')}
                           </span>
                           <span className="font-medium text-right">
                             {contract.ownerId?.location?.state ||
@@ -432,7 +431,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Kaam ki Jagah
+                            {t('workPlaceLabel')}
                           </span>
                           <span className="font-medium text-right max-w-[60%] break-words">
                             {contract.workLocation || '—'}
@@ -444,72 +443,74 @@ const ActiveJob = () => {
 
                   <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
                     <h3 className="font-semibold text-gray-800 mb-4 text-lg border-b pb-3">
-                      📋 Joining Letter
+                      📋 {t('contract')}
                     </h3>
 
                     <div className="bg-gray-50 rounded-xl p-5 font-mono text-sm text-gray-700 leading-relaxed">
                       <div className="text-center font-bold text-base mb-4 font-sans">
-                        JOINING LETTER
+                        {t('joiningLetterContract').toUpperCase()}
                       </div>
                       <div className="mb-3">
-                        <strong>Date:</strong>{' '}
+                        <strong>{t('dateLabel')}:</strong>{' '}
                         {formatDate(contract.createdAt)}
                       </div>
                       <div className="mb-3">
-                        <strong>Owner:</strong>{' '}
+                        <strong>{t('ownerLabel')}:</strong>{' '}
                         {contract.ownerId?.name}
                       </div>
                       <div className="mb-3">
-                        <strong>Driver:</strong>{' '}
+                        <strong>{t('driverLabel')}:</strong>{' '}
                         {contract.driverId?.name || user?.name}
                       </div>
                       <div className="mb-3">
-                        <strong>Kaam:</strong>{' '}
+                        <strong>{t('workLabel')}:</strong>{' '}
                         {contract.jobId?.title} —{' '}
                         {contract.jobId?.vehicleType}
                       </div>
                       <div className="mb-3">
-                        <strong>Location:</strong>{' '}
+                        <strong>{t('locationLabel2')}:</strong>{' '}
                         {contract.workLocation}
                       </div>
                       <div className="mb-3">
-                        <strong>Start Date:</strong>{' '}
+                        <strong>{t('startDateLabel')}:</strong>{' '}
                         {formatDate(contract.startDate)}
                       </div>
                       <div className="mb-3">
-                        <strong>Duration:</strong> {duration}{' '}
-                        din
+                        <strong>{t('durationLabel3')}:</strong> {duration}{' '}
+                        {t('days')}
                       </div>
                       <div className="mb-3">
-                        <strong>Salary Type:</strong>{' '}
+                        <strong>{t('salaryTypeLabel')}:</strong>{' '}
                         {contractSalaryTypeLabel(contract)}
                       </div>
                       <div className="mb-3">
-                        <strong>Rate:</strong>{' '}
+                        <strong>{t('rateLabel')}:</strong>{' '}
                         {getSalaryDisplay(contract)}
                       </div>
                       {contract.hasBhatta &&
                         contract.dailyBhatta > 0 && (
                           <div className="mb-3">
                             <span>
-                              <strong>Daily Bhatta:</strong>
+                              <strong>{t('dailyBhattaLabel2')}:</strong>
                             </span>{' '}
-                            <span>₹{contract.dailyBhatta}/din</span>
+                            <span>
+                              ₹{contract.dailyBhatta}/{t('perDay2')}
+                            </span>
                           </div>
                         )}
                       {contract.hasHourlyBonus &&
                         contract.salaryPerHour > 0 && (
                           <div className="mb-3">
                             <span>
-                              <strong>Hourly Bonus:</strong>
+                              <strong>{t('hourlyBonusLabel2')}:</strong>
                             </span>{' '}
                             <span>
-                              ₹{contract.salaryPerHour}/ghanta
+                              ₹{contract.salaryPerHour}/{t('perHour2')}
                             </span>
                           </div>
                         )}
                       <div className="mb-3">
-                        <strong>Total Kamayi:</strong>{' '}
+                        <strong>{t('totalEarningsLabel')}:</strong>{' '}
                         {typeof getTotalKamayi(contract) ===
                         'string'
                           ? getTotalKamayi(contract)
@@ -517,14 +518,14 @@ const ActiveJob = () => {
                       </div>
 
                       <div className="mt-4 pt-4 border-t border-gray-200">
-                        <strong>Shartein:</strong>
+                        <strong>{t('termsLabel2')}:</strong>
                         <div className="mt-2 whitespace-pre-line font-sans">
                           {contract.terms}
                         </div>
                       </div>
 
                       <div className="mt-4 pt-4 border-t border-gray-200">
-                        <strong>Safety Conditions:</strong>
+                        <strong>{t('safetyConditions')}:</strong>
                         <div className="mt-2 whitespace-pre-line font-sans">
                           {contract.safetyConditions}
                         </div>
@@ -533,7 +534,7 @@ const ActiveJob = () => {
                       <div className="mt-6 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 gap-8">
                         <div>
                           <div className="text-gray-500 mb-2">
-                            Owner Signature:
+                            {t('ownerSignature')}:
                           </div>
                           <div className="font-bold font-sans">
                             {contract.ownerId?.name}
@@ -541,10 +542,10 @@ const ActiveJob = () => {
                         </div>
                         <div>
                           <div className="text-gray-500 mb-2">
-                            Driver Signature:
+                            {t('driverSignature')}:
                           </div>
                           <div className="text-gray-400 italic font-sans">
-                            Abhi sign nahi kiya
+                            {t('notSignedYet')}
                           </div>
                         </div>
                       </div>
@@ -559,17 +560,17 @@ const ActiveJob = () => {
                       className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-semibold text-base hover:bg-green-700 disabled:opacity-50"
                     >
                       {signing
-                        ? 'Sign ho raha hai...'
-                        : '✅ Sign Karo aur Kaam Shuru Karein'}
+                        ? t('signingProgress')
+                        : t('signAndStart')}
                     </button>
                     <button
                       type="button"
                       onClick={() =>
-                        toast('Abhi decline feature available nahi hai')
+                        toast(t('declineNotAvailable'))
                       }
                       className="px-6 py-4 border border-red-300 text-red-500 rounded-2xl font-medium shrink-0"
                     >
-                      Decline
+                      {t('declineBtn')}
                     </button>
                   </div>
                 </div>
@@ -580,19 +581,19 @@ const ActiveJob = () => {
                   {resignStatus ? (
                     <div className="mb-6 rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
                       <p className="font-semibold text-yellow-900">
-                        ⏳ Resign Request Pending
+                        {t('resignPending')}
                       </p>
                       <p className="mt-1 text-sm text-yellow-800">
-                        Owner ke approve karne ka wait hai
+                        {t('waitingOwnerApproval')}
                       </p>
                       <p className="mt-2 text-sm text-gray-700">
-                        Last Working Date:{' '}
+                        {t('lastWorkingDate')}:{' '}
                         {formatDate(
                           resignStatus.lastWorkingDate
                         )}
                       </p>
                       <p className="text-sm text-gray-700">
-                        Reason: {resignStatus.reason}
+                        {t('reasonLabel')}: {resignStatus.reason}
                       </p>
                     </div>
                   ) : null}
@@ -601,10 +602,10 @@ const ActiveJob = () => {
                       <span className="text-3xl">✅</span>
                       <div>
                         <div className="font-bold text-green-800 text-lg">
-                          Kaam Chal Raha Hai!
+                          {t('workInProgressTitle')}
                         </div>
                         <div className="text-sm text-green-600">
-                          {getDaysRemaining()} din baaki hain
+                          {getDaysRemaining()} {t('daysRemaining')}
                         </div>
                       </div>
                     </div>
@@ -616,7 +617,7 @@ const ActiveJob = () => {
                           : `₹${getTotalKamayi(contract)}`}
                       </div>
                       <div className="text-xs text-green-600">
-                        Total Kamayi
+                        {t('totalEarningsLabel')}
                       </div>
                     </div>
                   </div>
@@ -624,12 +625,12 @@ const ActiveJob = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div className="bg-white rounded-2xl p-5 border border-gray-100">
                       <h3 className="font-semibold text-gray-700 mb-3">
-                        Job Details
+                        {t('jobDetailsTitle')}
                       </h3>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Job
+                            {t('jobLabel')}
                           </span>
                           <span className="font-medium text-right">
                             {contract.jobId?.title || '—'}
@@ -637,7 +638,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Vehicle
+                            {t('vehicleLabel2')}
                           </span>
                           <span className="font-medium text-right">
                             {contract.jobId?.vehicleType || '—'}
@@ -645,7 +646,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Salary Type
+                            {t('salaryTypeLabel')}
                           </span>
                           <span className="font-medium text-right">
                             {contractSalaryTypeLabel(contract)}
@@ -653,7 +654,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Rate
+                            {t('rateLabel')}
                           </span>
                           <span className="font-bold text-green-700">
                             {getSalaryDisplay(contract)}
@@ -663,10 +664,10 @@ const ActiveJob = () => {
                           contract.dailyBhatta > 0 && (
                             <div className="flex justify-between gap-2">
                               <span className="text-gray-500 shrink-0">
-                                Daily Bhatta
+                                {t('dailyBhattaLabel2')}
                               </span>
                               <span className="font-medium text-right">
-                                ₹{contract.dailyBhatta}/din
+                                ₹{contract.dailyBhatta}/{t('perDay2')}
                               </span>
                             </div>
                           )}
@@ -674,24 +675,24 @@ const ActiveJob = () => {
                           contract.salaryPerHour > 0 && (
                             <div className="flex justify-between gap-2">
                               <span className="text-gray-500 shrink-0">
-                                Hourly Bonus
+                                {t('hourlyBonusLabel2')}
                               </span>
                               <span className="font-medium text-right">
-                                ₹{contract.salaryPerHour}/ghanta
+                                ₹{contract.salaryPerHour}/{t('perHour2')}
                               </span>
                             </div>
                           )}
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Duration
+                            {t('durationLabel3')}
                           </span>
                           <span className="font-medium">
-                            {duration} din
+                            {duration} {t('days')}
                           </span>
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Start Date
+                            {t('startDateLabel')}
                           </span>
                           <span className="font-medium text-right">
                             {formatDate(contract.startDate)}
@@ -699,7 +700,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Signed On
+                            {t('signedOnLabel')}
                           </span>
                           <span className="font-medium text-green-600 text-right">
                             {formatDate(contract.driverSignedAt)}
@@ -710,12 +711,12 @@ const ActiveJob = () => {
 
                     <div className="bg-white rounded-2xl p-5 border border-gray-100">
                       <h3 className="font-semibold text-gray-700 mb-3">
-                        Owner Details
+                        {t('ownerDetailsTitle')}
                       </h3>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Naam
+                            {t('nameLabel')}
                           </span>
                           <span className="font-medium text-right">
                             {contract.ownerId?.name || '—'}
@@ -723,7 +724,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Location
+                            {t('locationLabel2')}
                           </span>
                           <span className="font-medium text-right">
                             {contract.ownerId?.location?.state ||
@@ -732,7 +733,7 @@ const ActiveJob = () => {
                         </div>
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-500 shrink-0">
-                            Kaam ki Jagah
+                            {t('workPlaceLabel')}
                           </span>
                           <span className="font-medium text-right max-w-[60%] break-words">
                             {contract.workLocation || '—'}
@@ -745,7 +746,7 @@ const ActiveJob = () => {
                   <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
                     <div className="no-print flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="font-semibold text-gray-800 text-lg">
-                        📋 Signed Joining Letter
+                        📋 {t('contract')}
                       </h3>
                       {contract.status === 'active' && (
                         <button
@@ -753,86 +754,88 @@ const ActiveJob = () => {
                           onClick={() => window.print()}
                           className="no-print border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded-xl"
                         >
-                          Joining Letter PDF Download
+                          {t('viewContract')}
                         </button>
                       )}
                     </div>
                     <div className="print-area bg-gray-50 rounded-xl p-5 font-mono text-sm text-gray-700 leading-relaxed mt-4">
                       <div className="text-center font-bold text-base mb-4 font-sans">
-                        JOINING LETTER
+                        {t('joiningLetterContract').toUpperCase()}
                       </div>
                       <div className="mb-2">
-                        <strong>Date:</strong>{' '}
+                        <strong>{t('dateLabel')}:</strong>{' '}
                         {formatDate(contract.createdAt)}
                       </div>
                       <div className="mb-2">
-                        <strong>Owner:</strong>{' '}
+                        <strong>{t('ownerLabel')}:</strong>{' '}
                         {contract.ownerId?.name}
                       </div>
                       <div className="mb-2">
-                        <strong>Driver:</strong>{' '}
+                        <strong>{t('driverLabel')}:</strong>{' '}
                         {contract.driverId?.name || user?.name}
                       </div>
                       <div className="mb-2">
-                        <strong>Kaam:</strong>{' '}
+                        <strong>{t('workLabel')}:</strong>{' '}
                         {contract.jobId?.title} —{' '}
                         {contract.jobId?.vehicleType}
                       </div>
                       <div className="mb-2">
-                        <strong>Location:</strong>{' '}
+                        <strong>{t('locationLabel2')}:</strong>{' '}
                         {contract.workLocation}
                       </div>
                       <div className="mb-2">
-                        <strong>Start Date:</strong>{' '}
+                        <strong>{t('startDateLabel')}:</strong>{' '}
                         {formatDate(contract.startDate)}
                       </div>
                       <div className="mb-2">
-                        <strong>Duration:</strong> {duration}{' '}
-                        din
+                        <strong>{t('durationLabel3')}:</strong> {duration}{' '}
+                        {t('days')}
                       </div>
                       <div className="mb-2">
-                        <strong>Salary Type:</strong>{' '}
+                        <strong>{t('salaryTypeLabel')}:</strong>{' '}
                         {contractSalaryTypeLabel(contract)}
                       </div>
                       <div className="mb-2">
-                        <strong>Rate:</strong>{' '}
+                        <strong>{t('rateLabel')}:</strong>{' '}
                         {getSalaryDisplay(contract)}
                       </div>
                       {contract.hasBhatta &&
                         contract.dailyBhatta > 0 && (
                           <div className="mb-2">
                             <span>
-                              <strong>Daily Bhatta:</strong>
+                              <strong>{t('dailyBhattaLabel2')}:</strong>
                             </span>{' '}
-                            <span>₹{contract.dailyBhatta}/din</span>
+                            <span>
+                              ₹{contract.dailyBhatta}/{t('perDay2')}
+                            </span>
                           </div>
                         )}
                       {contract.hasHourlyBonus &&
                         contract.salaryPerHour > 0 && (
                           <div className="mb-2">
                             <span>
-                              <strong>Hourly Bonus:</strong>
+                              <strong>{t('hourlyBonusLabel2')}:</strong>
                             </span>{' '}
                             <span>
-                              ₹{contract.salaryPerHour}/ghanta
+                              ₹{contract.salaryPerHour}/{t('perHour2')}
                             </span>
                           </div>
                         )}
                       <div className="mb-2">
-                        <strong>Total Kamayi:</strong>{' '}
+                        <strong>{t('totalEarningsLabel')}:</strong>{' '}
                         {typeof getTotalKamayi(contract) ===
                         'string'
                           ? getTotalKamayi(contract)
                           : `₹${getTotalKamayi(contract)}`}
                       </div>
                       <div className="mt-4 pt-3 border-t border-gray-200">
-                        <strong>Shartein:</strong>
+                        <strong>{t('termsLabel2')}:</strong>
                         <div className="mt-1 whitespace-pre-line font-sans">
                           {contract.terms}
                         </div>
                       </div>
                       <div className="mt-4 pt-3 border-t border-gray-200">
-                        <strong>Safety Conditions:</strong>
+                        <strong>{t('safetyConditions')}:</strong>
                         <div className="mt-1 whitespace-pre-line font-sans">
                           {contract.safetyConditions}
                         </div>
@@ -840,7 +843,7 @@ const ActiveJob = () => {
                       <div className="mt-6 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 gap-8">
                         <div>
                           <div className="text-gray-500 mb-1">
-                            Owner Signature:
+                            {t('ownerSignature')}:
                           </div>
                           <div className="font-bold text-green-700 font-sans">
                             ✓ {contract.ownerId?.name}
@@ -848,7 +851,7 @@ const ActiveJob = () => {
                         </div>
                         <div>
                           <div className="text-gray-500 mb-1">
-                            Driver Signature:
+                            {t('driverSignature')}:
                           </div>
                           <div className="font-bold text-green-700 font-sans">
                             ✓{' '}
@@ -873,7 +876,7 @@ const ActiveJob = () => {
                     >
                       <div className="text-2xl mb-1">📅</div>
                       <div className="text-sm font-medium text-gray-700">
-                        Attendance
+                        {t('attendance')}
                       </div>
                     </button>
                     <button
@@ -885,7 +888,7 @@ const ActiveJob = () => {
                     >
                       <div className="text-2xl mb-1">💰</div>
                       <div className="text-sm font-medium text-gray-700">
-                        Payment
+                        {t('payments')}
                       </div>
                     </button>
                     <button
@@ -897,7 +900,7 @@ const ActiveJob = () => {
                     >
                       <div className="text-2xl mb-1">⚠️</div>
                       <div className="text-sm font-medium text-gray-700">
-                        Complaint
+                        {t('complaintBtn')}
                       </div>
                     </button>
                     <button
@@ -910,7 +913,7 @@ const ActiveJob = () => {
                     >
                       <div className="text-2xl mb-1">🚪</div>
                       <div className="text-sm font-medium text-red-500">
-                        Resign
+                        {t('resignBtn')}
                       </div>
                     </button>
                   </div>
@@ -924,17 +927,15 @@ const ActiveJob = () => {
           <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-20">
             <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
               <h2 className="mb-4 text-xl font-bold text-red-600">
-                Resign Request Bhejo
+                {t('resignModalTitle')}
               </h2>
               <div className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700">
-                ⚠️ Resign approve hone ke baad aap is kaam
-                se hat jayenge aur naya kaam dhundh sakte
-                hain.
+                ⚠️ {t('resignWarning')}
               </div>
               <form onSubmit={submitResign} className="space-y-4">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Aakhri Din Kab Kaam Karenge?
+                    {t('lastWorkingDayLabel')}
                   </label>
                   <input
                     type="date"
@@ -952,7 +953,7 @@ const ActiveJob = () => {
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Resign Kyun Kar Rahe Ho?
+                    {t('resignReasonLabel')}
                   </label>
                   <textarea
                     rows={4}
@@ -964,7 +965,7 @@ const ActiveJob = () => {
                         reason: e.target.value,
                       }))
                     }
-                    placeholder="Reason batayein..."
+                    placeholder={t('resignReasonPlaceholder')}
                     className="w-full rounded-xl border border-gray-200 p-3 text-sm"
                   />
                 </div>
@@ -974,15 +975,15 @@ const ActiveJob = () => {
                   className="w-full rounded-xl bg-red-600 py-3 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   {resigning
-                    ? 'Bhej raha hai...'
-                    : 'Resign Request Bhejo'}
+                    ? t('sendingProgress')
+                    : t('sendResignRequest')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowResignModal(false)}
                   className="mt-2 w-full rounded-xl border border-gray-300 py-3 text-sm font-medium text-gray-700"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
               </form>
             </div>

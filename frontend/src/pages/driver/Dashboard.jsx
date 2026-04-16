@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { getUser } from '../../utils/helpers'
 import { getPaymentSummary } from '../../api/paymentAPI'
@@ -9,6 +10,7 @@ import { driverGetRecords as getDriverAttendance } from '../../api/attendanceAPI
 import { getDriverInvites } from '../../api/inviteAPI'
 
 const DriverDashboard = () => {
+  const { t } = useTranslation()
   const [user, setUser] = useState(null)
   const [summary, setSummary] = useState(null)
   const [contract, setContract] = useState(null)
@@ -133,22 +135,22 @@ const DriverDashboard = () => {
             <div
               className="h-10 w-10 animate-spin rounded-full border-4 border-green-200 border-t-green-600"
               role="status"
-              aria-label="Loading"
+              aria-label={t('loading')}
             />
           </div>
         ) : (
           <>
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-800">
-                Namaste, {user?.name || 'Driver'}! 👋
+                {t('greeting')}, {user?.name || 'Driver'}! 👋
               </h2>
-              <p className="text-sm text-gray-500">Aaj ka overview</p>
+              <p className="text-sm text-gray-500">{t('todayOverview')}</p>
               {inviteCount > 0 ? (
                 <Link
                   to="/driver/invites"
                   className="mt-1 inline-block text-sm font-medium text-green-700 hover:text-green-800"
                 >
-                  {inviteCount} naya invite — dekhein
+                  {inviteCount} {t('newInvite')}
                 </Link>
               ) : null}
             </div>
@@ -163,7 +165,7 @@ const DriverDashboard = () => {
                   <p className="text-2xl font-bold text-gray-900">
                     {contract ? 1 : 0}
                   </p>
-                  <p className="text-sm text-gray-500">Active Kaam</p>
+                  <p className="text-sm text-gray-500">{t('activeWork')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 md:gap-4 md:p-5">
@@ -174,7 +176,9 @@ const DriverDashboard = () => {
                   <p className="text-2xl font-bold text-gray-900">
                     ₹{summary ? monthEarned : 0}
                   </p>
-                  <p className="text-sm text-gray-500">Is Mahine Kamayi</p>
+                  <p className="text-sm text-gray-500">
+                    {t('thisMonthEarnings')}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 md:gap-4 md:p-5">
@@ -186,7 +190,7 @@ const DriverDashboard = () => {
                     {Number(stats.avgRating || 0).toFixed(1)}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Avg Rating ({stats.ratingCount})
+                    {t('avgRating')} ({stats.ratingCount})
                   </p>
                 </div>
               </div>
@@ -198,7 +202,9 @@ const DriverDashboard = () => {
                   <p className="text-2xl font-bold text-gray-900">
                     {applications.length}
                   </p>
-                  <p className="text-sm text-gray-500">Total Applications</p>
+                  <p className="text-sm text-gray-500">
+                    {t('totalApplications')}
+                  </p>
                 </div>
               </div>
             </div>
@@ -229,7 +235,7 @@ const DriverDashboard = () => {
                   >
                     ₹{Math.max(0, netDueRaw)}
                   </p>
-                  <p className="text-sm text-gray-500">Net Due (baaki)</p>
+                  <p className="text-sm text-gray-500">{t('netDueLabel')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 md:gap-4 md:p-5">
@@ -241,13 +247,13 @@ const DriverDashboard = () => {
                     {pendingConfirmCount}
                   </p>
                   <p className="text-sm text-gray-500">
-                    pending confirmations
+                    {t('pendingConfirmations')}
                   </p>
                 </div>
               </div>
               <div className="flex min-h-[88px] flex-col justify-center gap-1 rounded-2xl border border-gray-100 bg-white p-4 md:p-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Active Contract
+                  {t('activeContract')}
                 </p>
                 {contract?.jobId ? (
                   <>
@@ -258,22 +264,22 @@ const DriverDashboard = () => {
                       {contract.jobId.vehicleType}
                     </p>
                     <p className="text-sm text-green-600">
-                      Kaam chal raha hai ✅
+                      {t('workInProgress')}
                     </p>
                   </>
                 ) : (
                   <p className="text-sm text-gray-500">
-                    Koi active kaam nahi
+                    {t('noActiveJob')}
                   </p>
                 )}
               </div>
               <div className="flex min-h-[88px] flex-col justify-center gap-2 rounded-2xl border border-gray-100 bg-white p-4 md:p-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Profile
+                  {t('profile')}
                 </p>
                 {!profileIncomplete ? (
                   <p className="text-sm font-medium text-green-700">
-                    Profile Complete ✅
+                    {t('profileComplete')}
                   </p>
                 ) : (
                   <>
@@ -295,22 +301,24 @@ const DriverDashboard = () => {
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="rounded-2xl border border-gray-100 bg-white p-5">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-semibold text-gray-800">Nayi Jobs</h3>
+                  <h3 className="font-semibold text-gray-800">
+                    {t('newJobs')}
+                  </h3>
                   <Link
                     to="/driver/jobs"
                     className="text-sm font-medium text-green-600 hover:text-green-700"
                   >
-                    Sab Dekho
+                    {t('seeAll')}
                   </Link>
                 </div>
                 <p className="py-8 text-center text-gray-400">
-                  Abhi koi job available nahi
+                  {t('noJobsAvailable')}
                 </p>
               </div>
               <div className="rounded-2xl border border-gray-100 bg-white p-5">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-semibold text-gray-800">
-                    Meri Applications
+                    {t('myApplications')}
                   </h3>
                   <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
                     {applications.length}
@@ -318,7 +326,7 @@ const DriverDashboard = () => {
                 </div>
                 {recentApps.length === 0 ? (
                   <p className="py-8 text-center text-gray-400">
-                    Aapne abhi koi job apply nahi ki
+                    {t('noApplicationsYet')}
                   </p>
                 ) : (
                   <div className="divide-y divide-gray-100">
@@ -365,24 +373,24 @@ const DriverDashboard = () => {
               <div className="mt-6 mb-6 flex flex-col gap-4 rounded-2xl border border-green-200 bg-green-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium text-green-800">
-                    📝 Profile incomplete hai
+                    📝 {t('profileIncompleteMsg')}
                   </p>
                   <p className="mt-1 text-sm text-green-600">
-                    Documents aur skills add karein
+                    {t('addDocumentsSkills')}
                   </p>
                 </div>
                 <Link
                   to="/driver/profile"
                   className="inline-flex shrink-0 items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
                 >
-                  Profile Complete Karein
+                  {t('completeProfileBtn')}
                 </Link>
               </div>
             )}
 
             <div className="mt-6 rounded-2xl border border-gray-100 bg-white p-5">
               <h3 className="mb-3 font-semibold text-gray-800">
-                Active Kaam
+                {t('activeJob')}
               </h3>
               {contract?.jobId ? (
                 <div className="space-y-3">
@@ -395,12 +403,13 @@ const DriverDashboard = () => {
                       {jobSalaryLabel(contract.jobId)}
                     </p>
                     <p className="text-sm text-gray-500">
-                      Start: {startDateLabel(contract)}
+                      {t('startDate')}: {startDateLabel(contract)}
                     </p>
                     {attendance?.summary != null && (
                       <p className="mt-1 text-xs text-gray-500">
-                        Is mahine: {attendance.summary.presentDays || 0}{' '}
-                        din present
+                        {t('thisMonthPresent')}:{' '}
+                        {attendance.summary.presentDays || 0}{' '}
+                        {t('daysPresent')}
                         {attendance.summary.grossTotal
                           ? ` · ₹${attendance.summary.grossTotal}`
                           : ''}
@@ -412,25 +421,25 @@ const DriverDashboard = () => {
                       to="/driver/attendance"
                       className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
                     >
-                      Attendance
+                      {t('attendance')}
                     </Link>
                     <Link
                       to="/driver/payments"
                       className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-green-100"
                     >
-                      Payments
+                      {t('payments')}
                     </Link>
                     <Link
                       to="/driver/messages"
                       className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-green-100"
                     >
-                      Messages
+                      {t('messages')}
                     </Link>
                   </div>
                 </div>
               ) : (
                 <p className="py-4 text-center text-gray-400">
-                  Abhi koi active kaam nahi
+                  {t('noActiveJob')}
                 </p>
               )}
             </div>

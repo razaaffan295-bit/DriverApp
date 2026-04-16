@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import DriverProfileModal from '../../components/owner/DriverProfileModal'
 import { getPublicDriverProfile } from '../../api/ownerAPI'
 import { getVehicleDetail } from '../../api/ownerAPI'
 
 const VehicleDetail = () => {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
 
@@ -31,7 +33,9 @@ const VehicleDetail = () => {
         setDriverRating(Number(res.data?.driverRating) || 0)
         setRatingCount(Number(res.data?.ratingCount) || 0)
       } catch (e) {
-        toast.error(e.response?.data?.message || 'Load nahi hua')
+        toast.error(
+          e.response?.data?.message || t('vehicleLoadError2')
+        )
         setVehicle(null)
         setActiveContract(null)
         setContractHistory([])
@@ -74,7 +78,7 @@ const VehicleDetail = () => {
         activeContract?.driverId?._id || vehicle?.assignedDriver?._id
 
       if (!driverId) {
-        toast.error('Driver ID nahi mila')
+        toast.error(t('driverIdError2'))
         return
       }
 
@@ -93,7 +97,7 @@ const VehicleDetail = () => {
       setShowModal(true)
     } catch (error) {
       console.error(error)
-      toast.error('Profile load nahi hua')
+      toast.error(t('profileLoadError4'))
     } finally {
       setModalLoading(false)
     }
@@ -106,7 +110,7 @@ const VehicleDetail = () => {
     const jobId = activeContract?.jobId?._id || activeContract?.jobId
 
     if (!driverId) {
-      toast.error('Driver nahi mila')
+      toast.error(t('driverNotFound2'))
       return
     }
 
@@ -127,20 +131,27 @@ const VehicleDetail = () => {
             onClick={() => navigate(-1)}
             className="text-gray-500 text-sm mb-4"
           >
-            ← Wapas
+            {t('backBtn')}
           </button>
 
           {loading ? (
-            <div className="flex justify-center py-16">
+            <div
+              className="flex justify-center py-16"
+              role="status"
+              aria-label={t('loading')}
+            >
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
             </div>
           ) : !vehicle ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-gray-600">
-              Gadi nahi mili
+              {t('vehicleNotFound2')}
             </div>
           ) : (
             <>
-              <div className="bg-white rounded-2xl p-6 mb-6 border border-gray-100">
+              <div
+                className="bg-white rounded-2xl p-6 mb-6 border border-gray-100"
+                aria-label={t('vehicle')}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <span className="inline-flex bg-blue-100 text-blue-700 font-bold px-3 py-1 rounded-full text-xs">
@@ -155,16 +166,34 @@ const VehicleDetail = () => {
                       activeContract ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-500'
                     }`}
                   >
-                    {activeContract ? '✅ Kaam Chal Raha Hai' : '⚠️ Driver Nahi'}
+                    {activeContract ? t('workInProgress3') : t('noDriver')}
                   </span>
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-700">
                   <div>
-                    <span className="font-medium text-gray-700">Model:</span> {vehicle.vehicleModel || '—'}
+                    <span className="font-medium text-gray-700">
+                      {t('vehicleType')}:
+                    </span>{' '}
+                    {vehicle.vehicleType || '—'}
                   </div>
                   <div>
-                    <span className="font-medium text-gray-700">Location:</span> {vehicle.location?.state || '—'},{' '}
+                    <span className="font-medium text-gray-700">
+                      {t('vehicleNumber')}:
+                    </span>{' '}
+                    {vehicle.vehicleNumber || '—'}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">
+                      {t('vehicleModel')}:
+                    </span>{' '}
+                    {vehicle.vehicleModel || '—'}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">
+                      {t('locationLabel3')}:
+                    </span>{' '}
+                    {vehicle.location?.state || '—'},{' '}
                     {vehicle.location?.district || '—'}
                   </div>
                 </div>
@@ -172,22 +201,26 @@ const VehicleDetail = () => {
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <div className="text-blue-600 text-sm">
                     {Array.isArray(vehicle.documents) && vehicle.documents.length > 0 ? (
-                      <span>📄 {vehicle.documents.length} Documents</span>
+                      <span>
+                        📄 {vehicle.documents.length} {t('documentsCount')}
+                      </span>
                     ) : null}
                   </div>
                   <button
                     type="button"
-                    onClick={() => toast('Abhi edit feature available nahi hai')}
+                    onClick={() => toast(t('editNotAvailable'))}
                     className="border border-gray-300 text-gray-600 text-sm px-3 py-2 rounded-lg"
                   >
-                    Gadi Edit Karo
+                    {t('edit')}
                   </button>
                 </div>
               </div>
 
               {activeContract && driver ? (
                 <div className="bg-white rounded-2xl p-6 mb-6 border border-gray-100">
-                  <h2 className="text-lg font-semibold mb-4 text-gray-800">Driver Ki Info</h2>
+                  <h2 className="text-lg font-semibold mb-4 text-gray-800">
+                    {t('driverInfoTitle')}
+                  </h2>
 
                   <div className="flex items-center gap-4">
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-2xl font-bold text-green-700">
@@ -204,16 +237,21 @@ const VehicleDetail = () => {
                       <div className="mt-2 text-sm">
                         {Number(driverRating) > 0 ? (
                           <div className="text-yellow-600">
-                            {'★★★★★'} <span className="text-gray-700">{driverRating} ({ratingCount} reviews)</span>
+                            {'★★★★★'}{' '}
+                            <span className="text-gray-700">
+                              {driverRating} ({ratingCount} {t('reviews')})
+                            </span>
                           </div>
                         ) : (
-                          <div className="text-gray-500">Abhi koi rating nahi</div>
+                          <div className="text-gray-500">
+                            {t('noRatingYet3')}
+                          </div>
                         )}
                       </div>
 
                       {driver?.isVerified ? (
                         <span className="mt-2 inline-flex bg-green-100 text-green-600 text-xs px-2 py-1 rounded-full">
-                          ✓ Verified
+                          ✓ {t('verifiedLabel')}
                         </span>
                       ) : null}
                     </div>
@@ -226,14 +264,16 @@ const VehicleDetail = () => {
                       disabled={modalLoading}
                       className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm disabled:opacity-50"
                     >
-                      {modalLoading ? 'Load ho raha hai...' : 'Profile Dekho'}
+                      {modalLoading
+                        ? t('loadingProfile')
+                        : t('viewProfileBtn2')}
                     </button>
                     <button
                       type="button"
                       onClick={handleMessage}
                       className="border border-blue-400 text-blue-600 px-4 py-2 rounded-xl text-sm"
                     >
-                      Message Karo
+                      {t('messageBtnLabel2')}
                     </button>
                   </div>
                 </div>
@@ -241,36 +281,47 @@ const VehicleDetail = () => {
 
               {activeContract ? (
                 <div className="bg-green-50 border border-green-200 rounded-2xl p-6 mb-6">
-                  <div className="text-green-800 font-bold text-lg mb-4">✅ Kaam Chal Raha Hai</div>
+                  <div className="text-green-800 font-bold text-lg mb-4">
+                    {t('workInProgress3')}
+                  </div>
 
                   <div className="space-y-2 text-sm text-gray-700">
                     <div>
-                      <strong>Job Title:</strong> {activeContract.jobId?.title || '—'}
+                      <strong>{t('jobTitleLabel')}:</strong>{' '}
+                      {activeContract.jobId?.title || '—'}
                     </div>
                     <div>
-                      <strong>Vehicle Category:</strong> {activeContract.vehicleCategory || '—'}
+                      <strong>{t('vehicleCategoryLabel2')}:</strong>{' '}
+                      {activeContract.vehicleCategory || '—'}
                     </div>
                     <div>
-                      <strong>Salary Type:</strong> {activeContract.salaryType || '—'}
+                      <strong>{t('salaryTypeLabel5')}:</strong>{' '}
+                      {activeContract.salaryType || '—'}
                     </div>
                     <div>
-                      <strong>Salary:</strong>{' '}
+                      <strong>{t('salaryLabel4')}:</strong>{' '}
                       {activeContract.salaryType === 'daily'
-                        ? `₹${activeContract.salaryPerDay}/din`
+                        ? `₹${activeContract.salaryPerDay}/${t('perDay')}`
                         : activeContract.salaryType === 'monthly'
-                          ? `₹${activeContract.salaryPerMonth}/month`
-                          : `₹${activeContract.salaryPerHour}/ghanta`}
+                          ? `₹${activeContract.salaryPerMonth}/${t('perMonth')}`
+                          : `₹${activeContract.salaryPerHour}/${t('perHour')}`}
                     </div>
                     {activeContract.hasBhatta ? (
-                      <div>+ ₹{activeContract.dailyBhatta} bhatta/din</div>
+                      <div>
+                        + ₹{activeContract.dailyBhatta} {t('bhatta')}/{t('perDay')}
+                      </div>
                     ) : null}
                     <div>
-                      <strong>Start Date:</strong> {formatDate(activeContract.startDate)}
+                      <strong>{t('startDate')}:</strong>{' '}
+                      {formatDate(activeContract.startDate)}
                     </div>
                     <div>
-                      <strong>Duration:</strong> {activeContract.duration} din
+                      <strong>{t('duration')}:</strong> {activeContract.duration}{' '}
+                      {t('days')}
                     </div>
-                    <div className="font-semibold text-green-800">{daysLeft} din baaki</div>
+                    <div className="font-semibold text-green-800">
+                      {daysLeft} {t('daysLeftLabel2')}
+                    </div>
                   </div>
 
                   <div className="mt-5 grid grid-cols-2 gap-3">
@@ -279,62 +330,70 @@ const VehicleDetail = () => {
                       onClick={() => navigate('/owner/attendance')}
                       className="bg-white border border-gray-200 rounded-xl p-3 text-center text-sm"
                     >
-                      📅 Attendance Dekho
+                      {t('viewAttendanceBtn2')}
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate('/owner/payments')}
                       className="bg-white border border-gray-200 rounded-xl p-3 text-center text-sm"
                     >
-                      💰 Payment Karo
+                      {t('makePaymentBtn3')}
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate(`/owner/contracts/${activeContract._id}`)}
                       className="bg-white border border-gray-200 rounded-xl p-3 text-center text-sm"
                     >
-                      📋 Contract Dekho
+                      {t('viewContractBtn2')}
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate('/owner/complaints')}
                       className="bg-white border border-red-100 rounded-xl p-3 text-center text-sm text-red-500"
                     >
-                      ⚠️ Complaint Karo
+                      {t('complaintBtn3')}
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-6">
-                  <div className="text-red-700 font-bold text-lg mb-2">⚠️ Is Gadi Mein Driver Nahi Hai</div>
-                  <div className="text-gray-600 text-sm mb-4">Naya driver hire karein:</div>
+                  <div className="text-red-700 font-bold text-lg mb-2">
+                    {t('noDriverTitle')}
+                  </div>
+                  <div className="text-gray-600 text-sm mb-4">
+                    {t('hireDriverNote')}
+                  </div>
                   <button
                     type="button"
                     onClick={() => navigate('/owner/invite-driver')}
                     className="bg-blue-700 text-white w-full py-3 rounded-xl mb-3 text-sm font-semibold"
                   >
-                    👤 Driver Directly Add Karo
+                    {t('addDriverDirectly')}
                   </button>
                   <button
                     type="button"
                     onClick={() => navigate('/owner/post-job')}
                     className="border border-blue-400 text-blue-600 w-full py-3 rounded-xl text-sm font-semibold"
                   >
-                    📋 Job Post Karo
+                    {t('postJobBtn3')}
                   </button>
                 </div>
               )}
 
               {contractHistory.length > 0 ? (
                 <div className="bg-white rounded-2xl p-6 mb-6 border border-gray-100">
-                  <h2 className="text-lg font-semibold mb-4 text-gray-800">Purane Contracts</h2>
+                  <h2 className="text-lg font-semibold mb-4 text-gray-800">
+                    {t('oldContractsTitle')}
+                  </h2>
                   {contractHistory.map((c) => (
                     <div key={c._id} className="bg-gray-50 rounded-xl p-4 mb-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="font-medium text-gray-900">{c.driverId?.name || 'Driver'}</div>
                           <div className="text-sm text-gray-500">{c.jobId?.title || '—'}</div>
-                          <div className="text-xs text-gray-400">Start: {formatDate(c.startDate)}</div>
+                          <div className="text-xs text-gray-400">
+                            {t('startLabel4')}: {formatDate(c.startDate)}
+                          </div>
                         </div>
                         <div className="text-right">
                           <span
@@ -344,9 +403,13 @@ const VehicleDetail = () => {
                                 : 'bg-red-100 text-red-500'
                             }`}
                           >
-                            {c.status === 'completed' ? 'Complete' : 'Resign'}
+                            {c.status === 'completed'
+                              ? t('completeLabel2')
+                              : t('resignLabel2')}
                           </span>
-                          <div className="mt-2 text-xs text-gray-400">{c.duration} din</div>
+                          <div className="mt-2 text-xs text-gray-400">
+                            {c.duration} {t('days')}
+                          </div>
                         </div>
                       </div>
                     </div>

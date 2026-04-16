@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import {
   getJobById,
@@ -22,15 +23,15 @@ const formatJobDate = (d) => {
   }
 }
 
-const getSalaryDisplay = (job) => {
+const getSalaryDisplay = (job, t) => {
   if (!job) return '—'
   if (job.salaryType === 'monthly') {
-    return `₹${job.salaryPerMonth || 0}/month`
+    return `₹${job.salaryPerMonth || 0}/${t('perMonth')}`
   }
   if (job.salaryType === 'hourly') {
-    return `₹${job.salaryPerHour || 0}/hour`
+    return `₹${job.salaryPerHour || 0}/${t('perHour')}`
   }
-  return `₹${job.salaryPerDay || 0}/day`
+  return `₹${job.salaryPerDay || 0}/${t('perDay')}`
 }
 
 const statusBadgeClass = (s) => {
@@ -41,6 +42,7 @@ const statusBadgeClass = (s) => {
 }
 
 const OwnerJobDetail = () => {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
   const [job, setJob] = useState(null)
@@ -61,13 +63,13 @@ const OwnerJobDetail = () => {
       setApplications(appsRes.data?.applications ?? [])
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Job load nahi ho payi.'
+        e.response?.data?.message || t('jobLoadError2')
       )
       navigate('/owner/jobs')
     } finally {
       setLoading(false)
     }
-  }, [id, navigate])
+  }, [id, navigate, t])
 
   useEffect(() => {
     load()
@@ -78,11 +80,11 @@ const OwnerJobDetail = () => {
     setCloseLoading(true)
     try {
       await closeJob(id)
-      toast.success('Job band kar di gayi')
+      toast.success(t('jobClosedMsg'))
       await load()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Close nahi ho paya.'
+        e.response?.data?.message || t('jobCloseError2')
       )
     } finally {
       setCloseLoading(false)
@@ -93,11 +95,11 @@ const OwnerJobDetail = () => {
     setActionId(appId)
     try {
       await acceptApplication(appId)
-      toast.success('Application accept ho gayi')
+      toast.success(t('appAccepted2'))
       await load()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Accept nahi hua'
+        e.response?.data?.message || t('acceptError3')
       )
     } finally {
       setActionId(null)
@@ -108,11 +110,11 @@ const OwnerJobDetail = () => {
     setActionId(appId)
     try {
       await rejectApplication(appId)
-      toast.success('Application reject ho gayi')
+      toast.success(t('appRejected2'))
       await load()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Reject nahi hua'
+        e.response?.data?.message || t('rejectError4')
       )
     } finally {
       setActionId(null)
@@ -125,7 +127,7 @@ const OwnerJobDetail = () => {
         style={{ minHeight: '100vh', background: '#F0F4FF' }}
         className="p-4 md:p-6"
       >
-        <p className="text-sm text-gray-500">Loading...</p>
+        <p className="text-sm text-gray-500">{t('loading')}</p>
       </div>
     )
   }
@@ -147,53 +149,62 @@ const OwnerJobDetail = () => {
             onClick={() => navigate('/owner/jobs')}
             className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
           >
-            ← Wapas
+            ← {t('back')}
           </button>
         </div>
 
-        <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-5">
+        <div
+          className="mb-6 rounded-2xl border border-gray-100 bg-white p-5"
+          aria-label={t('job')}
+        >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
               {job.vehicleType || '—'}
             </span>
-            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold capitalize text-gray-700">
+            <span
+              className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold capitalize text-gray-700"
+              title={t('status')}
+            >
               {job.status}
             </span>
           </div>
           <h1 className="mt-3 text-xl font-bold text-gray-900">
             {job.title}
           </h1>
-          <p className="mt-4 text-sm text-gray-700 whitespace-pre-wrap">
+          <p
+            className="mt-4 text-sm text-gray-700 whitespace-pre-wrap"
+            aria-label={t('description')}
+          >
             {job.description || '—'}
           </p>
 
           <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-gray-500">Salary</dt>
+              <dt className="text-gray-500">{t('salary')}</dt>
               <dd className="font-semibold text-blue-700">
-                {getSalaryDisplay(job)}
+                {getSalaryDisplay(job, t)}
               </dd>
             </div>
             <div>
-              <dt className="text-gray-500">Duration</dt>
+              <dt className="text-gray-500">{t('duration')}</dt>
               <dd className="font-medium text-gray-900">
-                {job.duration != null ? `${job.duration} din` : '—'}
+                {job.duration != null ? `${job.duration} ${t('days')}` : '—'}
               </dd>
             </div>
             <div>
-              <dt className="text-gray-500">Start date</dt>
+              <dt className="text-gray-500">{t('startDate')}</dt>
               <dd className="font-medium text-gray-900">
                 {formatJobDate(job.startDate)}
               </dd>
             </div>
             <div>
-              <dt className="text-gray-500">Vehicle category</dt>
+              <dt className="text-gray-500">{t('vehicleType')}</dt>
               <dd className="font-medium text-gray-900 capitalize">
                 {job.vehicleCategory || '—'}
               </dd>
             </div>
             <div className="sm:col-span-2">
-              <dt className="text-gray-500">Location</dt>
+              <dt className="text-gray-500">{t('locationLabel')}</dt>
               <dd className="font-medium text-gray-900">
                 {[loc.state, loc.district, loc.city]
                   .filter(Boolean)
@@ -214,18 +225,18 @@ const OwnerJobDetail = () => {
               onClick={handleClose}
               className="mt-6 rounded-xl border-2 border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100 disabled:opacity-50"
             >
-              {closeLoading ? 'Band ho rahi...' : 'Close Job'}
+              {closeLoading ? t('closingJob') : t('closeJobBtn2')}
             </button>
           )}
         </div>
 
         <div className="rounded-2xl border border-gray-100 bg-white p-5">
           <h2 className="text-lg font-semibold text-gray-900">
-            Applications ({applications.length})
+            {t('applications')} ({applications.length})
           </h2>
           {applications.length === 0 ? (
             <p className="mt-3 text-sm text-gray-500">
-              Abhi koi application nahi
+              {t('noApplicationsYet')}
             </p>
           ) : (
             <ul className="mt-4 space-y-3">
@@ -245,7 +256,7 @@ const OwnerJobDetail = () => {
                           {d?.phone || '—'}
                         </p>
                         <p className="mt-1 text-xs text-gray-500">
-                          Applied:{' '}
+                          {t('appliedLabel')}:{' '}
                           {formatJobDate(app.appliedAt)}
                         </p>
                       </div>
@@ -263,7 +274,7 @@ const OwnerJobDetail = () => {
                           onClick={() => handleAccept(app._id)}
                           className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
                         >
-                          Accept
+                          {t('acceptBtn2')}
                         </button>
                         <button
                           type="button"
@@ -271,7 +282,7 @@ const OwnerJobDetail = () => {
                           onClick={() => handleReject(app._id)}
                           className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
                         >
-                          Reject
+                          {t('rejectBtn5')}
                         </button>
                       </div>
                     )}

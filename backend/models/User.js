@@ -22,6 +22,22 @@ const userSchema = new mongoose.Schema({
     razorpaySubscriptionId: { type: String },
     razorpayPaymentId: { type: String },
   },
+  freeTrialStart: {
+    type: Date,
+    default: Date.now,
+  },
+  subscriptionRequired: {
+    type: Boolean,
+    default: false,
+  },
+  subscriptionDeadline: {
+    type: Date,
+    default: null,
+  },
+  isPermanentFree: {
+    type: Boolean,
+    default: false,
+  },
   createdAt: { type: Date, default: Date.now },
 });
 
