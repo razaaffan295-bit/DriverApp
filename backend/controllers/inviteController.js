@@ -131,6 +131,18 @@ const sendInvite = async (req, res) => {
   }
 }
 
+const isSubscriptionActive = (user) => {
+  if (user.isPermanentFree) return true
+  if (!user.subscriptionRequired) return true
+  if (
+    user.subscription?.isActive === true &&
+    user.subscription?.endDate &&
+    new Date(user.subscription.endDate) > new Date()
+  )
+    return true
+  return false
+}
+
 const getOwnerInvites = async (req, res) => {
   try {
     const DriverInvite = require('../models/DriverInvite')
@@ -185,7 +197,7 @@ const acceptInvite = async (req, res) => {
     const User = require('../models/User')
     const driverUser = await User.findById(
       req.user._id
-    ).select('subscription')
+    ).select('subscription isPermanentFree subscriptionRequired')
 
     if (!driverUser) {
       return res.status(401).json({
@@ -194,12 +206,7 @@ const acceptInvite = async (req, res) => {
       })
     }
 
-    const subActive =
-      driverUser.subscription?.isActive === true &&
-      driverUser.subscription?.endDate &&
-      new Date(driverUser.subscription.endDate) > new Date()
-
-    if (!subActive) {
+    if (!isSubscriptionActive(driverUser)) {
       return res.status(403).json({
         success: false,
         message:

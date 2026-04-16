@@ -4,22 +4,32 @@ const User = require("../models/User");
 
 const ownerIdFromReq = (req) => req.user._id || req.user.id;
 
+const isSubscriptionActive = (user) => {
+  if (user.isPermanentFree) return true;
+  if (!user.subscriptionRequired) return true;
+  if (
+    user.subscription?.isActive === true &&
+    user.subscription?.endDate &&
+    new Date(user.subscription.endDate) > new Date()
+  )
+    return true;
+  return false;
+};
+
 const createJob = async (req, res) => {
   try {
     const oid = ownerIdFromReq(req);
 
-    const ownerUser = await User.findById(oid).select("subscription");
+    const ownerUser = await User.findById(oid).select(
+      "subscription isPermanentFree subscriptionRequired"
+    );
     if (!ownerUser) {
       return res.status(401).json({
         success: false,
         message: "User nahi mila",
       });
     }
-    const subActive =
-      ownerUser.subscription?.isActive === true &&
-      ownerUser.subscription?.endDate &&
-      new Date(ownerUser.subscription.endDate) > new Date();
-    if (!subActive) {
+    if (!isSubscriptionActive(ownerUser)) {
       return res.status(403).json({
         success: false,
         message:

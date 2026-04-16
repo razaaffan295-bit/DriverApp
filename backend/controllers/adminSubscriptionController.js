@@ -176,11 +176,18 @@ const setPermanentFree = async (req, res) => {
       })
     }
 
-    await User.findByIdAndUpdate(userId, {
+    const user = await User.findByIdAndUpdate(userId, {
       isPermanentFree: true,
       subscriptionRequired: false,
       subscriptionDeadline: null,
-    })
+    }, { new: true }).select('role')
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      })
+    }
 
     await Notification.create({
       userId,
@@ -188,7 +195,7 @@ const setPermanentFree = async (req, res) => {
       message:
         'You have been granted permanent free access to DriverApp. Enjoy!',
       type: 'payment_received',
-      link: '/',
+      link: user.role === 'owner' ? '/owner/dashboard' : '/driver/dashboard',
       isRead: false,
     })
 

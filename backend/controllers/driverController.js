@@ -7,6 +7,18 @@ const Rating = require("../models/Rating");
 
 const driverIdFromReq = (req) => req.user._id || req.user.id;
 
+const isSubscriptionActive = (user) => {
+  if (user.isPermanentFree) return true;
+  if (!user.subscriptionRequired) return true;
+  if (
+    user.subscription?.isActive === true &&
+    user.subscription?.endDate &&
+    new Date(user.subscription.endDate) > new Date()
+  )
+    return true;
+  return false;
+};
+
 const SKILL_ENUM = [
   "JCB",
   "Truck",
@@ -285,18 +297,16 @@ const applyJob = async (req, res) => {
   try {
     const driverId = driverIdFromReq(req);
 
-    const driverUser = await User.findById(driverId).select("subscription");
+    const driverUser = await User.findById(driverId).select(
+      "subscription isPermanentFree subscriptionRequired"
+    );
     if (!driverUser) {
       return res.status(401).json({
         success: false,
         message: "User nahi mila",
       });
     }
-    const subActive =
-      driverUser.subscription?.isActive === true &&
-      driverUser.subscription?.endDate &&
-      new Date(driverUser.subscription.endDate) > new Date();
-    if (!subActive) {
+    if (!isSubscriptionActive(driverUser)) {
       return res.status(403).json({
         success: false,
         message:
