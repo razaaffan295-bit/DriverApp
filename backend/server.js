@@ -42,6 +42,7 @@ const uploadRoutes = require('./routes/uploadRoutes')
 const helmet = require('helmet')
 const rateLimit = require('express-rate-limit')
 const compression = require('compression')
+const requestLogger = require('./middleware/requestLogger')
 const { ipKeyGenerator } = rateLimit
 
 connectDB();
@@ -92,6 +93,8 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 )
+
+app.use(requestLogger)
 
 // General rate limit
 const generalLimiter = rateLimit({
@@ -159,6 +162,34 @@ app.use(
   })
 )
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  const mongoose = require('mongoose')
+  const dbStatus = mongoose.connection.readyState
+  const dbStates = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting',
+  }
+
+  const uptime = process.uptime()
+  const memory = process.memoryUsage()
+  const memoryMB = Math.round(
+    memory.heapUsed / 1024 / 1024
+  )
+
+  res.json({
+    success: true,
+    status: 'healthy',
+    uptime: `${Math.floor(uptime / 60)} min`,
+    database: dbStates[dbStatus] || 'unknown',
+    memory: `${memoryMB} MB`,
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+  })
+})
+
 app.get("/", (req, res) => {
   res.json({
     message: "DriverApp API Running",
@@ -192,13 +223,75 @@ runSubscriptionCron()
 const Sentry = require("@sentry/node");
 Sentry.setupExpressErrorHandler(app);
 
+// Global error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('❌ Error:', {
+    message: err.message,
+    path: req.originalUrl,
+    method: req.method,
+    user: req.user?._id || 'guest',
+    timestamp: new Date().toISOString(),
+  })
+
+  // Mongoose validation error
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      errors: Object.values(err.errors).map(
+        (e) => e.message
+      ),
+    })
+  }
+
+  // Mongoose duplicate key error
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyPattern)[0]
+    return res.status(400).json({
+      success: false,
+      message: `${field} already exists`,
+    })
+  }
+
+  // JWT errors
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid token',
+    })
+  }
+
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      success: false,
+      message: 'Token expired, please login again',
+    })
+  }
+
+  // CORS error
+  if (err.message === 'CORS not allowed') {
+    return res.status(403).json({
+      success: false,
+      message: 'CORS not allowed',
+    })
+  }
+
+  // Default 500
   res.status(500).json({
     success: false,
-    message: "Server Error",
-  });
-});
+    message: process.env.NODE_ENV === 'production'
+      ? 'Server Error'
+      : err.message,
+  })
+})
+
+// 404 handler - must be last
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found',
+  })
+})
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {

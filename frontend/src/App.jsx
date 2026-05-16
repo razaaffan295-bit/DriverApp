@@ -3,6 +3,7 @@ import { App as CapApp } from '@capacitor/app'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import ErrorBoundary from './components/ErrorBoundary'
+import NetworkStatus from './components/NetworkStatus'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import SubscriptionGuard from './components/SubscriptionGuard'
 import OwnerLayout from './layouts/OwnerLayout'
@@ -97,6 +98,7 @@ function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
+        <NetworkStatus />
         <Toaster position="top-right" />
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
