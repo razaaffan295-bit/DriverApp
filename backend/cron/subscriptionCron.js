@@ -24,7 +24,7 @@ const runSubscriptionCron = () => {
         )
 
         // Send notification at 6, 4, 2 days
-        if ([6, 4, 2].includes(daysLeft)) {
+        if ([5, 3, 1].includes(daysLeft)) {
           // Check if already notified today
           const alreadyNotified =
             await Notification.findOne({
@@ -57,7 +57,7 @@ const runSubscriptionCron = () => {
       // for users where subscriptionRequired=false
       // and freeTrialStart is 8+ days ago
       const thirtyDaysAgo = new Date(
-        now.getTime() - 8 * 24 * 60 * 60 * 1000
+        now.getTime() - 30 * 24 * 60 * 60 * 1000
       )
 
       const expiredTrialUsers = await User.find({
@@ -76,7 +76,7 @@ const runSubscriptionCron = () => {
 
         if (!isPaid) {
           const deadline = new Date()
-          deadline.setDate(deadline.getDate() + 2)
+          deadline.setDate(deadline.getDate() + 5)
 
           await User.findByIdAndUpdate(user._id, {
             subscriptionRequired: true,
@@ -87,7 +87,7 @@ const runSubscriptionCron = () => {
             userId: user._id,
             title: 'Free Trial Ended',
             message:
-              'Your 8-day free trial has ended. Subscribe within 5 days to continue.',
+              'Your 30-day free trial has ended. Subscribe within 5 days to continue.',
             type: 'payment_received',
             link: '/subscription',
             isRead: false,

@@ -6,7 +6,7 @@ const getFreeTrialUsers = async (req, res) => {
   try {
     const now = new Date()
     const thirtyDaysAgo = new Date(
-      now.getTime() - 8 * 24 * 60 * 60 * 1000
+      now.getTime() - 30 * 24 * 60 * 60 * 1000
     )
     const twentyFiveDaysAgo = new Date(
       now.getTime() - 25 * 24 * 60 * 60 * 1000
@@ -24,7 +24,7 @@ const getFreeTrialUsers = async (req, res) => {
       const daysSinceJoin = Math.floor(
         (now - new Date(trialStart)) / (24 * 60 * 60 * 1000)
       )
-      const daysLeft = Math.max(0, 8 - daysSinceJoin)
+      const daysLeft = Math.max(0, 30 - daysSinceJoin)
 
       let category = 'free'
       if (u.isPermanentFree) category = 'permanent_free'
@@ -34,8 +34,8 @@ const getFreeTrialUsers = async (req, res) => {
           u.subscription?.endDate &&
           new Date(u.subscription.endDate) > now
         category = isPaid ? 'paid' : 'expired'
-      } else if (daysSinceJoin >= 8) category = 'expiring'
-      else if (daysSinceJoin >= 6) category = 'expiring_soon'
+      } else if (daysSinceJoin >= 30) category = 'expiring'
+      else if (daysSinceJoin >= 25) category = 'expiring_soon'
 
       return {
         _id: u._id,
