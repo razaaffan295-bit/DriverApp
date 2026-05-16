@@ -9,9 +9,10 @@ const {
 } = require('../controllers/jobController')
 const { verifyToken, isOwner } =
   require('../middleware/authMiddleware')
+const { cacheMiddleware } = require('../middleware/cacheMiddleware')
 
 const publicJobRouter = express.Router()
-publicJobRouter.get('/public/:id', verifyToken, async (req, res) => {
+publicJobRouter.get('/public/:id', verifyToken, cacheMiddleware(60), async (req, res) => {
   try {
     const job = await Job.findById(req.params.id).populate(
       'ownerId',
@@ -37,8 +38,8 @@ router.use(publicJobRouter)
 
 router.use(verifyToken, isOwner)
 router.post('/', createJob)
-router.get('/my-jobs', getOwnerJobs)
-router.get('/:id', getJobById)
+router.get('/my-jobs', cacheMiddleware(60), getOwnerJobs)
+router.get('/:id', cacheMiddleware(60), getJobById)
 router.put('/:id/close', closeJob)
 
 module.exports = router

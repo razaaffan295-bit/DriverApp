@@ -9,12 +9,13 @@ const {
 } = require('../controllers/applicationController')
 const { verifyToken, isOwner } =
   require('../middleware/authMiddleware')
+const { cacheMiddleware } = require('../middleware/cacheMiddleware')
 
 router.use(verifyToken, isOwner)
 router.get('/my-applications',
-  getOwnerApplications)
+  cacheMiddleware(30), getOwnerApplications)
 router.get('/job/:jobId',
-  getJobApplications)
+  cacheMiddleware(30), getJobApplications)
 router.put('/:id/cancel',
   cancelApplication)
 router.put('/:id/accept',
