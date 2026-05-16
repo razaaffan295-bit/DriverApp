@@ -50,5 +50,9 @@ driverAttendanceSchema.index(
   { unique: true }
 );
 
+driverAttendanceSchema.index({ driverId: 1, date: -1 })
+driverAttendanceSchema.index({ contractId: 1, date: -1 })
+driverAttendanceSchema.index({ date: -1 })
+
 module.exports = mongoose.model("DriverAttendance", driverAttendanceSchema);
 

@@ -14,4 +14,9 @@ const messageSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+messageSchema.index({ senderId: 1, receiverId: 1 })
+messageSchema.index({ receiverId: 1, isRead: 1 })
+messageSchema.index({ jobId: 1 })
+messageSchema.index({ createdAt: -1 })
+
 module.exports = mongoose.model("Message", messageSchema);

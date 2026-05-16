@@ -58,4 +58,10 @@ const contractSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+contractSchema.index({ driverId: 1, status: 1 })
+contractSchema.index({ ownerId: 1, status: 1 })
+contractSchema.index({ jobId: 1 })
+contractSchema.index({ status: 1 })
+contractSchema.index({ createdAt: -1 })
+
 module.exports = mongoose.model("Contract", contractSchema);

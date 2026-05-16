@@ -47,4 +47,9 @@ const complaintSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+complaintSchema.index({ raisedBy: 1 })
+complaintSchema.index({ againstUser: 1 })
+complaintSchema.index({ status: 1 })
+complaintSchema.index({ createdAt: -1 })
+
 module.exports = mongoose.model("Complaint", complaintSchema);

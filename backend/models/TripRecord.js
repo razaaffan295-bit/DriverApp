@@ -84,4 +84,9 @@ const tripRecordSchema = new mongoose.Schema(
   { timestamps: false }
 )
 
+tripRecordSchema.index({ driverId: 1, status: 1 })
+tripRecordSchema.index({ ownerId: 1, status: 1 })
+tripRecordSchema.index({ contractId: 1 })
+tripRecordSchema.index({ createdAt: -1 })
+
 module.exports = mongoose.model('TripRecord', tripRecordSchema)

@@ -95,5 +95,9 @@ const driverInviteSchema = new mongoose.Schema({
   },
 })
 
+driverInviteSchema.index({ driverId: 1, status: 1 })
+driverInviteSchema.index({ ownerId: 1, status: 1 })
+driverInviteSchema.index({ createdAt: -1 })
+
 module.exports = mongoose.model('DriverInvite', driverInviteSchema)
 

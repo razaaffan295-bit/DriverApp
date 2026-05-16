@@ -41,12 +41,16 @@ const uploadRoutes = require('./routes/uploadRoutes')
 
 const helmet = require('helmet')
 const rateLimit = require('express-rate-limit')
+const compression = require('compression')
 const { ipKeyGenerator } = rateLimit
 
 connectDB();
 
 const app = express();
 app.set('trust proxy', 1)
+
+// Response compression - 70% smaller responses
+app.use(compression())
 
 // Security headers
 app.use(

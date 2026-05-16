@@ -94,4 +94,10 @@ const paymentSchema = new mongoose.Schema(
   }
 );
 
+paymentSchema.index({ driverId: 1, status: 1 })
+paymentSchema.index({ ownerId: 1, status: 1 })
+paymentSchema.index({ contractId: 1 })
+paymentSchema.index({ month: 1, year: 1 })
+paymentSchema.index({ createdAt: -1 })
+
 module.exports = mongoose.model("Payment", paymentSchema);

@@ -1,87 +1,84 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { App as CapApp } from '@capacitor/app'
-import { BrowserRouter, Routes, Route, 
-  Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import ProtectedRoute from 
-  './components/common/ProtectedRoute'
+import ErrorBoundary from './components/ErrorBoundary'
+import ProtectedRoute from './components/common/ProtectedRoute'
 import SubscriptionGuard from './components/SubscriptionGuard'
 import OwnerLayout from './layouts/OwnerLayout'
 import DriverLayout from './layouts/DriverLayout'
 
-// Public Pages
+// Public Pages - keep Landing eager (first paint)
 import Landing from './pages/public/Landing'
 import Login from './pages/public/Login'
 import Signup from './pages/public/Signup'
 
-// Owner Pages
-import OwnerDashboard from 
-  './pages/owner/Dashboard'
-import OwnerProfile from 
-  './pages/owner/Profile'
-import Vehicles from './pages/owner/Vehicles'
-import PostJob from './pages/owner/PostJob'
-import OwnerJobs from './pages/owner/Jobs'
-import OwnerJobDetail from './pages/owner/JobDetail'
-import OwnerApplications from 
-  './pages/owner/Applications'
-import OwnerMessages from 
-  './pages/owner/Messages'
-import CreateContract from 
-  './pages/owner/CreateContract'
-import ViewContract from 
-  './pages/owner/ViewContract'
-import OwnerAttendance from
-  './pages/owner/Attendance'
-import OwnerPayments from
-  './pages/owner/Payments'
-import OwnerTrips from 
-  './pages/owner/Trips'
-import InviteDriver from
-  './pages/owner/InviteDriver'
-import VehicleDetail from
-  './pages/owner/VehicleDetail'
-import DriverDetail from
-  './pages/owner/DriverDetail'
+// Lazy load all other pages
+const OwnerDashboard = lazy(() => import('./pages/owner/Dashboard'))
+const OwnerProfile = lazy(() => import('./pages/owner/Profile'))
+const Vehicles = lazy(() => import('./pages/owner/Vehicles'))
+const PostJob = lazy(() => import('./pages/owner/PostJob'))
+const OwnerJobs = lazy(() => import('./pages/owner/Jobs'))
+const OwnerJobDetail = lazy(() => import('./pages/owner/JobDetail'))
+const OwnerApplications = lazy(() => import('./pages/owner/Applications'))
+const OwnerMessages = lazy(() => import('./pages/owner/Messages'))
+const CreateContract = lazy(() => import('./pages/owner/CreateContract'))
+const ViewContract = lazy(() => import('./pages/owner/ViewContract'))
+const OwnerAttendance = lazy(() => import('./pages/owner/Attendance'))
+const OwnerPayments = lazy(() => import('./pages/owner/Payments'))
+const OwnerTrips = lazy(() => import('./pages/owner/Trips'))
+const InviteDriver = lazy(() => import('./pages/owner/InviteDriver'))
+const VehicleDetail = lazy(() => import('./pages/owner/VehicleDetail'))
+const DriverDetail = lazy(() => import('./pages/owner/DriverDetail'))
+const OwnerComplaints = lazy(() => import('./pages/owner/Complaints'))
+const OwnerRatings = lazy(() => import('./pages/owner/Ratings'))
+const OwnerMyDrivers = lazy(() => import('./pages/owner/MyDrivers'))
 
-// Driver Pages  
-import DriverDashboard from 
-  './pages/driver/Dashboard'
-import DriverProfile from 
-  './pages/driver/Profile'
-import JobSearch from 
-  './pages/driver/JobSearch'
-import JobDetail from 
-  './pages/driver/JobDetail'
-import DriverApplications from
-  './pages/driver/MyApplications'
-import DriverMessages from
-  './pages/driver/Messages'
-import ActiveJob from
-  './pages/driver/ActiveJob'
-import DriverAttendance from
-  './pages/driver/Attendance'
-import DriverPayments from
-  './pages/driver/Payments'
-import DriverTrips from 
-  './pages/driver/Trips'
-import DriverInvites from
-  './pages/driver/Invites'
+const DriverDashboard = lazy(() => import('./pages/driver/Dashboard'))
+const DriverProfile = lazy(() => import('./pages/driver/Profile'))
+const JobSearch = lazy(() => import('./pages/driver/JobSearch'))
+const JobDetail = lazy(() => import('./pages/driver/JobDetail'))
+const DriverApplications = lazy(() => import('./pages/driver/MyApplications'))
+const DriverMessages = lazy(() => import('./pages/driver/Messages'))
+const ActiveJob = lazy(() => import('./pages/driver/ActiveJob'))
+const DriverAttendance = lazy(() => import('./pages/driver/Attendance'))
+const DriverPayments = lazy(() => import('./pages/driver/Payments'))
+const DriverTrips = lazy(() => import('./pages/driver/Trips'))
+const DriverInvites = lazy(() => import('./pages/driver/Invites'))
+const DriverComplaints = lazy(() => import('./pages/driver/Complaints'))
+const DriverRatings = lazy(() => import('./pages/driver/Ratings'))
 
-// Admin Pages
-import AdminLogin from './pages/admin/Login'
-import AdminDashboard from 
-  './pages/admin/Dashboard'
-import AdminUsers from './pages/admin/Users'
-import AdminComplaints from './pages/admin/Complaints'
-import AdminSubscriptions from './pages/admin/Subscriptions'
-import SubscriptionManager from './pages/admin/SubscriptionManager'
-import OwnerComplaints from './pages/owner/Complaints'
-import DriverComplaints from './pages/driver/Complaints'
-import OwnerRatings from './pages/owner/Ratings'
-import DriverRatings from './pages/driver/Ratings'
-import OwnerMyDrivers from './pages/owner/MyDrivers'
-import Subscription from './pages/Subscription'
+const AdminLogin = lazy(() => import('./pages/admin/Login'))
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
+const AdminUsers = lazy(() => import('./pages/admin/Users'))
+const AdminComplaints = lazy(() => import('./pages/admin/Complaints'))
+const AdminSubscriptions = lazy(() => import('./pages/admin/Subscriptions'))
+const SubscriptionManager = lazy(() => import('./pages/admin/SubscriptionManager'))
+const Subscription = lazy(() => import('./pages/Subscription'))
+
+const LoadingFallback = () => (
+  <div style={{
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: '#F0F4FF',
+  }}>
+    <div style={{
+      width: '40px',
+      height: '40px',
+      border: '3px solid #E5E7EB',
+      borderTopColor: '#1D4ED8',
+      borderRadius: '50%',
+      animation: 'spin 0.8s linear infinite',
+    }} />
+    <style>{`
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    `}</style>
+  </div>
+)
 
 function App() {
   useEffect(() => {
@@ -98,9 +95,11 @@ function App() {
   }, [])
 
   return (
-    <BrowserRouter>
-      <Toaster position="top-right" />
-      <Routes>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Toaster position="top-right" />
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
         {/* Public */}
         <Route path="/" element={<Landing />} />
         <Route path="/login" 
@@ -217,8 +216,10 @@ function App() {
         <Route path="*" 
           element={<Navigate to="/" replace />} 
         />
-      </Routes>
-    </BrowserRouter>
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 

@@ -13,4 +13,9 @@ const applicationSchema = new mongoose.Schema({
   appliedAt: { type: Date, default: Date.now },
 });
 
+applicationSchema.index({ driverId: 1, status: 1 })
+applicationSchema.index({ jobId: 1, status: 1 })
+applicationSchema.index({ ownerId: 1 })
+applicationSchema.index({ createdAt: -1 })
+
 module.exports = mongoose.model("Application", applicationSchema);

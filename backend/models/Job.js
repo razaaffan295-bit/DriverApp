@@ -59,4 +59,9 @@ const jobSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+jobSchema.index({ ownerId: 1, status: 1 })
+jobSchema.index({ state: 1, status: 1 })
+jobSchema.index({ vehicleType: 1 })
+jobSchema.index({ status: 1, createdAt: -1 })
+
 module.exports = mongoose.model("Job", jobSchema);
