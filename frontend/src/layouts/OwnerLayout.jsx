@@ -96,6 +96,42 @@ const OwnerLayout = () => {
     []
   )
 
+  const deleteNotification = async (notifId) => {
+    try {
+      await API.delete(
+        `/api/notifications/${notifId}`
+      )
+      setNotifications((prev) =>
+        prev.filter((n) => n._id !== notifId)
+      )
+      setUnreadCount((prev) => {
+        const notif = notifications.find(
+          (n) => n._id === notifId
+        )
+        if (notif && !notif.isRead) {
+          return Math.max(0, prev - 1)
+        }
+        return prev
+      })
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const timeAgo = (dateStr) => {
+    const now = new Date()
+    const date = new Date(dateStr)
+    const diff = Math.floor((now - date) / 1000)
+    if (diff < 60) return 'Just now'
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
+    return new Date(dateStr).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+    })
+  }
+
   useEffect(() => {
     fetchNotifications(false)
     const interval = setInterval(() => fetchNotifications(true), 30000)
@@ -562,7 +598,7 @@ const OwnerLayout = () => {
           >
             <div
               style={{
-                padding: '16px',
+                padding: '14px 16px',
                 borderBottom: '1px solid #F3F4F6',
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -573,26 +609,53 @@ const OwnerLayout = () => {
                 zIndex: 1,
               }}
             >
-              <span
-                style={{
-                  fontWeight: '600',
-                  fontSize: '16px',
-                }}
-              >
-                Notifications
+              <span style={{ fontWeight: '600', fontSize: '16px' }}>
+                🔔 Notifications
+                {unreadCount > 0 && (
+                  <span style={{
+                    marginLeft: '8px',
+                    background: '#EF4444',
+                    color: 'white',
+                    borderRadius: '10px',
+                    padding: '1px 7px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                  }}>
+                    {unreadCount}
+                  </span>
+                )}
               </span>
-              <button
-                type="button"
-                onClick={() => setShowNotif(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: '#9CA3AF',
-                }}
-              >
-                ✕
-              </button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAllNotificationsRead}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      color: '#3B82F6',
+                      fontWeight: '600',
+                    }}
+                  >
+                    Mark all read
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowNotif(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#9CA3AF',
+                    fontSize: '18px',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {notifLoading ? (
@@ -677,19 +740,33 @@ const OwnerLayout = () => {
                     >
                       {notif.message}
                     </div>
-                    <div
-                      style={{
-                        fontSize: '11px',
-                        color: '#9CA3AF',
-                        marginTop: '4px',
-                      }}
-                    >
-                      {new Date(notif.createdAt).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginTop: '4px',
+                    }}>
+                      <span style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                        {timeAgo(notif.createdAt)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteNotification(notif._id)
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#D1D5DB',
+                          fontSize: '12px',
+                          padding: '2px 4px',
+                          lineHeight: 1,
+                        }}
+                      >
+                        ✕
+                      </button>
                     </div>
                   </div>
                   {!notif.isRead && (

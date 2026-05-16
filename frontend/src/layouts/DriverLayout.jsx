@@ -74,6 +74,84 @@ const DriverLayout = () => {
     }
   }
 
+  const markOneRead = async (notifId) => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+      await fetch(
+        `${NOTIF_API_BASE}/api/notifications/${notifId}/read`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n._id === notifId
+            ? { ...n, isRead: true }
+            : n
+        )
+      )
+      setUnreadCount((prev) => Math.max(0, prev - 1))
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const markAllRead = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+      await fetch(
+        `${NOTIF_API_BASE}/api/notifications/read`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+      setUnreadCount(0)
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, isRead: true }))
+      )
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const deleteNotification = async (notifId) => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+      await fetch(
+        `${NOTIF_API_BASE}/api/notifications/${notifId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+      setNotifications((prev) =>
+        prev.filter((n) => n._id !== notifId)
+      )
+      setUnreadCount((prev) => {
+        const notif = notifications.find(
+          (n) => n._id === notifId
+        )
+        if (notif && !notif.isRead) {
+          return Math.max(0, prev - 1)
+        }
+        return prev
+      })
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   const getNotifIcon = (type) => {
     if (type === 'new_message') return '💬'
     if (type === 'payment_received') return '💰'
@@ -110,14 +188,25 @@ const DriverLayout = () => {
     }
   }
 
+  const timeAgo = (dateStr) => {
+    const now = new Date()
+    const date = new Date(dateStr)
+    const diff = Math.floor((now - date) / 1000)
+    if (diff < 60) return 'Just now'
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
+    return new Date(dateStr).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+    })
+  }
+
   const BellButton = () => (
     <button
       type="button"
       onClick={() => {
-        setShowNotif((prev) => {
-          if (!prev) markRead()
-          return !prev
-        })
+        setShowNotif((prev) => !prev)
       }}
       style={{
         background: 'none',
@@ -432,22 +521,52 @@ const DriverLayout = () => {
                 color: '#111827',
               }}>
                 🔔 Notifications
+                {unreadCount > 0 && (
+                  <span style={{
+                    marginLeft: '8px',
+                    background: '#EF4444',
+                    color: 'white',
+                    borderRadius: '10px',
+                    padding: '1px 7px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                  }}>
+                    {unreadCount}
+                  </span>
+                )}
               </span>
-              <button
-                onClick={() =>
-                  setShowNotif(false)}
-                style={{
-                  background: '#F3F4F6',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '28px',
-                  height: '28px',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                }}
-              >
-                ✕
-              </button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAllRead}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      color: '#16A34A',
+                      fontWeight: '600',
+                    }}
+                  >
+                    Mark all read
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowNotif(false)}
+                  style={{
+                    background: '#F3F4F6',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '28px',
+                    height: '28px',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Content */}
@@ -483,12 +602,18 @@ const DriverLayout = () => {
                   tabIndex={0}
                   onClick={() => {
                     setShowNotif(false)
+                    if (!notif.isRead) {
+                      markOneRead(notif._id)
+                    }
                     navigate(getNotifLink(notif))
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
                       setShowNotif(false)
+                      if (!notif.isRead) {
+                        markOneRead(notif._id)
+                      }
                       navigate(getNotifLink(notif))
                     }
                   }}
@@ -532,19 +657,32 @@ const DriverLayout = () => {
                       {notif.message}
                     </div>
                     <div style={{
-                      fontSize: '11px',
-                      color: '#9CA3AF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                       marginTop: '4px',
                     }}>
-                      {new Date(notif.createdAt)
-                        .toLocaleDateString(
-                          'en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          }
-                        )}
+                      <span style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                        {timeAgo(notif.createdAt)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteNotification(notif._id)
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#D1D5DB',
+                          fontSize: '12px',
+                          padding: '2px 4px',
+                          lineHeight: 1,
+                        }}
+                      >
+                        ✕
+                      </button>
                     </div>
                   </div>
 
