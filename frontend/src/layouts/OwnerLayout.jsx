@@ -79,6 +79,23 @@ const OwnerLayout = () => {
     }
   }, [])
 
+  const markOneNotificationRead = useCallback(
+    async (notifId) => {
+      try {
+        await API.put(`/api/notifications/${notifId}/read`)
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n._id === notifId ? { ...n, isRead: true } : n
+          )
+        )
+        setUnreadCount((prev) => Math.max(0, prev - 1))
+      } catch (err) {
+        console.error(err)
+      }
+    },
+    []
+  )
+
   useEffect(() => {
     fetchNotifications(false)
     const interval = setInterval(() => fetchNotifications(true), 30000)
@@ -86,12 +103,7 @@ const OwnerLayout = () => {
   }, [fetchNotifications])
 
   const toggleNotifPanel = () => {
-    setShowNotif((prev) => {
-      if (!prev) {
-        markAllNotificationsRead()
-      }
-      return !prev
-    })
+    setShowNotif((prev) => !prev)
   }
 
   const renderBellButton = (iconSize = '22px') => (
@@ -612,12 +624,18 @@ const OwnerLayout = () => {
                   tabIndex={0}
                   onClick={() => {
                     setShowNotif(false)
+                    if (!notif.isRead) {
+                      markOneNotificationRead(notif._id)
+                    }
                     navigate(getNotifLink(notif))
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
                       setShowNotif(false)
+                      if (!notif.isRead) {
+                        markOneNotificationRead(notif._id)
+                      }
                       navigate(getNotifLink(notif))
                     }
                   }}
