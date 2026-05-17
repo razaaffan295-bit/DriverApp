@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getDriverApplications } from '../../api/driverAPI'
 import { getDriverActiveContract } from '../../api/contractAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const formatApplied = (d) => {
   if (!d) return '—'
@@ -25,6 +26,7 @@ const DriverApplications = () => {
   const [activeContract, setActiveContract] = useState(null)
   const [filter, setFilter] = useState('sab')
   const [loading, setLoading] = useState(true)
+  const { getCachedData, setCachedData } = useDataCache()
 
   const getSalaryDisplay = (job) => {
     if (!job) return '—'
@@ -37,27 +39,46 @@ const DriverApplications = () => {
     return `₹${job.salaryPerDay || 0}/${t('perDay')}`
   }
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const [appsRes, contractRes] = await Promise.all([
         getDriverApplications(),
-        getDriverActiveContract().catch(() => ({ data: { contract: null } })),
+        getDriverActiveContract().catch(() => ({
+          data: { contract: null },
+        })),
       ])
-      setApplications(appsRes?.data?.applications ?? [])
-      setActiveContract(contractRes?.data?.contract ?? null)
+      const apps = appsRes?.data?.applications ?? []
+      const active = contractRes?.data?.contract ?? null
+      setApplications(apps)
+      setActiveContract(active)
+      setCachedData('driver_applications', {
+        applications: apps,
+        activeContract: active,
+      })
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('appsLoadError')
       )
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [t])
+  }, [setCachedData, t])
 
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    const run = async () => {
+      const cached = getCachedData('driver_applications')
+      if (cached?.applications) {
+        setApplications(cached.applications)
+        setActiveContract(cached.activeContract ?? null)
+        setLoading(false)
+        loadData(true)
+        return
+      }
+      loadData(false)
+    }
+    run()
+  }, [getCachedData, loadData])
 
   const activeContractJobId = activeContract?.jobId?._id || activeContract?.jobId
 

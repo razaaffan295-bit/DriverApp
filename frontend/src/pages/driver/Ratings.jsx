@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import { getDriverContracts } from '../../api/contractAPI'
 import { getMyRatings, giveRating } from '../../api/ratingAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const fmtDate = (d) =>
   d
@@ -40,9 +41,10 @@ const DriverRatings = () => {
   const [starHover, setStarHover] = useState({})
   const [reviewDrafts, setReviewDrafts] = useState({})
   const [submittingId, setSubmittingId] = useState(null)
+  const { getCachedData, setCachedData } = useDataCache()
 
-  const loadMine = useCallback(async () => {
-    setLoading(true)
+  const loadMine = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const res = await getMyRatings()
       const rec = res.data?.received ?? []
@@ -65,37 +67,75 @@ const DriverRatings = () => {
       }
       setScoresByContract(sc)
       setReviewsByContract(rv)
+      const prev = getCachedData('driver_ratings') || {}
+      setCachedData('driver_ratings', {
+        ...prev,
+        received: rec,
+        given: giv,
+        avgScore: String(res.data?.avgScore ?? '0'),
+        totalRatings: res.data?.totalRatings ?? 0,
+        scoresByContract: sc,
+        reviewsByContract: rv,
+      })
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('ratingsLoadError')
       )
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [t])
+  }, [getCachedData, setCachedData, t])
 
-  const loadContractsForDriver = useCallback(async () => {
-    setContractsLoading(true)
+  const loadContractsForDriver = useCallback(async (silent = false) => {
+    if (!silent) setContractsLoading(true)
     try {
       const res = await getDriverContracts()
       const list = (res.data?.contracts || []).filter(
         (c) => c.status === 'completed'
       )
       setContracts(list)
+      const prev = getCachedData('driver_ratings') || {}
+      setCachedData('driver_ratings', {
+        ...prev,
+        contracts: list,
+      })
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('contractsLoadError')
       )
       setContracts([])
     } finally {
-      setContractsLoading(false)
+      if (!silent) setContractsLoading(false)
     }
-  }, [t])
+  }, [getCachedData, setCachedData, t])
 
   useEffect(() => {
-    if (tab === 'mine') loadMine()
-    else loadContractsForDriver()
-  }, [tab, loadMine, loadContractsForDriver])
+    const run = async () => {
+      const cached = getCachedData('driver_ratings')
+      if (tab === 'mine') {
+        if (cached?.received !== undefined) {
+          setReceived(cached.received)
+          setGiven(cached.given || [])
+          setAvgScore(cached.avgScore ?? '0')
+          setTotalRatings(cached.totalRatings ?? 0)
+          setScoresByContract(cached.scoresByContract || {})
+          setReviewsByContract(cached.reviewsByContract || {})
+          setLoading(false)
+          loadMine(true)
+          return
+        }
+        loadMine(false)
+      } else if (cached?.contracts) {
+        setContracts(cached.contracts)
+        setContractsLoading(false)
+        loadContractsForDriver(true)
+        return
+      } else {
+        loadContractsForDriver(false)
+      }
+    }
+    run()
+  }, [tab, getCachedData, loadMine, loadContractsForDriver])
 
   const breakdown = useMemo(() => {
     const b = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }

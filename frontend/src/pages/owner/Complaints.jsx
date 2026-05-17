@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast'
 import API from '../../api/axios'
 import { getOwnerContracts } from '../../api/contractAPI'
 import { getMyComplaints } from '../../api/complaintAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const STATUS_STYLE = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -39,21 +40,28 @@ const OwnerComplaints = () => {
   const [description, setDescription] = useState('')
   const [evidenceFiles, setEvidenceFiles] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const { getCachedData, setCachedData, clearCache } = useDataCache()
 
-  const loadMine = useCallback(async () => {
-    setLoading(true)
+  const loadMine = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const res = await getMyComplaints()
-      setComplaints(res.data?.complaints ?? [])
+      const list = res.data?.complaints ?? []
+      setComplaints(list)
+      const prev = getCachedData('owner_complaints') || {}
+      setCachedData('owner_complaints', {
+        ...prev,
+        complaints: list,
+      })
     } catch (e) {
       toast.error(e.response?.data?.message || t('loadError2'))
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [t])
+  }, [getCachedData, setCachedData, t])
 
-  const loadContracts = useCallback(async () => {
-    setCLoading(true)
+  const loadContracts = useCallback(async (silent = false) => {
+    if (!silent) setCLoading(true)
     try {
       const res = await getOwnerContracts()
       const raw = res.data?.contracts || []
@@ -72,19 +80,45 @@ const OwnerComplaints = () => {
       if (list.length > 0) {
         setSelectedContract(list[0])
       }
+      const prev = getCachedData('owner_complaints') || {}
+      setCachedData('owner_complaints', {
+        ...prev,
+        contracts: list,
+      })
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('contractsLoadError2')
       )
     } finally {
-      setCLoading(false)
+      if (!silent) setCLoading(false)
     }
-  }, [t])
+  }, [getCachedData, setCachedData, t])
 
   useEffect(() => {
-    if (tab === 'mine') loadMine()
-    else loadContracts()
-  }, [tab, loadMine, loadContracts])
+    const run = async () => {
+      const cached = getCachedData('owner_complaints')
+      if (tab === 'mine') {
+        if (cached?.complaints) {
+          setComplaints(cached.complaints)
+          setLoading(false)
+          loadMine(true)
+          return
+        }
+        loadMine(false)
+      } else if (cached?.contracts) {
+        setContracts(cached.contracts)
+        if (cached.contracts.length > 0) {
+          setSelectedContract(cached.contracts[0])
+        }
+        setCLoading(false)
+        loadContracts(true)
+        return
+      } else {
+        loadContracts(false)
+      }
+    }
+    run()
+  }, [tab, getCachedData, loadMine, loadContracts])
 
   const handleSubmit = async () => {
     if (!selectedContract) {
@@ -138,6 +172,8 @@ const OwnerComplaints = () => {
       })
 
       toast.success(t('ownerComplaintSubmitted'))
+      clearCache('owner_complaints')
+      clearCache('owner_dashboard')
       setDescription('')
       setComplaintType('')
       setSelectedContract(null)

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { acceptInvite, getDriverInvites, rejectInvite } from '../../api/inviteAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const DriverInvites = () => {
   const { t } = useTranslation()
@@ -13,22 +14,37 @@ const DriverInvites = () => {
   const [acceptingId, setAcceptingId] = useState(null)
   const [rejectingId, setRejectingId] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
+  const { getCachedData, setCachedData, clearCache } = useDataCache()
+
+  const loadInvites = async (silent = false) => {
+    if (!silent) setLoading(true)
+    try {
+      const res = await getDriverInvites()
+      const list = res.data?.invites || []
+      setInvites(list)
+      setCachedData('driver_invites', { invites: list })
+    } catch (e) {
+      setInvites([])
+      toast.error(
+        e.response?.data?.message || t('invitesLoadError')
+      )
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    ;(async () => {
-      setLoading(true)
-      try {
-        const res = await getDriverInvites()
-        setInvites(res.data?.invites || [])
-      } catch (e) {
-        setInvites([])
-        toast.error(
-          e.response?.data?.message || t('invitesLoadError')
-        )
-      } finally {
+    const run = async () => {
+      const cached = getCachedData('driver_invites')
+      if (cached?.invites) {
+        setInvites(cached.invites)
         setLoading(false)
+        loadInvites(true)
+        return
       }
-    })()
+      loadInvites(false)
+    }
+    run()
   }, [t])
 
   const fmtDate = (date) => {
@@ -202,8 +218,9 @@ const DriverInvites = () => {
                         try {
                           await rejectInvite({ inviteId: inv._id, reason: rejectReason.trim() })
                           toast.success(t('offerRejected'))
-                          const res = await getDriverInvites()
-                          setInvites(res.data?.invites || [])
+                          clearCache('driver_invites')
+                          clearCache('driver_dashboard')
+                          await loadInvites()
                           setRejectingId(null)
                           setRejectReason('')
                         } catch (e) {
@@ -238,6 +255,8 @@ const DriverInvites = () => {
                           setAcceptingId(inv._id)
                           await acceptInvite({ inviteId: inv._id })
                           toast.success(t('offerAccepted'))
+                          clearCache('driver_invites')
+                          clearCache('driver_dashboard')
                           navigate('/driver/active-job')
                         } catch (e) {
                           toast.error(

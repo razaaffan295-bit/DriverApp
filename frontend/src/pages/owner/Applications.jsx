@@ -14,6 +14,7 @@ import {
 } from '../../api/ownerAPI'
 import DriverProfileModal from '../../components/owner/DriverProfileModal'
 import { getOwnerContracts } from '../../api/contractAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const formatApplied = (d) => {
   if (!d) return '—'
@@ -52,9 +53,10 @@ const OwnerApplications = () => {
   const [cancelId, setCancelId] = useState(null)
   const [driverProfileData, setDriverProfileData] =
     useState(null)
+  const { getCachedData, setCachedData, clearCache } = useDataCache()
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const [appsRes, jobsRes, contractsRes] = await Promise.all([
         getOwnerApplications(),
@@ -89,20 +91,42 @@ const OwnerApplications = () => {
             hit?.contractStatus ?? app.contractStatus ?? null,
         }
       })
+      const jobsList = jobsRes.data?.jobs ?? []
       setApplications(merged)
-      setJobs(jobsRes.data?.jobs ?? [])
+      setJobs(jobsList)
+      setCachedData('owner_applications', {
+        applications: merged,
+        jobs: jobsList,
+        contracts,
+      })
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('dataLoadError2')
       )
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [t])
+  }, [setCachedData, t])
 
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    const run = async () => {
+      const cached = getCachedData('owner_applications')
+      if (cached?.applications) {
+        setApplications(cached.applications)
+        setJobs(cached.jobs || [])
+        setLoading(false)
+        loadData(true)
+        return
+      }
+      loadData(false)
+    }
+    run()
+  }, [getCachedData, loadData])
+
+  const invalidateApplicationsCache = () => {
+    clearCache('owner_applications')
+    clearCache('owner_dashboard')
+  }
 
   const driverInitials = (name) =>
     name
@@ -133,6 +157,7 @@ const OwnerApplications = () => {
     try {
       await acceptApplication(id)
       toast.success(t('driverAccepted'))
+      invalidateApplicationsCache()
       await loadData()
     } catch (e) {
       toast.error(
@@ -148,6 +173,7 @@ const OwnerApplications = () => {
     try {
       await rejectApplication(id)
       toast.success(t('applicationRejected'))
+      invalidateApplicationsCache()
       await loadData()
     } catch (e) {
       toast.error(
@@ -262,6 +288,7 @@ const OwnerApplications = () => {
       setSelectedDriver(null)
       setSelectedApplication(null)
       setDriverProfileData(null)
+      invalidateApplicationsCache()
       await loadData()
     } catch (e) {
       toast.error(
@@ -568,6 +595,7 @@ const OwnerApplications = () => {
               setSelectedDriver(null)
               setSelectedApplication(null)
               setDriverProfileData(null)
+              invalidateApplicationsCache()
               await loadData()
             } catch (e) {
               toast.error(
@@ -588,6 +616,7 @@ const OwnerApplications = () => {
               setSelectedDriver(null)
               setSelectedApplication(null)
               setDriverProfileData(null)
+              invalidateApplicationsCache()
               await loadData()
             } catch (e) {
               toast.error(

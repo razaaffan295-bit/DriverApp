@@ -18,6 +18,7 @@ import {
   isNativeApp,
   generateAndOpenPDF,
 } from '../../utils/pdfUpload'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const isTransportContract = (contract) => {
   return (
@@ -125,6 +126,7 @@ const OwnerPayments = () => {
   const [tripNetDue, setTripNetDue] = useState(0)
   const [tripLoading, setTripLoading] = useState(false)
   const [printTrip, setPrintTrip] = useState(null)
+  const { getCachedData, setCachedData, clearCache } = useDataCache()
 
   const cid = selectedContract?._id
   const selectedIsTransport = isTransportContract(selectedContract)
@@ -154,33 +156,44 @@ const OwnerPayments = () => {
       }
       return list[0] || null
     })
-  }, [])
+    const prev = getCachedData('owner_payments') || {}
+    setCachedData('owner_payments', {
+      ...prev,
+      contracts: list,
+    })
+  }, [getCachedData, setCachedData])
 
   const loadSummary = useCallback(async () => {
     if (!cid) {
       setSummary(null)
-      return
+      return null
     }
     const res = await getPaymentSummary({ contractId: cid })
-    setSummary(res.data?.summary ?? null)
+    const data = res.data?.summary ?? null
+    setSummary(data)
+    return data
   }, [cid])
 
   const loadHistory = useCallback(async () => {
     if (!cid) {
       setPayments([])
-      return
+      return []
     }
     const res = await getPayments({ contractId: cid })
-    setPayments(res.data?.payments ?? [])
+    const data = res.data?.payments ?? []
+    setPayments(data)
+    return data
   }, [cid])
 
   const loadAdvances = useCallback(async () => {
     if (!cid) {
       setAdvances([])
-      return
+      return []
     }
     const res = await getAdvances({ contractId: cid })
-    setAdvances(res.data?.advances ?? [])
+    const data = res.data?.advances ?? []
+    setAdvances(data)
+    return data
   }, [cid])
 
   const loadOwnerTripEarnings = useCallback(async () => {
@@ -250,6 +263,22 @@ const OwnerPayments = () => {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
+      const cached = getCachedData('owner_payments')
+      if (cached?.contracts) {
+        setContracts(cached.contracts)
+        setSelectedContract((prev) => {
+          if (
+            prev &&
+            cached.contracts.some(
+              (x) => String(x._id) === String(prev._id)
+            )
+          ) {
+            return prev
+          }
+          return cached.contracts[0] || null
+        })
+        if (!cancelled) setContractsReady(true)
+      }
       try {
         await loadContracts()
       } catch (e) {
@@ -265,23 +294,56 @@ const OwnerPayments = () => {
     return () => {
       cancelled = true
     }
-  }, [loadContracts])
+  }, [loadContracts, getCachedData, t])
 
   useEffect(() => {
     if (!cid) return
     if (tab === 'trip') return
     let cancelled = false
+    const cached = getCachedData('owner_payments')
+    const hasCache =
+      cached &&
+      String(cached.cid) === String(cid) &&
+      cached.tab === tab
+    if (hasCache) {
+      if (tab === 'summary' || tab === 'payment') {
+        setSummary(cached.summary ?? null)
+      }
+      if (tab === 'history') {
+        setPayments(cached.payments ?? [])
+      }
+      if (tab === 'payment' || tab === 'advance') {
+        setAdvances(cached.advances ?? [])
+      }
+      setLoading(false)
+    }
     ;(async () => {
-      setLoading(true)
+      if (!hasCache) setLoading(true)
+      let nextSummary = null
+      let nextPayments = []
+      let nextAdvances = []
       try {
-        if (tab === 'summary') await loadSummary()
-        else if (tab === 'payment') {
-          await Promise.all([
-            loadSummary(),
-            loadAdvances(),
-          ])
-        } else if (tab === 'history') await loadHistory()
-        else if (tab === 'advance') await loadAdvances()
+        if (tab === 'summary') {
+          nextSummary = await loadSummary()
+        } else if (tab === 'payment') {
+          nextSummary = await loadSummary()
+          nextAdvances = await loadAdvances()
+        } else if (tab === 'history') {
+          nextPayments = await loadHistory()
+        } else if (tab === 'advance') {
+          nextAdvances = await loadAdvances()
+        }
+        if (!cancelled) {
+          const prev = getCachedData('owner_payments') || {}
+          setCachedData('owner_payments', {
+            ...prev,
+            cid: String(cid),
+            tab,
+            summary: nextSummary,
+            payments: nextPayments,
+            advances: nextAdvances,
+          })
+        }
       } catch (e) {
         if (!cancelled) {
           toast.error(
@@ -289,13 +351,13 @@ const OwnerPayments = () => {
           )
         }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled && !hasCache) setLoading(false)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [cid, tab, loadSummary, loadHistory, loadAdvances])
+  }, [cid, tab, loadSummary, loadHistory, loadAdvances, getCachedData, setCachedData, t])
 
   useEffect(() => {
     if (
@@ -453,6 +515,8 @@ const OwnerPayments = () => {
       setProofPhoto(null)
       setDeductAdvance(false)
       setDeductAmt('')
+      clearCache('owner_payments')
+      clearCache('owner_dashboard')
       await loadSummary()
       await loadHistory()
       await loadAdvances()
@@ -474,6 +538,8 @@ const OwnerPayments = () => {
         action: 'reject',
       })
       toast.success(t('advanceRejected'))
+      clearCache('owner_payments')
+      clearCache('owner_dashboard')
       await loadAdvances()
       setExpandAdvanceId(null)
     } catch (err) {
@@ -514,6 +580,8 @@ const OwnerPayments = () => {
       setApprWitness('')
       setApprNote('')
       setApprPhoto('')
+      clearCache('owner_payments')
+      clearCache('owner_dashboard')
       await loadAdvances()
       await loadSummary()
     } catch (err) {

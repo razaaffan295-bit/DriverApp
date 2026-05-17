@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { STATES, VEHICLE_TYPES } from '../../utils/constants'
 import { searchJobs } from '../../api/driverAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const formatDate = (d) => {
   if (!d) return '—'
@@ -30,36 +31,57 @@ const JobSearch = () => {
   })
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const { getCachedData, setCachedData } = useDataCache()
+
+  const cacheKey = `driver_jobs_${filters.state}_${filters.vehicleType}`
 
   const fetchJobs = useCallback(
-    async (pageNum, append) => {
+    async (pageNum, append, silent = false) => {
       if (append) setLoadingMore(true)
-      else setLoading(true)
+      else if (!silent) setLoading(true)
       try {
         const params = { page: pageNum }
         if (filters.state) params.state = filters.state
         if (filters.vehicleType) params.vehicleType = filters.vehicleType
         const { data } = await searchJobs(params)
         const list = data?.jobs ?? []
-        setTotal(data?.total ?? 0)
+        const totalCount = data?.total ?? 0
+        setTotal(totalCount)
         setJobs((prev) => (append ? [...prev, ...list] : list))
+        if (!append && pageNum === 1) {
+          setCachedData(cacheKey, {
+            jobs: list,
+            total: totalCount,
+          })
+        }
       } catch (e) {
         toast.error(
           e.response?.data?.message || t('jobsLoadError')
         )
         if (!append) setJobs([])
       } finally {
-        setLoading(false)
+        if (!silent) setLoading(false)
         setLoadingMore(false)
       }
     },
-    [filters.state, filters.vehicleType, t]
+    [cacheKey, filters.state, filters.vehicleType, setCachedData, t]
   )
 
   useEffect(() => {
     setPage(1)
-    fetchJobs(1, false)
-  }, [fetchJobs])
+    const run = async () => {
+      const cached = getCachedData(cacheKey)
+      if (cached?.jobs) {
+        setJobs(cached.jobs)
+        setTotal(cached.total ?? 0)
+        setLoading(false)
+        fetchJobs(1, false, true)
+        return
+      }
+      fetchJobs(1, false, false)
+    }
+    run()
+  }, [cacheKey, fetchJobs, getCachedData])
 
   const handleDhundho = () => {
     setPage(1)
