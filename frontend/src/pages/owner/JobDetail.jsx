@@ -9,6 +9,7 @@ import {
   acceptApplication,
   rejectApplication,
 } from '../../api/ownerAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const formatJobDate = (d) => {
   if (!d) return '—'
@@ -50,30 +51,52 @@ const OwnerJobDetail = () => {
   const [loading, setLoading] = useState(true)
   const [closeLoading, setCloseLoading] = useState(false)
   const [actionId, setActionId] = useState(null)
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache,
+  } = useDataCache()
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!id) return
-    setLoading(true)
+    if (!silent) setLoading(true)
     try {
       const [jobRes, appsRes] = await Promise.all([
         getJobById(id),
         getJobApplications(id),
       ])
-      setJob(jobRes.data?.job ?? null)
-      setApplications(appsRes.data?.applications ?? [])
+      const jobData = jobRes.data?.job ?? null
+      const appsData = appsRes.data?.applications ?? []
+      setJob(jobData)
+      setApplications(appsData)
+      setCachedData(`owner_job_${id}`, {
+        job: jobData,
+        applications: appsData,
+      })
     } catch (e) {
-      toast.error(
-        e.response?.data?.message || t('jobLoadError2')
-      )
-      navigate('/owner/jobs')
+      if (!silent) {
+        toast.error(
+          e.response?.data?.message || t('jobLoadError2')
+        )
+        navigate('/owner/jobs')
+      }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [id, navigate, t])
+  }, [id, navigate, t, setCachedData])
 
   useEffect(() => {
-    load()
-  }, [load])
+    if (!id) return
+    const cached = getCachedData(`owner_job_${id}`)
+    if (cached) {
+      setJob(cached.job)
+      setApplications(cached.applications || [])
+      setLoading(false)
+      load(true)
+    } else {
+      load(false)
+    }
+  }, [id])
 
   const handleClose = async () => {
     if (!id || job?.status !== 'open') return
@@ -81,7 +104,10 @@ const OwnerJobDetail = () => {
     try {
       await closeJob(id)
       toast.success(t('jobClosedMsg'))
-      await load()
+      clearCache(`owner_job_${id}`)
+      clearCache('owner_jobs')
+      clearCache('owner_dashboard')
+      await load(false)
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('jobCloseError2')
@@ -96,7 +122,10 @@ const OwnerJobDetail = () => {
     try {
       await acceptApplication(appId)
       toast.success(t('appAccepted2'))
-      await load()
+      clearCache(`owner_job_${id}`)
+      clearCache('owner_applications')
+      clearCache('owner_dashboard')
+      await load(false)
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('acceptError3')
@@ -111,7 +140,10 @@ const OwnerJobDetail = () => {
     try {
       await rejectApplication(appId)
       toast.success(t('appRejected2'))
-      await load()
+      clearCache(`owner_job_${id}`)
+      clearCache('owner_applications')
+      clearCache('owner_dashboard')
+      await load(false)
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('rejectError4')
@@ -127,7 +159,13 @@ const OwnerJobDetail = () => {
         style={{ minHeight: '100vh', background: '#F0F4FF' }}
         className="p-4 md:p-6"
       >
-        <p className="text-sm text-gray-500">{t('loading')}</p>
+        <div className="flex justify-center py-16">
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent"
+            role="status"
+            aria-label={t('loading')}
+          />
+        </div>
       </div>
     )
   }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
@@ -13,6 +13,7 @@ import {
   ownerGetRecords,
 } from '../../api/attendanceAPI'
 import { getUser } from '../../utils/helpers'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const MONTH_NAMES = [
   'January',
@@ -73,6 +74,11 @@ const OwnerAttendance = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache,
+  } = useDataCache()
 
   useEffect(() => {
     setUser(getUser())
@@ -103,6 +109,30 @@ const OwnerAttendance = () => {
     hoursWorked: '',
     note: ''
   })
+
+  const calcSummary = useCallback((list, contract) => {
+    const s = {
+      presentDays: 0,
+      absentDays: 0,
+      halfDays: 0,
+      totalHours: 0,
+      grossTotal: 0,
+    }
+    list.forEach((r) => {
+      if (r.status === 'present') s.presentDays += 1
+      else if (r.status === 'absent') s.absentDays += 1
+      else if (r.status === 'half_day') s.halfDays += 1
+      s.totalHours += Number(r.hoursWorked) || 0
+      s.grossTotal += calcSalary(
+        contract,
+        r.status,
+        Number(r.hoursWorked) || 0
+      )
+    })
+    s.totalHours = Math.round(s.totalHours * 100) / 100
+    s.grossTotal = Math.round(s.grossTotal)
+    return s
+  }, [])
 
   useEffect(() => {
     const loadContracts = async () => {
@@ -135,7 +165,7 @@ const OwnerAttendance = () => {
   }, [contracts, selectedContractId])
 
   useEffect(() => {
-    const loadRecords = async () => {
+    const loadRecords = async (silent = false) => {
       if (!selectedContractId) {
         setRecords([])
         setSummary({
@@ -148,7 +178,7 @@ const OwnerAttendance = () => {
         return
       }
 
-      setLoading(true)
+      if (!silent) setLoading(true)
       try {
         const res = await ownerGetRecords({
           contractId: selectedContractId,
@@ -157,43 +187,53 @@ const OwnerAttendance = () => {
         })
         const list = res.data?.records ?? []
         setRecords(list)
+        const newSummary = calcSummary(list, selectedContract)
+        setSummary(newSummary)
 
-        const s = {
-          presentDays: 0,
-          absentDays: 0,
-          halfDays: 0,
-          totalHours: 0,
-          grossTotal: 0,
-        }
-        list.forEach((r) => {
-          if (r.status === 'present') s.presentDays += 1
-          else if (r.status === 'absent') s.absentDays += 1
-          else if (r.status === 'half_day') s.halfDays += 1
-          s.totalHours += Number(r.hoursWorked) || 0
-          s.grossTotal += calcSalary(selectedContract, r.status, Number(r.hoursWorked) || 0)
+        const cacheKey = `owner_attendance_${selectedContractId}_${selectedMonth}_${selectedYear}`
+        setCachedData(cacheKey, {
+          records: list,
+          summary: newSummary,
         })
-        s.totalHours = Math.round(s.totalHours * 100) / 100
-        s.grossTotal = Math.round(s.grossTotal)
-        setSummary(s)
       } catch (e) {
-        setRecords([])
-        setSummary({
+        if (!silent) {
+          setRecords([])
+          setSummary({
+            presentDays: 0,
+            absentDays: 0,
+            halfDays: 0,
+            totalHours: 0,
+            grossTotal: 0
+          })
+          toast.error(
+            e.response?.data?.message || t('attendanceLoadError')
+          )
+        }
+      } finally {
+        if (!silent) setLoading(false)
+      }
+    }
+
+    if (selectedContractId) {
+      const cacheKey = `owner_attendance_${selectedContractId}_${selectedMonth}_${selectedYear}`
+      const cached = getCachedData(cacheKey)
+      if (cached) {
+        setRecords(cached.records || [])
+        setSummary(cached.summary || {
           presentDays: 0,
           absentDays: 0,
           halfDays: 0,
           totalHours: 0,
           grossTotal: 0
         })
-        toast.error(
-          e.response?.data?.message || t('attendanceLoadError')
-        )
-      } finally {
         setLoading(false)
+        loadRecords(true)
+        return
       }
     }
 
-    loadRecords()
-  }, [selectedContractId, selectedMonth, selectedYear, selectedContract])
+    loadRecords(false)
+  }, [selectedContractId, selectedMonth, selectedYear, selectedContract, calcSummary, getCachedData, setCachedData])
 
   const driverName = selectedContract?.driverId?.name || t('driver')
   const driverPhone = selectedContract?.driverId?.phone || ''
@@ -214,31 +254,38 @@ const OwnerAttendance = () => {
     return calcSalary(selectedContract, form.status, Number(form.hoursWorked) || 0)
   }, [selectedContract, form.status, form.hoursWorked])
 
-  const handlePrint = async () => {
-    if (isNativeApp()) {
-      await generateAndOpenPDF(
-        'attendance',
-        {
-          driverName: selectedContract?.driverId?.name || '',
-          month: selectedMonth,
-          year: selectedYear,
-          presentDays: summary?.presentDays || 0,
-          absentDays: summary?.absentDays || 0,
-          halfDays: summary?.halfDays || 0,
-          grossTotal: summary?.grossTotal || 0,
-          records: (records || []).map(r => ({
-            date: r.date,
-            status: r.status,
-            hoursWorked: r.hoursWorked || 0,
-            salaryForDay: r.salaryForDay || 0,
-          }))
-        },
-        `attendance-${selectedMonth}-${selectedYear}.pdf`
+  const handlePrint = useCallback(async () => {
+    try {
+      if (isNativeApp()) {
+        await generateAndOpenPDF(
+          'attendance',
+          {
+            driverName: selectedContract?.driverId?.name || '',
+            month: selectedMonth,
+            year: selectedYear,
+            presentDays: summary?.presentDays || 0,
+            absentDays: summary?.absentDays || 0,
+            halfDays: summary?.halfDays || 0,
+            grossTotal: summary?.grossTotal || 0,
+            records: (records || []).map(r => ({
+              date: r.date,
+              status: r.status,
+              hoursWorked: r.hoursWorked || 0,
+              salaryForDay: r.salaryForDay || 0,
+            }))
+          },
+          `attendance-${selectedMonth}-${selectedYear}.pdf`
+        )
+      } else {
+        window.print()
+      }
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message ||
+        'PDF generation failed'
       )
-    } else {
-      window.print()
     }
-  }
+  }, [selectedContract, selectedMonth, selectedYear, summary, records])
 
   return (
     <div
@@ -250,7 +297,11 @@ const OwnerAttendance = () => {
           </h1>
           {loading ? (
             <div className="flex justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent"
+                role="status"
+                aria-label={t('loading')}
+              />
             </div>
           ) : contracts.length === 0 ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-gray-600">
@@ -398,7 +449,7 @@ const OwnerAttendance = () => {
                           : 'border-gray-200 bg-gray-100 text-gray-600'
                       }`}
                     >
-                      ✅ {t('present')}
+                      <span aria-hidden="true">✅</span> {t('present')}
                     </button>
                     <button
                       type="button"
@@ -410,7 +461,7 @@ const OwnerAttendance = () => {
                           : 'border-gray-200 bg-gray-100 text-gray-600'
                       }`}
                     >
-                      🕐 {t('halfDay')}
+                      <span aria-hidden="true">🕐</span> {t('halfDay')}
                     </button>
                     <button
                       type="button"
@@ -422,7 +473,7 @@ const OwnerAttendance = () => {
                           : 'border-gray-200 bg-gray-100 text-gray-600'
                       }`}
                     >
-                      ❌ {t('absent')}
+                      <span aria-hidden="true">❌</span> {t('absent')}
                     </button>
                   </div>
 
@@ -435,6 +486,7 @@ const OwnerAttendance = () => {
                         type="number"
                         min={0}
                         max={24}
+                        step="0.5"
                         value={form.hoursWorked}
                         onChange={(e) => setForm((f) => ({ ...f, hoursWorked: e.target.value }))}
                         placeholder="8"
@@ -456,6 +508,7 @@ const OwnerAttendance = () => {
                       value={form.note}
                       onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
                       placeholder={t('addNote')}
+                      maxLength={500}
                       className="input-field w-full"
                     />
                   </div>
@@ -476,6 +529,11 @@ const OwnerAttendance = () => {
                         })
                         toast.success(t('recordSaved'))
                         setForm((f) => ({ ...f, status: '', hoursWorked: '', note: '' }))
+
+                        const cacheKey = `owner_attendance_${selectedContractId}_${selectedMonth}_${selectedYear}`
+                        clearCache(cacheKey)
+                        clearCache('owner_dashboard')
+
                         const res = await ownerGetRecords({
                           contractId: selectedContractId,
                           month: selectedMonth,
@@ -483,23 +541,7 @@ const OwnerAttendance = () => {
                         })
                         const list = res.data?.records ?? []
                         setRecords(list)
-                        const s = {
-                          presentDays: 0,
-                          absentDays: 0,
-                          halfDays: 0,
-                          totalHours: 0,
-                          grossTotal: 0,
-                        }
-                        list.forEach((r) => {
-                          if (r.status === 'present') s.presentDays += 1
-                          else if (r.status === 'absent') s.absentDays += 1
-                          else if (r.status === 'half_day') s.halfDays += 1
-                          s.totalHours += Number(r.hoursWorked) || 0
-                          s.grossTotal += calcSalary(selectedContract, r.status, Number(r.hoursWorked) || 0)
-                        })
-                        s.totalHours = Math.round(s.totalHours * 100) / 100
-                        s.grossTotal = Math.round(s.grossTotal)
-                        setSummary(s)
+                        setSummary(calcSummary(list, selectedContract))
                       } catch (e) {
                         toast.error(
                           e.response?.data?.message || t('saveError2')
@@ -568,6 +610,11 @@ const OwnerAttendance = () => {
                                 setSaving(true)
                                 await ownerDeleteRecord(r._id)
                                 toast.success(t('recordDeleted'))
+
+                                const cacheKey = `owner_attendance_${selectedContractId}_${selectedMonth}_${selectedYear}`
+                                clearCache(cacheKey)
+                                clearCache('owner_dashboard')
+
                                 const res = await ownerGetRecords({
                                   contractId: selectedContractId,
                                   month: selectedMonth,
@@ -575,23 +622,7 @@ const OwnerAttendance = () => {
                                 })
                                 const list = res.data?.records ?? []
                                 setRecords(list)
-                                const s = {
-                                  presentDays: 0,
-                                  absentDays: 0,
-                                  halfDays: 0,
-                                  totalHours: 0,
-                                  grossTotal: 0,
-                                }
-                                list.forEach((x) => {
-                                  if (x.status === 'present') s.presentDays += 1
-                                  else if (x.status === 'absent') s.absentDays += 1
-                                  else if (x.status === 'half_day') s.halfDays += 1
-                                  s.totalHours += Number(x.hoursWorked) || 0
-                                  s.grossTotal += calcSalary(selectedContract, x.status, Number(x.hoursWorked) || 0)
-                                })
-                                s.totalHours = Math.round(s.totalHours * 100) / 100
-                                s.grossTotal = Math.round(s.grossTotal)
-                                setSummary(s)
+                                setSummary(calcSummary(list, selectedContract))
                               } catch (e) {
                                 toast.error(
                                   e.response?.data?.message ||
@@ -795,7 +826,7 @@ const OwnerAttendance = () => {
                     gap: '8px',
                   }}
                 >
-                  📄 {t('downloadPDF')}
+                  <span aria-hidden="true">📄</span> {t('downloadPDF')}
                 </button>
               </div>
             </>

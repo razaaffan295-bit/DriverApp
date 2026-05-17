@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import { getOwnerContracts } from '../../api/contractAPI'
 import { getMyRatings, giveRating } from '../../api/ratingAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const fmtDate = (d) =>
   d
@@ -12,6 +13,19 @@ const fmtDate = (d) =>
         year: 'numeric',
       })
     : '—'
+
+const getInitials = (name) => {
+  if (!name) return 'D'
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'D'
+  )
+}
 
 const StarDisplay = ({ score, size = 'text-lg' }) => {
   const n = Math.round(Number(score) || 0)
@@ -40,9 +54,14 @@ const OwnerRatings = () => {
   const [starHover, setStarHover] = useState({})
   const [reviewDrafts, setReviewDrafts] = useState({})
   const [submittingId, setSubmittingId] = useState(null)
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache,
+  } = useDataCache()
 
-  const loadMine = useCallback(async () => {
-    setLoading(true)
+  const loadMine = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const res = await getMyRatings()
       const rec = res.data?.received ?? []
@@ -65,36 +84,72 @@ const OwnerRatings = () => {
       }
       setScoresByContract(sc)
       setReviewsByContract(rv)
-    } catch (e) {
-      toast.error(
-        e.response?.data?.message || t('ownerRatingsLoadError')
-      )
-    } finally {
-      setLoading(false)
-    }
-  }, [t])
 
-  const loadContracts = useCallback(async () => {
-    setContractsLoading(true)
+      setCachedData('owner_ratings_mine', {
+        received: rec,
+        given: giv,
+        avgScore: String(res.data?.avgScore ?? '0'),
+        totalRatings: res.data?.totalRatings ?? 0,
+        scoresByContract: sc,
+        reviewsByContract: rv,
+      })
+    } catch (e) {
+      if (!silent) {
+        toast.error(
+          e.response?.data?.message || t('ownerRatingsLoadError')
+        )
+      }
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }, [t, setCachedData])
+
+  const loadContracts = useCallback(async (silent = false) => {
+    if (!silent) setContractsLoading(true)
     try {
       const res = await getOwnerContracts()
       const list = (res.data?.contracts || []).filter(
         (c) => c.status === 'completed'
       )
       setContracts(list)
+      setCachedData('owner_ratings_contracts', list)
     } catch (e) {
-      toast.error(
-        e.response?.data?.message || t('ownerContractsLoadError')
-      )
+      if (!silent) {
+        toast.error(
+          e.response?.data?.message || t('ownerContractsLoadError')
+        )
+      }
     } finally {
-      setContractsLoading(false)
+      if (!silent) setContractsLoading(false)
     }
-  }, [t])
+  }, [t, setCachedData])
 
   useEffect(() => {
-    if (tab === 'mine') loadMine()
-    else loadContracts()
-  }, [tab, loadMine, loadContracts])
+    if (tab === 'mine') {
+      const cached = getCachedData('owner_ratings_mine')
+      if (cached) {
+        setReceived(cached.received || [])
+        setGiven(cached.given || [])
+        setAvgScore(cached.avgScore || '0')
+        setTotalRatings(cached.totalRatings || 0)
+        setScoresByContract(cached.scoresByContract || {})
+        setReviewsByContract(cached.reviewsByContract || {})
+        setLoading(false)
+        loadMine(true)
+      } else {
+        loadMine(false)
+      }
+    } else {
+      const cached = getCachedData('owner_ratings_contracts')
+      if (cached) {
+        setContracts(cached)
+        setContractsLoading(false)
+        loadContracts(true)
+      } else {
+        loadContracts(false)
+      }
+    }
+  }, [tab])
 
   const breakdown = useMemo(() => {
     const b = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
@@ -110,7 +165,7 @@ const OwnerRatings = () => {
     [breakdown]
   )
 
-  const submitRating = async (contract, score, reviewText) => {
+  const submitRating = useCallback(async (contract, score, reviewText) => {
     const driver = contract.driverId
     const did = driver?._id || driver
     if (!did || !score) return
@@ -127,7 +182,11 @@ const OwnerRatings = () => {
       const id = String(contract._id)
       setStarPick((p) => ({ ...p, [id]: 0 }))
       setReviewDrafts((r) => ({ ...r, [id]: '' }))
-      await loadMine()
+
+      clearCache('owner_ratings_mine')
+      clearCache('owner_ratings_contracts')
+
+      await loadMine(false)
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('ownerRatingError')
@@ -135,7 +194,7 @@ const OwnerRatings = () => {
     } finally {
       setSubmittingId(null)
     }
-  }
+  }, [t, loadMine, clearCache])
 
   return (
     <div
@@ -170,7 +229,11 @@ const OwnerRatings = () => {
           {tab === 'mine' ? (
             loading ? (
               <div className="flex justify-center py-16">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
+                <div
+                  className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent"
+                  role="status"
+                  aria-label={t('loading')}
+                />
               </div>
             ) : (
               <>
@@ -230,13 +293,7 @@ const OwnerRatings = () => {
                   <ul className="space-y-3">
                     {received.map((r) => {
                       const by = r.ratedBy
-                      const initials =
-                        by?.name
-                          ?.split(/\s+/)
-                          .map((w) => w[0])
-                          .join('')
-                          .slice(0, 2)
-                          .toUpperCase() || 'D'
+                      const initials = getInitials(by?.name)
                       return (
                         <li
                           key={r._id}
@@ -248,7 +305,7 @@ const OwnerRatings = () => {
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="font-semibold text-gray-900">
-                                {by?.name || 'Driver'}
+                                {by?.name || t('driver')}
                               </p>
                               <StarDisplay
                                 score={r.score}
@@ -303,7 +360,11 @@ const OwnerRatings = () => {
             )
           ) : contractsLoading ? (
             <div className="flex justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent"
+                role="status"
+                aria-label={t('loading')}
+              />
             </div>
           ) : (
             <>
@@ -332,16 +393,11 @@ const OwnerRatings = () => {
                     >
                       <div className="flex gap-3">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-bold text-gray-700">
-                          {d?.name
-                            ?.split(/\s+/)
-                            .map((w) => w[0])
-                            .join('')
-                            .slice(0, 2)
-                            .toUpperCase() || 'D'}
+                          {getInitials(d?.name)}
                         </div>
                         <div>
                           <p className="font-semibold text-gray-900">
-                            {d?.name || 'Driver'}
+                            {d?.name || t('driver')}
                           </p>
                           <p className="text-sm text-gray-600">
                             {c.jobId?.title} ·{' '}
@@ -376,6 +432,7 @@ const OwnerRatings = () => {
                                 <button
                                   key={s}
                                   type="button"
+                                  aria-label={`${s} star`}
                                   className={`text-3xl transition-colors ${
                                     active
                                       ? 'text-yellow-400'
@@ -401,7 +458,7 @@ const OwnerRatings = () => {
                                     }))
                                   }
                                 >
-                                  ★
+                                  <span aria-hidden="true">★</span>
                                 </button>
                               )
                             })}
@@ -409,6 +466,7 @@ const OwnerRatings = () => {
                           <textarea
                             rows={3}
                             placeholder={`${t('review')} (optional)...`}
+                            maxLength={500}
                             className="mt-3 w-full rounded-xl border border-gray-200 p-3 text-sm"
                             value={reviewDrafts[cid] ?? ''}
                             onChange={(e) =>

@@ -1,9 +1,68 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import API from '../../api/axios'
 import { getVehicles } from '../../api/ownerAPI'
 import { getOwnerInvites, sendInvite } from '../../api/inviteAPI'
+
+const fmtDate = (d) =>
+  d
+    ? new Date(d).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : '—'
+
+const getStatusBadge = (status) => {
+  if (status === 'pending') return 'bg-yellow-100 text-yellow-700'
+  if (status === 'accepted') return 'bg-green-100 text-green-700'
+  if (status === 'rejected') return 'bg-red-100 text-red-700'
+  return 'bg-gray-100 text-gray-700'
+}
+
+const getStatusLabel = (status, t) => {
+  if (status === 'pending') {
+    return (
+      <>
+        <span aria-hidden="true">⏳</span> {t('pending')}
+      </>
+    )
+  }
+  if (status === 'accepted') {
+    return (
+      <>
+        <span aria-hidden="true">✅</span> {t('approved')}
+      </>
+    )
+  }
+  if (status === 'rejected') {
+    return (
+      <>
+        <span aria-hidden="true">❌</span> {t('rejected')}
+      </>
+    )
+  }
+  return status
+}
+
+const INITIAL_FORM = {
+  vehicleId: '',
+  vehicleCategory: 'mining',
+  salaryType: 'monthly',
+  salaryPerDay: '',
+  salaryPerMonth: '',
+  salaryPerHour: '',
+  hasBhatta: false,
+  dailyBhatta: '',
+  hasHourlyBonus: false,
+  transportType: 'none',
+  duration: '30',
+  startDate: new Date().toISOString().split('T')[0],
+  terms: '',
+  safetyConditions: '',
+  workLocation: '',
+}
 
 const InviteDriver = () => {
   const { t } = useTranslation()
@@ -16,67 +75,142 @@ const InviteDriver = () => {
   const [sending, setSending] = useState(false)
   const [sentInvites, setSentInvites] = useState([])
 
-  const [form, setForm] = useState({
-    vehicleId: '',
-    vehicleCategory: 'mining',
-    salaryType: 'monthly',
-    salaryPerDay: '',
-    salaryPerMonth: '',
-    salaryPerHour: '',
-    hasBhatta: false,
-    dailyBhatta: '',
-    hasHourlyBonus: false,
-    transportType: 'none',
-    duration: '30',
-    startDate: new Date().toISOString().split('T')[0],
-    terms: '',
-    safetyConditions: '',
-    workLocation: '',
-  })
+  const [form, setForm] = useState(INITIAL_FORM)
 
   useEffect(() => {
+    let cancelled = false
     ;(async () => {
       try {
-        const [vRes, iRes] = await Promise.all([getVehicles(), getOwnerInvites()])
-        setVehicles(vRes.data?.vehicles || [])
-        setSentInvites(iRes.data?.invites || [])
+        const [vRes, iRes] = await Promise.all([
+          getVehicles(),
+          getOwnerInvites(),
+        ])
+        if (!cancelled) {
+          setVehicles(vRes.data?.vehicles || [])
+          setSentInvites(iRes.data?.invites || [])
+        }
       } catch (e) {
-        toast.error(e.response?.data?.message || t('loadInviteError'))
+        if (!cancelled) {
+          toast.error(
+            e.response?.data?.message || t('loadInviteError')
+          )
+        }
       }
     })()
+    return () => {
+      cancelled = true
+    }
+  }, [t])
+
+  const initials = useMemo(
+    () =>
+      driverFound?.name
+        ?.split(/\s+/)
+        .filter(Boolean)
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase() || 'D',
+    [driverFound]
+  )
+
+  const handleSearchDriver = useCallback(async () => {
+    try {
+      setChecking(true)
+      const res = await API.get(
+        `/api/auth/check-phone?phone=${phone}`
+      )
+      const driver = res.data?.driver
+      if (!driver) {
+        setDriverFound(null)
+        setDriverNotFound(true)
+        toast.error(t('driverNotFoundToast'))
+        return
+      }
+      setDriverFound(driver)
+      setDriverNotFound(false)
+      setStep(2)
+      toast.success(
+        `${driver.name || 'Driver'} ${t('driverFoundToast')}`
+      )
+    } catch (e) {
+      if (e.response?.status === 404) {
+        setDriverFound(null)
+        setDriverNotFound(true)
+        toast.error(t('driverNotFoundToast'))
+      } else {
+        toast.error(
+          e.response?.data?.message || t('checkError')
+        )
+      }
+    } finally {
+      setChecking(false)
+    }
+  }, [phone, t])
+
+  const handleSendInvite = useCallback(async () => {
+    if (!form.vehicleId) {
+      toast.error(t('vehicleRequired'))
+      return
+    }
+    if (!form.workLocation.trim()) {
+      toast.error(
+        t('workLocationRequired') || 'Work location required'
+      )
+      return
+    }
+    try {
+      setSending(true)
+      await sendInvite({
+        driverPhone: phone,
+        vehicleId: form.vehicleId,
+        vehicleCategory: form.vehicleCategory,
+        salaryType: form.salaryType,
+        salaryPerDay: Number(form.salaryPerDay) || 0,
+        salaryPerMonth: Number(form.salaryPerMonth) || 0,
+        salaryPerHour: Number(form.salaryPerHour) || 0,
+        dailyBhatta: Number(form.dailyBhatta) || 0,
+        hasBhatta: Boolean(form.hasBhatta),
+        hasHourlyBonus: Boolean(form.hasHourlyBonus),
+        transportType:
+          form.vehicleCategory === 'transport'
+            ? form.transportType
+            : 'none',
+        duration: Number(form.duration) || 30,
+        startDate: form.startDate,
+        terms: form.terms,
+        safetyConditions: form.safetyConditions,
+        workLocation: form.workLocation,
+      })
+      toast.success(t('inviteSentToast'))
+      const iRes = await getOwnerInvites()
+      setSentInvites(iRes.data?.invites || [])
+      setStep(3)
+    } catch (e) {
+      toast.error(
+        e.response?.data?.message || t('inviteError')
+      )
+    } finally {
+      setSending(false)
+    }
+  }, [phone, form, t])
+
+  const handleReset = useCallback(() => {
+    setStep(1)
+    setPhone('')
+    setChecking(false)
+    setDriverFound(null)
+    setDriverNotFound(false)
+    setSending(false)
+    setForm(INITIAL_FORM)
   }, [])
 
-  const initials =
-    driverFound?.name
-      ?.split(/\s+/)
-      .filter(Boolean)
-      .map((w) => w[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() || 'D'
-
-  const statusBadge = (status) => {
-    if (status === 'pending') return 'bg-yellow-100 text-yellow-700'
-    if (status === 'accepted') return 'bg-green-100 text-green-700'
-    if (status === 'rejected') return 'bg-red-100 text-red-700'
-    return 'bg-gray-100 text-gray-700'
-  }
-
-  const statusLabel = (status) => {
-    if (status === 'pending') return `⏳ ${t('pending')}`
-    if (status === 'accepted') return `✅ ${t('approved')}`
-    if (status === 'rejected') return `❌ ${t('rejected')}`
-    return status
-  }
-
-  const fmtDate = (d) =>
-    d
-      ? new Date(d).toLocaleDateString('en-IN', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-        })
-      : '—'
+  const handleWrongDriver = useCallback(() => {
+    setStep(1)
+    setDriverFound(null)
+    setPhone('')
+    setDriverNotFound(false)
+  }, [])
 
   return (
     <div
@@ -109,27 +243,7 @@ const InviteDriver = () => {
               <button
                 type="button"
                 disabled={checking || phone.length !== 10}
-                onClick={async () => {
-                  try {
-                    setChecking(true)
-                    const res = await API.get(`/api/auth/check-phone?phone=${phone}`)
-                    const driver = res.data?.driver
-                    setDriverFound(driver)
-                    setDriverNotFound(false)
-                    setStep(2)
-                    toast.success(`${driver.name} ${t('driverFoundToast')}`)
-                  } catch (e) {
-                    if (e.response?.status === 404) {
-                      setDriverFound(null)
-                      setDriverNotFound(true)
-                      toast.error(t('driverNotFoundToast'))
-                    } else {
-                      toast.error(e.response?.data?.message || t('checkError'))
-                    }
-                  } finally {
-                    setChecking(false)
-                  }
-                }}
+                onClick={handleSearchDriver}
                 className="mt-4 bg-blue-700 text-white w-full rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
               >
                 {checking ? t('loading') : t('search')}
@@ -159,7 +273,7 @@ const InviteDriver = () => {
             <>
               <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-6">
                 <div className="font-bold text-green-900">
-                  ✅ {t('driverFoundMsg')}
+                  <span aria-hidden="true">✅</span> {t('driverFoundMsg')}
                 </div>
                 <div className="mt-3 flex gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-sm font-bold text-green-800">
@@ -173,12 +287,7 @@ const InviteDriver = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => {
-                        setStep(1)
-                        setDriverFound(null)
-                        setPhone('')
-                        setDriverNotFound(false)
-                      }}
+                      onClick={handleWrongDriver}
                       className="mt-2 text-sm text-blue-700 underline"
                     >
                       {t('wrongDriver')}
@@ -269,6 +378,7 @@ const InviteDriver = () => {
                       className="input-field w-full"
                       placeholder="₹/din"
                       inputMode="numeric"
+                      max="100000"
                     />
                   </>
                 ) : form.salaryType === 'monthly' ? (
@@ -282,6 +392,7 @@ const InviteDriver = () => {
                       className="input-field w-full"
                       placeholder="₹/month"
                       inputMode="numeric"
+                      max="1000000"
                     />
                   </>
                 ) : (
@@ -295,6 +406,7 @@ const InviteDriver = () => {
                       className="input-field w-full"
                       placeholder="₹/ghanta"
                       inputMode="numeric"
+                      max="10000"
                     />
                   </>
                 )}
@@ -322,6 +434,7 @@ const InviteDriver = () => {
                         className="input-field w-full mt-2"
                         placeholder="₹/din"
                         inputMode="numeric"
+                        max="10000"
                       />
                     ) : null}
 
@@ -346,6 +459,7 @@ const InviteDriver = () => {
                         className="input-field w-full mt-2"
                         placeholder="₹/ghanta"
                         inputMode="numeric"
+                        max="10000"
                       />
                     ) : null}
                   </>
@@ -382,6 +496,7 @@ const InviteDriver = () => {
                   onChange={(e) => setForm((f) => ({ ...f, duration: e.target.value }))}
                   className="input-field w-full"
                   inputMode="numeric"
+                  max="3650"
                 />
 
                 <label className="mt-4 block text-sm font-semibold text-gray-800">
@@ -402,6 +517,7 @@ const InviteDriver = () => {
                   onChange={(e) => setForm((f) => ({ ...f, workLocation: e.target.value }))}
                   className="input-field w-full"
                   placeholder={t('workLocationPlaceholder')}
+                  maxLength={200}
                 />
 
                 <label className="mt-4 block text-sm font-semibold text-gray-800">
@@ -413,6 +529,7 @@ const InviteDriver = () => {
                   onChange={(e) => setForm((f) => ({ ...f, terms: e.target.value }))}
                   className="input-field w-full resize-y"
                   placeholder={t('termsPlaceholder')}
+                  maxLength={3000}
                 />
 
                 <label className="mt-4 block text-sm font-semibold text-gray-800">
@@ -424,42 +541,13 @@ const InviteDriver = () => {
                   onChange={(e) => setForm((f) => ({ ...f, safetyConditions: e.target.value }))}
                   className="input-field w-full resize-y"
                   placeholder={t('safetyPlaceholder')}
+                  maxLength={2000}
                 />
 
                 <button
                   type="button"
                   disabled={sending || phone.length !== 10 || !driverFound}
-                  onClick={async () => {
-                    try {
-                      setSending(true)
-                      await sendInvite({
-                        driverPhone: phone,
-                        vehicleId: form.vehicleId,
-                        vehicleCategory: form.vehicleCategory,
-                        salaryType: form.salaryType,
-                        salaryPerDay: Number(form.salaryPerDay) || 0,
-                        salaryPerMonth: Number(form.salaryPerMonth) || 0,
-                        salaryPerHour: Number(form.salaryPerHour) || 0,
-                        dailyBhatta: Number(form.dailyBhatta) || 0,
-                        hasBhatta: Boolean(form.hasBhatta),
-                        hasHourlyBonus: Boolean(form.hasHourlyBonus),
-                        transportType: form.vehicleCategory === 'transport' ? form.transportType : 'none',
-                        duration: Number(form.duration) || 30,
-                        startDate: form.startDate,
-                        terms: form.terms,
-                        safetyConditions: form.safetyConditions,
-                        workLocation: form.workLocation,
-                      })
-                      toast.success(t('inviteSentToast'))
-                      const iRes = await getOwnerInvites()
-                      setSentInvites(iRes.data?.invites || [])
-                      setStep(3)
-                    } catch (e) {
-                      toast.error(e.response?.data?.message || t('inviteError'))
-                    } finally {
-                      setSending(false)
-                    }
-                  }}
+                  onClick={handleSendInvite}
                   className="mt-4 bg-blue-700 text-white w-full rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
                 >
                   {sending ? t('loading') : t('submit')}
@@ -470,7 +558,7 @@ const InviteDriver = () => {
 
           {step === 3 ? (
             <div className="bg-green-50 rounded-2xl p-8 text-center">
-              <div className="text-3xl">🎉</div>
+              <div className="text-3xl" aria-hidden="true">🎉</div>
               <h2 className="mt-2 text-xl font-bold text-green-900">
                 {t('inviteSentTitle')}
               </h2>
@@ -482,31 +570,7 @@ const InviteDriver = () => {
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  setStep(1)
-                  setPhone('')
-                  setChecking(false)
-                  setDriverFound(null)
-                  setDriverNotFound(false)
-                  setSending(false)
-                  setForm({
-                    vehicleId: '',
-                    vehicleCategory: 'mining',
-                    salaryType: 'monthly',
-                    salaryPerDay: '',
-                    salaryPerMonth: '',
-                    salaryPerHour: '',
-                    hasBhatta: false,
-                    dailyBhatta: '',
-                    hasHourlyBonus: false,
-                    transportType: 'none',
-                    duration: '30',
-                    startDate: new Date().toISOString().split('T')[0],
-                    terms: '',
-                    safetyConditions: '',
-                    workLocation: '',
-                  })
-                }}
+                onClick={handleReset}
                 className="mt-6 w-full rounded-xl bg-blue-700 py-3 text-sm font-semibold text-white"
               >
                 {t('addDriver')}
@@ -543,8 +607,8 @@ const InviteDriver = () => {
                           {t('sentLabel')}: {fmtDate(inv.createdAt)}
                         </div>
                       </div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadge(inv.status)}`}>
-                        {statusLabel(inv.status)}
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadge(inv.status)}`}>
+                        {getStatusLabel(inv.status, t)}
                       </span>
                     </div>
                   </div>
@@ -558,4 +622,3 @@ const InviteDriver = () => {
 }
 
 export default InviteDriver
-

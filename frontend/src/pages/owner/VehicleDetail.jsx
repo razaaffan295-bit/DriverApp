@@ -1,10 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import DriverProfileModal from '../../components/owner/DriverProfileModal'
 import { getPublicDriverProfile } from '../../api/ownerAPI'
 import { getVehicleDetail } from '../../api/ownerAPI'
+
+const formatDate = (date) => {
+  if (!date) return '—'
+  return new Date(date).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
 
 const VehicleDetail = () => {
   const { t } = useTranslation()
@@ -22,17 +31,20 @@ const VehicleDetail = () => {
   const [modalLoading, setModalLoading] = useState(false)
 
   useEffect(() => {
+    if (!id) return
+    let cancelled = false
     ;(async () => {
-      if (!id) return
       setLoading(true)
       try {
         const res = await getVehicleDetail(id)
+        if (cancelled) return
         setVehicle(res.data?.vehicle || null)
         setActiveContract(res.data?.activeContract || null)
         setContractHistory(res.data?.contractHistory || [])
         setDriverRating(Number(res.data?.driverRating) || 0)
         setRatingCount(Number(res.data?.ratingCount) || 0)
       } catch (e) {
+        if (cancelled) return
         toast.error(
           e.response?.data?.message || t('vehicleLoadError2')
         )
@@ -42,35 +54,29 @@ const VehicleDetail = () => {
         setDriverRating(0)
         setRatingCount(0)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     })()
+    return () => {
+      cancelled = true
+    }
   }, [id])
 
-  const formatDate = (date) => {
-    if (!date) return '—'
-    return new Date(date).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  }
+  const driver = useMemo(
+    () => activeContract?.driverId || vehicle?.assignedDriver || null,
+    [activeContract, vehicle]
+  )
 
-  const driver = activeContract?.driverId || vehicle?.assignedDriver || null
+  const daysLeft = useMemo(() => {
+    if (!activeContract) return 0
+    const startTime = new Date(activeContract.startDate).getTime()
+    const durationMs =
+      Number(activeContract.duration || 0) * 24 * 60 * 60 * 1000
+    const remaining = startTime + durationMs - Date.now()
+    return Math.max(0, Math.ceil(remaining / (24 * 60 * 60 * 1000)))
+  }, [activeContract])
 
-  const daysLeft = activeContract
-    ? Math.max(
-        0,
-        Math.ceil(
-          (new Date(activeContract.startDate).getTime() +
-            Number(activeContract.duration || 0) * 24 * 60 * 60 * 1000 -
-            Date.now()) /
-            (24 * 60 * 60 * 1000)
-        )
-      )
-    : 0
-
-  const handleViewProfile = async () => {
+  const handleViewProfile = useCallback(async () => {
     try {
       setModalLoading(true)
 
@@ -84,6 +90,11 @@ const VehicleDetail = () => {
 
       const res = await getPublicDriverProfile(driverId)
 
+      if (!res?.data?.user) {
+        toast.error(t('profileLoadError4'))
+        return
+      }
+
       setSelectedDriver({
         ...res.data.user,
         profile: res.data.profile,
@@ -96,14 +107,15 @@ const VehicleDetail = () => {
 
       setShowModal(true)
     } catch (error) {
-      console.error(error)
-      toast.error(t('profileLoadError4'))
+      toast.error(
+        error.response?.data?.message || t('profileLoadError4')
+      )
     } finally {
       setModalLoading(false)
     }
-  }
+  }, [activeContract, vehicle, t])
 
-  const handleMessage = () => {
+  const handleMessage = useCallback(() => {
     const driverId =
       activeContract?.driverId?._id || vehicle?.assignedDriver?._id
 
@@ -119,7 +131,28 @@ const VehicleDetail = () => {
     } else {
       navigate(`/owner/messages?driverId=${driverId}`)
     }
-  }
+  }, [activeContract, vehicle, navigate, t])
+
+  const driverInitial = useMemo(
+    () => (driver?.name || 'D').slice(0, 1).toUpperCase(),
+    [driver]
+  )
+
+  const salaryDisplay = useMemo(() => {
+    if (!activeContract) return ''
+    if (activeContract.salaryType === 'daily') {
+      return `₹${activeContract.salaryPerDay}/${t('perDay')}`
+    }
+    if (activeContract.salaryType === 'monthly') {
+      return `₹${activeContract.salaryPerMonth}/${t('perMonth')}`
+    }
+    return `₹${activeContract.salaryPerHour}/${t('perHour')}`
+  }, [activeContract, t])
+
+  const documentCount = useMemo(() => {
+    if (!Array.isArray(vehicle?.documents)) return 0
+    return vehicle.documents.length
+  }, [vehicle])
 
   return (
     <div
@@ -200,9 +233,9 @@ const VehicleDetail = () => {
 
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <div className="text-blue-600 text-sm">
-                    {Array.isArray(vehicle.documents) && vehicle.documents.length > 0 ? (
+                    {documentCount > 0 ? (
                       <span>
-                        📄 {vehicle.documents.length} {t('documentsCount')}
+                        <span aria-hidden="true">📄</span> {documentCount} {t('documentsCount')}
                       </span>
                     ) : null}
                   </div>
@@ -224,7 +257,7 @@ const VehicleDetail = () => {
 
                   <div className="flex items-center gap-4">
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-2xl font-bold text-green-700">
-                      {(driver?.name || 'D').slice(0, 1).toUpperCase()}
+                      {driverInitial}
                     </div>
                     <div className="min-w-0">
                       <div className="text-xl font-bold text-gray-900 truncate">{driver?.name || 'Driver'}</div>
@@ -237,7 +270,7 @@ const VehicleDetail = () => {
                       <div className="mt-2 text-sm">
                         {Number(driverRating) > 0 ? (
                           <div className="text-yellow-600">
-                            {'★★★★★'}{' '}
+                            <span aria-hidden="true">{'★★★★★'}</span>{' '}
                             <span className="text-gray-700">
                               {driverRating} ({ratingCount} {t('reviews')})
                             </span>
@@ -251,7 +284,7 @@ const VehicleDetail = () => {
 
                       {driver?.isVerified ? (
                         <span className="mt-2 inline-flex bg-green-100 text-green-600 text-xs px-2 py-1 rounded-full">
-                          ✓ {t('verifiedLabel')}
+                          <span aria-hidden="true">✓</span> {t('verifiedLabel')}
                         </span>
                       ) : null}
                     </div>
@@ -300,11 +333,7 @@ const VehicleDetail = () => {
                     </div>
                     <div>
                       <strong>{t('salaryLabel4')}:</strong>{' '}
-                      {activeContract.salaryType === 'daily'
-                        ? `₹${activeContract.salaryPerDay}/${t('perDay')}`
-                        : activeContract.salaryType === 'monthly'
-                          ? `₹${activeContract.salaryPerMonth}/${t('perMonth')}`
-                          : `₹${activeContract.salaryPerHour}/${t('perHour')}`}
+                      {salaryDisplay}
                     </div>
                     {activeContract.hasBhatta ? (
                       <div>
@@ -440,4 +469,3 @@ const VehicleDetail = () => {
 }
 
 export default VehicleDetail
-

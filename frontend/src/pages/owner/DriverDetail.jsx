@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
@@ -19,6 +19,31 @@ const getThumbUrl = (url) => {
   return url
 }
 
+const formatDate = (date) => {
+  if (!date) return '—'
+  return new Date(date).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+const renderStars = (score) => {
+  const s = Number(score) || 0
+  return [1, 2, 3, 4, 5].map((star) => (
+    <span
+      key={star}
+      aria-hidden="true"
+      style={{
+        color: star <= s ? '#EAB308' : '#D1D5DB',
+        fontSize: '16px',
+      }}
+    >
+      ★
+    </span>
+  ))
+}
+
 const DriverDetail = () => {
   const { t } = useTranslation()
   const { id } = useParams()
@@ -28,44 +53,28 @@ const DriverDetail = () => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!id) return
+    let cancelled = false
     ;(async () => {
-      if (!id) return
       setLoading(true)
       try {
         const res = await getDriverDetail(id)
+        if (cancelled) return
         setData(res.data || null)
       } catch (e) {
-        toast.error(e.response?.data?.message || t('driverLoadError'))
+        if (cancelled) return
+        toast.error(
+          e.response?.data?.message || t('driverLoadError')
+        )
         setData(null)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     })()
+    return () => {
+      cancelled = true
+    }
   }, [id])
-
-  const formatDate = (date) => {
-    if (!date) return '—'
-    return new Date(date).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  }
-
-  const renderStars = (score) => {
-    const s = Number(score) || 0
-    return [1, 2, 3, 4, 5].map((star) => (
-      <span
-        key={star}
-        style={{
-          color: star <= s ? '#EAB308' : '#D1D5DB',
-          fontSize: '16px',
-        }}
-      >
-        ★
-      </span>
-    ))
-  }
 
   const {
     driver,
@@ -79,26 +88,82 @@ const DriverDetail = () => {
     paymentSummary,
   } = data || {}
 
-  const daysLeft = activeContract
-    ? Math.max(
-        0,
-        Math.ceil(
-          (new Date(activeContract.startDate).getTime() +
-            Number(activeContract.duration || 0) * 24 * 60 * 60 * 1000 -
-            Date.now()) /
-            (24 * 60 * 60 * 1000)
-        )
-      )
-    : 0
+  const daysLeft = useMemo(() => {
+    if (!activeContract) return 0
+    const startTime = new Date(activeContract.startDate).getTime()
+    const durationMs =
+      Number(activeContract.duration || 0) * 24 * 60 * 60 * 1000
+    const remaining = startTime + durationMs - Date.now()
+    return Math.max(0, Math.ceil(remaining / (24 * 60 * 60 * 1000)))
+  }, [activeContract])
 
-  const messageUrl = (() => {
+  const messageUrl = useMemo(() => {
     const driverId = driver?._id || id
-    const jobId = activeContract?.jobId?._id || activeContract?.jobId
-    if (jobId) return `/owner/messages?jobId=${jobId}&driverId=${driverId}`
+    const jobId =
+      activeContract?.jobId?._id || activeContract?.jobId
+    if (jobId) {
+      return `/owner/messages?jobId=${jobId}&driverId=${driverId}`
+    }
     return `/owner/messages?driverId=${driverId}`
-  })()
+  }, [driver, id, activeContract])
 
-  const driverProfile = profile
+  const driverInitial = useMemo(
+    () => (driver?.name || 'D').slice(0, 1).toUpperCase(),
+    [driver]
+  )
+
+  const activeSalaryDisplay = useMemo(() => {
+    if (!activeContract) return ''
+    if (activeContract.salaryType === 'daily') {
+      return `₹${activeContract.salaryPerDay}/${t('perDay')}`
+    }
+    if (activeContract.salaryType === 'monthly') {
+      return `₹${activeContract.salaryPerMonth}/${t('perMonth')}`
+    }
+    return `₹${activeContract.salaryPerHour}/${t('perHour')}`
+  }, [activeContract, t])
+
+  const documentsList = useMemo(() => {
+    if (!profile?.documents) return []
+    return [
+      {
+        key: 'license',
+        label: 'License',
+        url: profile.documents.license,
+      },
+      {
+        key: 'aadhar',
+        label: 'Aadhar',
+        url: profile.documents.aadhar,
+      },
+      {
+        key: 'photo',
+        label: 'Photo',
+        url: profile.documents.photo,
+      },
+      {
+        key: 'other',
+        label: 'Other',
+        url: profile.documents.other,
+      },
+    ].filter((d) => d.url)
+  }, [profile])
+
+  const hasDocuments = useMemo(
+    () =>
+      profile?.documents &&
+      Object.values(profile.documents).some((v) => v),
+    [profile]
+  )
+
+  const handleViewVehicle = useCallback(() => {
+    const vid = activeContract?.jobId?.vehicleId?._id
+    if (vid) {
+      navigate(`/owner/vehicles/${vid}`)
+    } else {
+      toast.error(t('vehicleNotFound'))
+    }
+  }, [activeContract, navigate, t])
 
   return (
     <div
@@ -132,12 +197,15 @@ const DriverDetail = () => {
                     {driver?.profilePhoto ? (
                       <img
                         src={getThumbUrl(driver.profilePhoto)}
-                        alt=""
+                        alt={driver?.name || 'Driver'}
                         className="h-full w-full object-cover"
                         style={{ cursor: 'pointer' }}
+                        onError={(e) => {
+                          e.target.style.display = 'none'
+                        }}
                       />
                     ) : (
-                      (driver?.name || 'D').slice(0, 1).toUpperCase()
+                      driverInitial
                     )}
                   </div>
                   <div className="min-w-0">
@@ -151,7 +219,7 @@ const DriverDetail = () => {
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {driver?.isVerified ? (
                         <span className="bg-green-100 text-green-600 text-xs px-2 py-1 rounded-full">
-                          ✓ {t('verifiedLabel')}
+                          <span aria-hidden="true">✓</span> {t('verifiedLabel')}
                         </span>
                       ) : null}
                       <span
@@ -189,8 +257,7 @@ const DriverDetail = () => {
                   {profile?.licenseType || '—'} — {profile?.licenseNumber || '—'}
                 </div>
 
-                {driverProfile?.documents &&
-                Object.values(driverProfile.documents).some((v) => v) ? (
+                {hasDocuments ? (
                   <div
                     style={{
                       marginTop: '16px',
@@ -217,30 +284,7 @@ const DriverDetail = () => {
                         flexWrap: 'wrap',
                       }}
                     >
-                      {[
-                        {
-                          key: 'license',
-                          label: 'License',
-                          url: driverProfile.documents.license,
-                        },
-                        {
-                          key: 'aadhar',
-                          label: 'Aadhar',
-                          url: driverProfile.documents.aadhar,
-                        },
-                        {
-                          key: 'photo',
-                          label: 'Photo',
-                          url: driverProfile.documents.photo,
-                        },
-                        {
-                          key: 'other',
-                          label: 'Other',
-                          url: driverProfile.documents.other,
-                        },
-                      ]
-                        .filter((d) => d.url)
-                        .map((doc) => (
+                      {documentsList.map((doc) => (
                           <a
                             key={doc.key}
                             href={doc.url}
@@ -270,6 +314,7 @@ const DriverDetail = () => {
                                 }}
                               >
                                 <span
+                                  aria-hidden="true"
                                   style={{
                                     fontSize: '24px',
                                   }}
@@ -360,11 +405,7 @@ const DriverDetail = () => {
                     </div>
                     <div>
                       <strong>{t('salaryLabel2')}:</strong>{' '}
-                      {activeContract.salaryType === 'daily'
-                        ? `₹${activeContract.salaryPerDay}/${t('perDay')}`
-                        : activeContract.salaryType === 'monthly'
-                          ? `₹${activeContract.salaryPerMonth}/${t('perMonth')}`
-                          : `₹${activeContract.salaryPerHour}/${t('perHour')}`}
+                      {activeSalaryDisplay}
                     </div>
                     {activeContract.hasBhatta ? (
                       <div>
@@ -434,32 +475,28 @@ const DriverDetail = () => {
                       onClick={() => navigate('/owner/attendance')}
                       className="bg-white border rounded-xl p-3 text-center text-sm"
                     >
-                      📅 {t('attendance')}
+                      <span aria-hidden="true">📅</span> {t('attendance')}
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate('/owner/payments')}
                       className="bg-white border rounded-xl p-3 text-center text-sm"
                     >
-                      💰 {t('payments')}
+                      <span aria-hidden="true">💰</span> {t('payments')}
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate(`/owner/contracts/${activeContract._id}`)}
                       className="bg-white border rounded-xl p-3 text-center text-sm"
                     >
-                      📋 {t('viewContract')}
+                      <span aria-hidden="true">📋</span> {t('viewContract')}
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        const vid = activeContract.jobId?.vehicleId?._id
-                        if (vid) navigate(`/owner/vehicles/${vid}`)
-                        else toast.error(t('vehicleNotFound'))
-                      }}
+                      onClick={handleViewVehicle}
                       className="bg-white border rounded-xl p-3 text-center text-sm"
                     >
-                      🚗 {t('viewVehicleBtn')}
+                      <span aria-hidden="true">🚗</span> {t('viewVehicleBtn')}
                     </button>
                   </div>
                 </div>
@@ -540,4 +577,3 @@ const DriverDetail = () => {
 }
 
 export default DriverDetail
-

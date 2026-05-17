@@ -76,7 +76,7 @@ const OwnerProfile = () => {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (!getUser()) return
@@ -94,11 +94,16 @@ const OwnerProfile = () => {
 
   const displayPhoto = user?.profilePhoto
 
-  const handlePhotoUpload = async (e) => {
+  const handlePhotoUpload = useCallback(async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) {
       toast.error(t('onlyImageAllowed'))
+      e.target.value = ''
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Photo 5MB se kam honi chahiye')
       e.target.value = ''
       return
     }
@@ -132,7 +137,7 @@ const OwnerProfile = () => {
       )
     }
     e.target.value = ''
-  }
+  }, [t])
 
   const handleSaveProfile = async (e) => {
     e.preventDefault()
@@ -296,6 +301,7 @@ const OwnerProfile = () => {
                       <input
                         type="text"
                         required
+                        maxLength={100}
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         className="input-field w-full"
@@ -318,6 +324,7 @@ const OwnerProfile = () => {
                       </label>
                       <input
                         type="text"
+                        maxLength={200}
                         value={profile.companyName}
                         onChange={(e) =>
                           setProfile((p) => ({
@@ -334,6 +341,7 @@ const OwnerProfile = () => {
                       </label>
                       <textarea
                         rows={3}
+                        maxLength={1000}
                         value={profile.about}
                         onChange={(e) =>
                           setProfile((p) => ({ ...p, about: e.target.value }))
@@ -364,6 +372,7 @@ const OwnerProfile = () => {
                       </label>
                       <input
                         type="text"
+                        maxLength={100}
                         value={districtVal}
                         onChange={(e) => setDistrictVal(e.target.value)}
                         className="input-field w-full"
@@ -434,6 +443,7 @@ const OwnerProfile = () => {
                           </label>
                           <input
                             type="text"
+                            maxLength={15}
                             value={vehicleForm.vehicleNumber}
                             onChange={(e) =>
                               setVehicleForm((f) => ({
@@ -451,6 +461,7 @@ const OwnerProfile = () => {
                           </label>
                           <input
                             type="text"
+                            maxLength={100}
                             value={vehicleForm.vehicleModel}
                             onChange={(e) =>
                               setVehicleForm((f) => ({
@@ -491,6 +502,7 @@ const OwnerProfile = () => {
                           </label>
                           <input
                             type="text"
+                            maxLength={100}
                             value={vehicleForm.district}
                             onChange={(e) =>
                               setVehicleForm((f) => ({
@@ -559,23 +571,23 @@ const OwnerProfile = () => {
                               </span>
                               <div className="flex items-center gap-2">
                                 <span className="font-bold text-gray-900">
-                                  {v.vehicleNumber || 'â€”'}
+                                  {v.vehicleNumber || '—'}
                                 </span>
-                                <span className="text-gray-400">â†’</span>
+                                <span className="text-gray-400">→</span>
                               </div>
                             </div>
                             <p className="mt-3 text-sm text-gray-600">
                               <span className="font-medium text-gray-700">
                                 {t('modelLabel')}:
                               </span>{' '}
-                              {v.vehicleModel || 'â€”'}
+                              {v.vehicleModel || '—'}
                             </p>
                             <p className="text-sm text-gray-600">
                               <span className="font-medium text-gray-700">
                                 {t('locationLabel3')}:
                               </span>{' '}
-                              {v.location?.state || 'â€”'},{' '}
-                              {v.location?.district || 'â€”'}
+                              {v.location?.state || '—'},{' '}
+                              {v.location?.district || '—'}
                             </p>
                             <p className="text-sm text-gray-600">
                               <span className="font-medium text-gray-700">

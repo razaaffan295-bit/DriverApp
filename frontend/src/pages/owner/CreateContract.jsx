@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
@@ -69,7 +69,6 @@ const CreateContract = () => {
           : null
       )
     } catch (e) {
-      console.error(e)
       toast.error(
         e.response?.data?.message || t('dataLoadError3')
       )
@@ -82,53 +81,77 @@ const CreateContract = () => {
     loadPage()
   }, [loadPage])
 
-  const initials =
-    user?.name
-      ?.split(/\s+/)
-      .filter(Boolean)
-      .map((w) => w[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() || 'O'
+  const ownerName = useMemo(
+    () => user?.name || 'Owner',
+    [user]
+  )
+  const driverName = useMemo(
+    () => driver?.name || 'Driver',
+    [driver]
+  )
+  const workLoc = useMemo(() => {
+    if (job?.location?.address && job?.location?.city) {
+      return `${job.location.address}, ${job.location.city}`
+    }
+    return (
+      [job?.location?.address, job?.location?.city]
+        .filter(Boolean)
+        .join(', ') || '—'
+    )
+  }, [job])
+  const todayStr = useMemo(
+    () =>
+      new Date().toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }),
+    []
+  )
+  const jobDerived = useMemo(() => ({
+    salaryType: job?.salaryType || 'daily',
+    vehicleCategory: job?.vehicleCategory || 'construction',
+    salaryPerDay: Number(job?.salaryPerDay) || 0,
+    salaryPerMonth: Number(job?.salaryPerMonth) || 0,
+    salaryPerHour: Number(job?.salaryPerHour) || 0,
+    dailyBhatta: Number(job?.dailyBhatta) || 0,
+    duration: Number(job?.duration) || 0,
+  }), [job])
 
-  const ownerName = user?.name || 'Owner'
-  const driverName = driver?.name || 'Driver'
-  const workLoc =
-    job?.location?.address && job?.location?.city
-      ? `${job.location.address}, ${job.location.city}`
-      : [job?.location?.address, job?.location?.city]
-          .filter(Boolean)
-          .join(', ') || '—'
-  const todayStr = new Date().toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-  const salaryType = job?.salaryType || 'daily'
-  const vehicleCategory = job?.vehicleCategory || 'construction'
-  const salaryPerDay = Number(job?.salaryPerDay) || 0
-  const salaryPerMonth = Number(job?.salaryPerMonth) || 0
-  const salaryPerHour = Number(job?.salaryPerHour) || 0
-  const dailyBhatta = Number(job?.dailyBhatta) || 0
+  const {
+    salaryType,
+    vehicleCategory,
+    salaryPerDay,
+    salaryPerMonth,
+    salaryPerHour,
+    dailyBhatta,
+    duration,
+  } = jobDerived
 
-  const salaryTypeLabel = (() => {
+  const salaryTypeLabel = useMemo(() => {
     if (vehicleCategory === 'transport') return t('monthlyExpenses')
     if (salaryType === 'daily') return t('perDayLabel')
     if (salaryType === 'monthly') return t('perMonthLabel')
     if (salaryType === 'hourly') return t('perHourLabel')
     return t('perDayLabel')
-  })()
+  }, [vehicleCategory, salaryType, t])
 
-  const rateLine = (() => {
+  const rateLine = useMemo(() => {
     if (vehicleCategory === 'transport') return `${t('monthlySalary')}: ₹${salaryPerMonth}`
     if (salaryType === 'daily') return `${t('dailyRate')}: ₹${salaryPerDay}`
     if (salaryType === 'monthly') return `${t('monthlySalary')}: ₹${salaryPerMonth}`
     if (salaryType === 'hourly') return `${t('hourlyRate')}: ₹${salaryPerHour}`
     return `${t('dailyRate')}: ₹${salaryPerDay}`
-  })()
+  }, [
+    vehicleCategory,
+    salaryType,
+    salaryPerMonth,
+    salaryPerDay,
+    salaryPerHour,
+    t,
+  ])
 
-  const duration = Number(job?.duration) || 0
-  const totalK = (() => {
+  const totalK = useMemo(() => {
     if (vehicleCategory === 'transport') {
       return salaryPerMonth * Math.ceil(duration / 30)
     }
@@ -139,9 +162,89 @@ const CreateContract = () => {
       return t('hourlyBasis')
     }
     return salaryPerDay * duration
-  })()
+  }, [
+    vehicleCategory,
+    salaryType,
+    salaryPerMonth,
+    salaryPerDay,
+    duration,
+    t,
+  ])
 
-  const handleSubmit = async (e) => {
+  const rateLineParts = useMemo(() => {
+    const parts = rateLine.split(':')
+    return {
+      label: parts[0] || '',
+      value: parts.slice(1).join(':').trim(),
+    }
+  }, [rateLine])
+
+  const salaryDisplayCard = useMemo(() => {
+    if (vehicleCategory === 'transport') {
+      return `₹${salaryPerMonth}/${t('perMonth')}`
+    }
+    if (salaryType === 'hourly') {
+      return `₹${salaryPerHour}/${t('perHour')}`
+    }
+    if (salaryType === 'monthly') {
+      return `₹${salaryPerMonth}/${t('perMonth')}`
+    }
+    return `₹${salaryPerDay}/${t('perDay')}`
+  }, [
+    vehicleCategory,
+    salaryType,
+    salaryPerMonth,
+    salaryPerHour,
+    salaryPerDay,
+    t,
+  ])
+
+  const previewText = useMemo(() => {
+    return `JOINING LETTER
+
+Date: ${todayStr}
+
+Yeh joining letter confirm karta hai ki:
+
+Owner: ${ownerName}
+Driver: ${driverName}
+
+Kaam: ${job?.title} — ${job?.vehicleType}
+Location: ${workLoc}
+Start Date: ${fmtDate(job?.startDate)}
+Duration: ${job?.duration} din
+Salary Type: ${salaryTypeLabel}
+${rateLine}
+${dailyBhatta > 0 && vehicleCategory !== 'transport' ? `Daily Bhatta: ₹${dailyBhatta}\n` : ''}Total Kamayi: ${typeof totalK === 'string' ? totalK : `₹${totalK}`}
+
+Shartein:
+${form.terms || t('writingProgress')}
+
+Safety Conditions:
+${form.safetyConditions || t('writingProgress')}
+
+Dono parties is contract se agree hain.
+
+Owner Signature: ____________
+Driver Signature: ____________`
+  }, [
+    todayStr,
+    ownerName,
+    driverName,
+    job,
+    workLoc,
+    duration,
+    salaryTypeLabel,
+    rateLine,
+    dailyBhatta,
+    vehicleCategory,
+    totalK,
+    form.terms,
+    form.safetyConditions,
+    t,
+  ])
+
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault()
     if (!form.terms.trim() || !form.safetyConditions.trim()) {
       toast.error(t('bothFieldsRequired'))
@@ -155,9 +258,7 @@ const CreateContract = () => {
         terms: form.terms.trim(),
         safetyConditions: form.safetyConditions.trim(),
       })
-      toast.success(
-        t('contractSent')
-      )
+      toast.success(t('contractSent'))
       navigate('/owner/applications')
     } catch (err) {
       toast.error(
@@ -167,7 +268,7 @@ const CreateContract = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [form.terms, form.safetyConditions, jobId, driverId, navigate, t])
 
   return (
     <div
@@ -179,7 +280,13 @@ const CreateContract = () => {
               {t('jobOrDriverMissing')}
             </p>
           ) : pageLoading ? (
-            <p className="text-center text-gray-500">{t('loading')}</p>
+            <div className="flex justify-center py-16">
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent"
+                role="status"
+                aria-label={t('loading')}
+              />
+            </div>
           ) : !job || !driver ? (
             <p className="text-center text-gray-500">
               {t('jobOrDriverLoadError')}
@@ -202,14 +309,7 @@ const CreateContract = () => {
                     {job.location?.city}
                   </p>
                   <p className="mt-2 text-sm font-medium text-blue-700">
-                    {vehicleCategory === 'transport'
-                      ? `₹${salaryPerMonth}/${t('perMonth')}`
-                      : salaryType === 'hourly'
-                        ? `₹${salaryPerHour}/${t('perHour')}`
-                        : salaryType === 'monthly'
-                          ? `₹${salaryPerMonth}/${t('perMonth')}`
-                          : `₹${salaryPerDay}/${t('perDay')}`}{' '}
-                    · {job.duration} {t('days')}
+                    {salaryDisplayCard} · {job.duration} {t('days')}
                   </p>
                   <p className="text-xs text-gray-500">
                     {t('startLabel3')}: {fmtDate(job.startDate)}
@@ -254,8 +354,8 @@ const CreateContract = () => {
                   {salaryTypeLabel}
                 </p>
                 <p>
-                  <span className="text-gray-500">{rateLine.split(':')[0]}:</span>{' '}
-                  {rateLine.split(':').slice(1).join(':').trim()}
+                  <span className="text-gray-500">{rateLineParts.label}:</span>{' '}
+                  {rateLineParts.value}
                 </p>
                 {dailyBhatta > 0 && vehicleCategory !== 'transport' && (
                   <p>
@@ -293,6 +393,7 @@ const CreateContract = () => {
                   <textarea
                     required
                     rows={6}
+                    maxLength={3000}
                     value={form.terms}
                     onChange={(e) =>
                       setForm((f) => ({
@@ -315,6 +416,7 @@ const CreateContract = () => {
                   <textarea
                     required
                     rows={4}
+                    maxLength={2000}
                     value={form.safetyConditions}
                     onChange={(e) =>
                       setForm((f) => ({
@@ -335,33 +437,7 @@ const CreateContract = () => {
                     {t('previewLabel')}
                   </h3>
                   <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-gray-800 md:text-sm">
-                    {`JOINING LETTER
-
-Date: ${todayStr}
-
-Yeh joining letter confirm karta hai ki:
-
-Owner: ${ownerName}
-Driver: ${driverName}
-
-Kaam: ${job.title} — ${job.vehicleType}
-Location: ${workLoc}
-Start Date: ${fmtDate(job.startDate)}
-Duration: ${job.duration} din
-Salary Type: ${salaryTypeLabel}
-${rateLine}
-${dailyBhatta > 0 && vehicleCategory !== 'transport' ? `Daily Bhatta: ₹${dailyBhatta}\n` : ''}Total Kamayi: ${typeof totalK === 'string' ? totalK : `₹${totalK}`}
-
-Shartein:
-${form.terms || t('writingProgress')}
-
-Safety Conditions:
-${form.safetyConditions || t('writingProgress')}
-
-Dono parties is contract se agree hain.
-
-Owner Signature: ____________
-Driver Signature: ____________`}
+                    {previewText}
                   </pre>
                 </div>
 

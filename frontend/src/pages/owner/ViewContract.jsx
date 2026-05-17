@@ -1,13 +1,21 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
-import { getUser } from '../../utils/helpers'
 import {
   isNativeApp,
   generateAndOpenPDF,
 } from '../../utils/pdfUpload'
 import { getContractById, completeContract } from '../../api/contractAPI'
+
+const formatDate = (date) => {
+  if (!date) return '—'
+  return new Date(date).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
 
 const getSalaryDisplay = (contract, t) => {
   if (!contract) return '₹0'
@@ -59,23 +67,9 @@ const ViewContract = () => {
   const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
-  const [user, setUser] = useState(null)
   const [contract, setContract] = useState(null)
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState(false)
-
-  useEffect(() => {
-    setUser(getUser())
-  }, [])
-
-  const formatDate = (date) => {
-    if (!date) return '—'
-    return new Date(date).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  }
 
   const fetchContract = useCallback(async () => {
     if (!id) return
@@ -97,99 +91,94 @@ const ViewContract = () => {
     fetchContract()
   }, [fetchContract])
 
-  const handlePrint = async () => {
-    if (isNativeApp()) {
-      await generateAndOpenPDF(
-        'contract',
-        {
-          jobTitle: contract?.jobId?.title || '',
-          vehicleType: contract?.jobId?.vehicleType || '',
-          driverName: contract?.driverId?.name || '',
-          ownerName: contract?.ownerId?.name || '',
-          salary: getSalaryDisplay(contract, t),
-          salaryType: contractSalaryTypeLabel(contract, t),
-          startDate: contract?.startDate
-            ? new Date(contract.startDate)
-              .toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })
-            : '',
-          createdAt: contract?.createdAt
-            ? new Date(contract.createdAt)
-              .toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })
-            : '',
-          duration: contract?.duration || 0,
-          workLocation: contract?.workLocation || '',
-          terms: contract?.terms || '',
-          safetyConditions: contract?.safetyConditions || '',
-          hasBhatta: contract?.hasBhatta || false,
-          dailyBhatta: contract?.dailyBhatta || 0,
-          hasHourlyBonus: contract?.hasHourlyBonus || false,
-          salaryPerHour: contract?.salaryPerHour || 0,
-          driverSigned: contract?.driverSigned || false,
-          driverSignedAt: contract?.driverSignedAt
-            ? new Date(contract.driverSignedAt)
-              .toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })
-            : '',
-          status: contract?.status || '',
-        },
-        `contract-${contract?._id}.pdf`
-      )
-    } else {
-      window.print()
-    }
-  }
+  const totalKamayi = useMemo(
+    () => getTotalKamayi(contract, t),
+    [contract, t]
+  )
 
-  const handleComplete = async () => {
-    if (!contract?._id) return
-    if (
-      !window.confirm(
-        t('confirmComplete')
+  const totalKamayiDisplay = useMemo(
+    () =>
+      typeof totalKamayi === 'string'
+        ? totalKamayi
+        : `₹${totalKamayi}`,
+    [totalKamayi]
+  )
+
+  const salaryDisplay = useMemo(
+    () => getSalaryDisplay(contract, t),
+    [contract, t]
+  )
+
+  const salaryTypeLabel = useMemo(
+    () => contractSalaryTypeLabel(contract, t),
+    [contract, t]
+  )
+
+  const handlePrint = useCallback(async () => {
+    try {
+      if (isNativeApp()) {
+        await generateAndOpenPDF(
+          'contract',
+          {
+            jobTitle: contract?.jobId?.title || '',
+            vehicleType: contract?.jobId?.vehicleType || '',
+            driverName: contract?.driverId?.name || '',
+            ownerName: contract?.ownerId?.name || '',
+            salary: salaryDisplay,
+            salaryType: salaryTypeLabel,
+            startDate: contract?.startDate
+              ? formatDate(contract.startDate)
+              : '',
+            createdAt: contract?.createdAt
+              ? formatDate(contract.createdAt)
+              : '',
+            duration: contract?.duration || 0,
+            workLocation: contract?.workLocation || '',
+            terms: contract?.terms || '',
+            safetyConditions: contract?.safetyConditions || '',
+            hasBhatta: contract?.hasBhatta || false,
+            dailyBhatta: contract?.dailyBhatta || 0,
+            hasHourlyBonus: contract?.hasHourlyBonus || false,
+            salaryPerHour: contract?.salaryPerHour || 0,
+            driverSigned: contract?.driverSigned || false,
+            driverSignedAt: contract?.driverSignedAt
+              ? formatDate(contract.driverSignedAt)
+              : '',
+            status: contract?.status || '',
+          },
+          `contract-${contract?._id}.pdf`
+        )
+      } else {
+        window.print()
+      }
+    } catch (err) {
+      console.error('Contract PDF failed:', err)
+      toast.error(
+        err.response?.data?.message ||
+          'PDF generation failed'
       )
-    ) {
+    }
+  }, [contract, salaryDisplay, salaryTypeLabel])
+
+  const handleComplete = useCallback(async () => {
+    if (!contract?._id) return
+    if (!window.confirm(t('confirmComplete'))) {
       return
     }
     try {
       setCompleting(true)
       await completeContract(contract._id)
-      toast.success(
-        t('contractCompleted')
-      )
+      toast.success(t('contractCompleted'))
       await fetchContract()
     } catch (err) {
       toast.error(
-        err.response?.data?.message || t('contractCompleteError')
+        err.response?.data?.message ||
+          t('contractCompleteError')
       )
     } finally {
       setCompleting(false)
     }
-  }
-
-  const initials =
-    user?.name
-      ?.split(/\s+/)
-      .filter(Boolean)
-      .map((w) => w[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() || 'O'
-
-  const driverLoc = [
-    contract?.driverId?.location?.state,
-    contract?.driverId?.location?.district,
-  ]
-    .filter(Boolean)
-    .join(', ')
+  }, [contract, t, fetchContract])
 
   return (
     <div
@@ -236,7 +225,7 @@ const ViewContract = () => {
 
               {contract.status === 'sent' && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-6 flex items-center gap-3">
-                  <span className="text-2xl">⏳</span>
+                  <span className="text-2xl" aria-hidden="true">⏳</span>
                   <div>
                     <div className="font-semibold text-yellow-800">
                       {t('waitingDriverSign')}
@@ -251,7 +240,7 @@ const ViewContract = () => {
               {contract.status === 'active' && (
                 <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">✅</span>
+                    <span className="text-2xl" aria-hidden="true">✅</span>
                     <div>
                       <div className="font-bold text-green-800">
                         {t('workInProgressContract')}
@@ -264,9 +253,7 @@ const ViewContract = () => {
                   </div>
                   <div className="text-left sm:text-right">
                     <div className="text-xl font-bold text-green-700">
-                      {typeof getTotalKamayi(contract, t) === 'string'
-                        ? getTotalKamayi(contract, t)
-                        : `₹${getTotalKamayi(contract, t)}`}
+                      {totalKamayiDisplay}
                     </div>
                     <div className="text-xs text-green-600">
                       {t('totalContractValue')}
@@ -358,12 +345,12 @@ const ViewContract = () => {
 
                 <div className="print-row">
                   <span>{t('salaryTypeLabel2')}:</span>
-                  <span>{contractSalaryTypeLabel(contract, t)}</span>
+                  <span>{salaryTypeLabel}</span>
                 </div>
 
                 <div className="print-row">
                   <span>{t('salary')}:</span>
-                  <span>{getSalaryDisplay(contract, t)}</span>
+                  <span>{salaryDisplay}</span>
                 </div>
 
                 {contract.hasBhatta && contract.dailyBhatta > 0 && (
@@ -387,11 +374,7 @@ const ViewContract = () => {
 
                 <div className="print-row">
                   <span>{t('totalEarningsLabel3')}:</span>
-                  <span>
-                    {typeof getTotalKamayi(contract, t) === 'string'
-                      ? getTotalKamayi(contract, t)
-                      : `₹${getTotalKamayi(contract, t)}`}
-                  </span>
+                  <span>{totalKamayiDisplay}</span>
                 </div>
 
                 <div style={{ marginTop: '16px' }}>

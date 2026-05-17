@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
@@ -17,6 +17,39 @@ const lastPreview = (c) =>
   typeof c.lastMessage === 'string'
     ? c.lastMessage
     : c.lastMessage?.message ?? ''
+
+const getOtherUserId = (conv) =>
+  String(
+    conv?.otherUserId ||
+    conv?.otherUser?._id ||
+    conv?.otherUser ||
+    ''
+  )
+
+const getJobIdStr = (conv) =>
+  String(conv?.jobId?._id || conv?.jobId || '')
+
+const formatTime = (date) => {
+  try {
+    return new Date(date).toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return ''
+  }
+}
+
+const getInitials = (name) => {
+  if (!name) return '?'
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2)
+}
 
 const OwnerMessages = () => {
   const { t } = useTranslation()
@@ -45,27 +78,35 @@ const OwnerMessages = () => {
   const currentUser = getUser()
   const myId = currentUser?._id || currentUser?.id
 
-  const fetchConversations = async (isInitial = false) => {
+  const fetchConversations = useCallback(async (isInitial = false) => {
     try {
       if (isInitial) setConvLoading(true)
       const res = await getConversations()
-      setConversations(res.data?.conversations || [])
+      const raw = res.data?.conversations || []
+      const seen = new Set()
+      const unique = raw.filter((c) => {
+        const key = `${getOtherUserId(c)}|${getJobIdStr(c)}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      setConversations(unique)
     } catch (err) {
-      console.error(err)
+      // Silent fail - don't disturb user
     } finally {
       if (isInitial) setConvLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchConversations(true)
-  }, [])
+  }, [fetchConversations])
 
   useEffect(() => {
     selectedConvRef.current = selectedConv
   }, [selectedConv])
 
-  const loadMessagesById = async (jobId, driverId) => {
+  const loadMessagesById = useCallback(async (jobId, driverId) => {
     setMsgLoading(true)
     setMessages([])
     try {
@@ -78,13 +119,13 @@ const OwnerMessages = () => {
       const res = await getMessages(jid, driverId)
       setMessages(res.data?.messages || [])
     } catch (err) {
-      console.error(err)
+      // Silent fail
     } finally {
       setMsgLoading(false)
     }
-  }
+  }, [])
 
-  const silentFetchMessages = async (conv) => {
+  const silentFetchMessages = useCallback(async (conv) => {
     if (!conv) return
     try {
       const jobId = conv.jobId?._id || conv.jobId || 'none'
@@ -96,21 +137,21 @@ const OwnerMessages = () => {
       const res = await getMessages(jobId, otherId)
       const newMsgs = res.data?.messages || []
       setMessages((prev) => {
-        if (prev.length === newMsgs.length) return prev
+        if (prev.length === newMsgs.length) {
+          const lastPrev = prev[prev.length - 1]?._id
+          const lastNew = newMsgs[newMsgs.length - 1]?._id
+          if (lastPrev === lastNew) return prev
+        }
         return newMsgs
       })
+      fetchConversations(false)
     } catch (err) {
-      console.error(err)
+      // Silent fail
     }
-  }
+  }, [fetchConversations])
 
-  const selectConversation = async (conv) => {
-    const driverId = String(
-      conv.otherUserId ||
-        conv.otherUser?._id ||
-        conv.otherUser ||
-        ''
-    )
+  const selectConversation = useCallback(async (conv) => {
+    const driverId = getOtherUserId(conv)
     const jidRaw = conv.jobId?._id ?? conv.jobId
     const jobKey =
       jidRaw != null &&
@@ -122,16 +163,9 @@ const OwnerMessages = () => {
 
     setConversations((prev) =>
       prev.map((c) => {
-        const cId = String(
-          c.otherUserId ||
-            c.otherUser?._id ||
-            c.otherUser ||
-            ''
-        )
-        const cJob = String(c.jobId?._id || c.jobId || '')
-        const vJob = String(
-          conv.jobId?._id || conv.jobId || ''
-        )
+        const cId = getOtherUserId(c)
+        const cJob = getJobIdStr(c)
+        const vJob = getJobIdStr(conv)
         if (cId === driverId && cJob === vJob) {
           return { ...c, unreadCount: 0 }
         }
@@ -165,17 +199,15 @@ const OwnerMessages = () => {
       const res = await getMessages(jobId, otherId)
       setMessages(res.data?.messages || [])
     } catch (err) {
-      console.error(err)
+      // Silent fail
     } finally {
       setMsgLoading(false)
     }
-  }
+  }, [setSearchParams])
 
   useEffect(() => {
     const driverId = searchParams.get('driverId')
     const jobId = searchParams.get('jobId')
-
-    console.log('URL params:', { driverId, jobId })
 
     if (
       !driverId ||
@@ -256,20 +288,21 @@ const OwnerMessages = () => {
     setView('chat')
     setSelectedConv(newConv)
     loadMessagesById(jobId || 'none', driverId)
-  }, [searchParams, conversations])
+  }, [searchParams, conversations, selectConversation, loadMessagesById])
 
   useEffect(() => {
     if (!selectedConv) return
 
     pollRef.current = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
       const live = selectedConvRef.current
       if (live) silentFetchMessages(live)
-    }, 15000)
+    }, 5000)
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current)
     }
-  }, [selectedConv])
+  }, [selectedConv, silentFetchMessages])
 
   useEffect(() => {
     const fetchOtherUserName = async () => {
@@ -298,7 +331,7 @@ const OwnerMessages = () => {
             : prev
         )
       } catch (err) {
-        console.error(err)
+        // Silent fail
       }
     }
 
@@ -313,7 +346,7 @@ const OwnerMessages = () => {
     })
   }, [messages])
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!newMessage.trim() || !selectedConv) return
 
     const msgText = newMessage.trim()
@@ -332,12 +365,6 @@ const OwnerMessages = () => {
         selectedConv?.otherUser ||
         selectedConv?.otherUserId ||
         searchParams.get('driverId')
-
-      console.log('Sending message:', {
-        jobId,
-        receiverId,
-        message: msgText,
-      })
 
       if (!receiverId || receiverId === 'undefined') {
         toast.error(t('receiverNotFound'))
@@ -366,51 +393,36 @@ const OwnerMessages = () => {
         isRead: false,
       }
       setMessages((prev) => [...prev, localMsg])
-      fetchConversations()
+      fetchConversations(false)
     } catch (error) {
-      console.error('Send error:', error)
       toast.error(t('messageSendError'))
       setNewMessage(msgText)
     } finally {
       setSending(false)
     }
-  }
+  }, [
+    newMessage,
+    selectedConv,
+    searchParams,
+    myId,
+    currentUser,
+    fetchConversations,
+    t,
+  ])
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
-  }
+  }, [handleSend])
 
-  const formatTime = (date) => {
-    try {
-      return new Date(date).toLocaleTimeString('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    } catch {
-      return ''
-    }
-  }
-
-  const getInitials = (name) => {
-    if (!name) return '?'
-    return name
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2)
-  }
-
-  const isMyMessage = (msg) => {
+  const isMyMessage = useCallback((msg) => {
     const senderId = msg.senderId?._id || msg.senderId
     return String(senderId) === String(myId)
-  }
+  }, [myId])
 
-  const fetchDriverProfile = async () => {
+  const fetchDriverProfile = useCallback(async () => {
     try {
       setProfileLoading(true)
       const driverId =
@@ -439,9 +451,9 @@ const OwnerMessages = () => {
     } finally {
       setProfileLoading(false)
     }
-  }
+  }, [selectedConv, t])
 
-  const fetchJobDetail = async () => {
+  const fetchJobDetail = useCallback(async () => {
     try {
       const jobId =
         selectedConv?.jobId?._id || selectedConv?.jobId
@@ -456,18 +468,34 @@ const OwnerMessages = () => {
     } catch (err) {
       toast.error(t('jobDetailError'))
     }
-  }
+  }, [selectedConv, t])
 
-  const chatHeaderName =
-    selectedConv?.otherUserName ||
-    selectedConv?.otherUser?.name ||
-    'Driver'
-  const chatHeaderJobTitle =
-    selectedConv?.jobId?.title ||
-    (typeof selectedConv?.jobId === 'object'
-      ? ''
-      : selectedConv?.jobId) ||
-    ''
+  const chatHeaderName = useMemo(
+    () =>
+      selectedConv?.otherUserName ||
+      selectedConv?.otherUser?.name ||
+      'Driver',
+    [selectedConv]
+  )
+
+  const chatHeaderJobTitle = useMemo(
+    () =>
+      selectedConv?.jobId?.title ||
+      (typeof selectedConv?.jobId === 'object'
+        ? ''
+        : selectedConv?.jobId) ||
+      '',
+    [selectedConv]
+  )
+
+  const totalUnreadCount = useMemo(
+    () =>
+      conversations.reduce(
+        (sum, c) => sum + (Number(c.unreadCount) || 0),
+        0
+      ),
+    [conversations]
+  )
 
   return (
     <div
@@ -506,21 +534,39 @@ const OwnerMessages = () => {
               fontWeight: '700',
               fontSize: '18px',
               flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}
           >
-            {t('messages')}
+            <span>{t('messages')}</span>
+            {totalUnreadCount > 0 && (
+              <span
+                style={{
+                  background: '#1D4ED8',
+                  color: 'white',
+                  borderRadius: '12px',
+                  padding: '2px 10px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                }}
+              >
+                {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+              </span>
+            )}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {convLoading ? (
               <div
                 style={{
-                  textAlign: 'center',
-                  padding: '24px',
-                  color: '#9CA3AF',
-                  fontSize: '14px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  padding: '32px',
                 }}
+                role="status"
+                aria-label={t('loading')}
               >
-                {t('loading')}
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
               </div>
             ) : (
               conversations.map((conv) => {
@@ -673,6 +719,7 @@ const OwnerMessages = () => {
               >
                 <div
                   style={{ fontSize: '36px', marginBottom: '8px' }}
+                  aria-hidden="true"
                 >
                   💬
                 </div>
@@ -887,6 +934,7 @@ const OwnerMessages = () => {
                   }
                   onKeyDown={handleKeyDown}
                   placeholder={t('messagePlaceholder')}
+                  maxLength={1000}
                   style={{
                     flex: 1,
                     minWidth: 0,
@@ -921,7 +969,7 @@ const OwnerMessages = () => {
                   }}
                   aria-label={t('send')}
                 >
-                  ➤
+                  <span aria-hidden="true">➤</span>
                 </button>
               </div>
             </>
@@ -937,7 +985,7 @@ const OwnerMessages = () => {
                 gap: '8px',
               }}
             >
-              <div style={{ fontSize: '48px' }}>💬</div>
+              <div style={{ fontSize: '48px' }} aria-hidden="true">💬</div>
               <div>{t('startConversation')}</div>
             </div>
           )}
@@ -966,7 +1014,7 @@ const OwnerMessages = () => {
                   setDriverProfileData(null)
                 }}
                 className="text-2xl text-gray-400 hover:text-gray-600"
-                aria-label="Close"
+                aria-label={t('close') || 'Close'}
               >
                 ✕
               </button>
@@ -1185,7 +1233,7 @@ const OwnerMessages = () => {
                   setJobDetailData(null)
                 }}
                 className="text-2xl text-gray-400 hover:text-gray-600"
-                aria-label="Close"
+                aria-label={t('close') || 'Close'}
               >
                 ✕
               </button>
@@ -1244,7 +1292,7 @@ const OwnerMessages = () => {
 
               <div className="mb-4">
                 <div className="mb-1 text-sm text-gray-500">
-                  📍 {t('locationLabel')}
+                  <span aria-hidden="true">📍</span> {t('locationLabel')}
                 </div>
                 <div className="font-medium">
                   {jobDetailData.location?.state},{' '}

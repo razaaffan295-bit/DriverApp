@@ -39,10 +39,6 @@ const PostJob = () => {
 
   const today = new Date().toISOString().slice(0, 10)
 
-  useEffect(() => {
-    toast('Subscription required — setup pending', { icon: '⚠️' })
-  }, [])
-
   const loadVehicles = useCallback(async () => {
     setVehiclesLoading(true)
     try {
@@ -55,7 +51,7 @@ const PostJob = () => {
     } finally {
       setVehiclesLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     loadVehicles()
@@ -120,7 +116,13 @@ const PostJob = () => {
         <div className="p-4 md:p-6">
           <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
               {vehiclesLoading ? (
-                <p className="text-sm text-gray-500">{t('loading')}</p>
+                <div className="flex justify-center py-8">
+                  <div
+                    className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent"
+                    role="status"
+                    aria-label={t('loading')}
+                  />
+                </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -154,6 +156,7 @@ const PostJob = () => {
                       <input
                         type="text"
                         required
+                        maxLength={200}
                         value={form.title}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, title: e.target.value }))
@@ -292,6 +295,7 @@ const PostJob = () => {
                     <textarea
                       required
                       rows={4}
+                      maxLength={2000}
                       value={form.description}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -319,6 +323,7 @@ const PostJob = () => {
                               type="number"
                               required
                               min={0}
+                              max="1000000"
                               value={form.salaryPerMonth}
                               onChange={(e) =>
                                 setForm((f) => ({ ...f, salaryPerMonth: e.target.value }))
@@ -341,6 +346,7 @@ const PostJob = () => {
                               type="number"
                               required
                               min={0}
+                              max="1000000"
                               value={form.salaryPerMonth}
                               onChange={(e) =>
                                 setForm((f) => ({ ...f, salaryPerMonth: e.target.value }))
@@ -363,6 +369,7 @@ const PostJob = () => {
                               type="number"
                               required
                               min={0}
+                              max="100000"
                               value={form.salaryPerDay}
                               onChange={(e) =>
                                 setForm((f) => ({ ...f, salaryPerDay: e.target.value }))
@@ -385,6 +392,7 @@ const PostJob = () => {
                               type="number"
                               required
                               min={0}
+                              max="10000"
                               value={form.salaryPerHour}
                               onChange={(e) =>
                                 setForm((f) => ({ ...f, salaryPerHour: e.target.value }))
@@ -405,6 +413,7 @@ const PostJob = () => {
                           type="number"
                           required
                           min={1}
+                          max="3650"
                           value={form.duration}
                           onChange={(e) =>
                             setForm((f) => ({
@@ -469,6 +478,7 @@ const PostJob = () => {
                                 <input
                                   type="number"
                                   min={0}
+                                  max="10000"
                                   value={form.dailyBhatta}
                                   onChange={(e) =>
                                     setForm((f) => ({ ...f, dailyBhatta: e.target.value }))
@@ -525,6 +535,7 @@ const PostJob = () => {
                                 <input
                                   type="number"
                                   min={0}
+                                  max="10000"
                                   value={form.salaryPerHour}
                                   onChange={(e) =>
                                     setForm((f) => ({ ...f, salaryPerHour: e.target.value }))
@@ -653,6 +664,7 @@ const PostJob = () => {
                       <input
                         type="text"
                         required
+                        maxLength={100}
                         value={form.location?.district || ''}
                         onChange={(e) =>
                           setForm((f) => ({
@@ -676,6 +688,7 @@ const PostJob = () => {
                       <input
                         type="text"
                         required
+                        maxLength={100}
                         value={form.location?.city || ''}
                         onChange={(e) =>
                           setForm((f) => ({
@@ -696,6 +709,7 @@ const PostJob = () => {
                       <input
                         type="text"
                         required
+                        maxLength={300}
                         value={form.location?.address || ''}
                         onChange={(e) =>
                           setForm((f) => ({

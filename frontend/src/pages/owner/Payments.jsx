@@ -1414,6 +1414,7 @@ const OwnerPayments = () => {
                 <input
                   type="number"
                   min="1"
+                  max="1000000"
                   step="1"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -1460,6 +1461,7 @@ const OwnerPayments = () => {
                     value={utr}
                     onChange={(e) => setUtr(e.target.value)}
                     placeholder="UTR123456789"
+                    maxLength={50}
                     className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
                     required
                   />
@@ -1482,10 +1484,17 @@ const OwnerPayments = () => {
                       type="file"
                       accept="image/*"
                       onChange={(e) => {
-                        setProofPhoto(
-                          e.target.files?.[0] || null
-                        )
+                        const file = e.target.files?.[0]
                         e.target.value = ''
+                        if (!file) {
+                          setProofPhoto(null)
+                          return
+                        }
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error('File 5MB se kam honi chahiye')
+                          return
+                        }
+                        setProofPhoto(file)
                       }}
                       style={{ fontSize: '13px' }}
                     />
@@ -1521,10 +1530,17 @@ const OwnerPayments = () => {
                       type="file"
                       accept="image/*"
                       onChange={(e) => {
-                        setProofPhoto(
-                          e.target.files?.[0] || null
-                        )
+                        const file = e.target.files?.[0]
                         e.target.value = ''
+                        if (!file) {
+                          setProofPhoto(null)
+                          return
+                        }
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error('File 5MB se kam honi chahiye')
+                          return
+                        }
+                        setProofPhoto(file)
                       }}
                       style={{ fontSize: '13px' }}
                     />
@@ -1551,6 +1567,7 @@ const OwnerPayments = () => {
                 value={witness}
                 onChange={(e) => setWitness(e.target.value)}
                 placeholder={t('witnessPlaceholder')}
+                maxLength={100}
                 className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
               />
 
@@ -1561,6 +1578,7 @@ const OwnerPayments = () => {
                 rows={2}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
+                maxLength={500}
                 className="mt-1 w-full rounded-xl border border-gray-200 p-3 text-sm"
               />
 
@@ -2041,6 +2059,8 @@ const OwnerPayments = () => {
                           <span>₹</span>
                           <input
                             type="number"
+                            min="1"
+                            max="1000000"
                             value={apprAmt}
                             onChange={(e) =>
                               setApprAmt(e.target.value)
@@ -2083,18 +2103,26 @@ const OwnerPayments = () => {
                               setApprUtr(e.target.value)
                             }
                             placeholder="UTR"
+                            maxLength={50}
                             className="w-full rounded-lg border px-3 py-2 text-sm"
                           />
                         ) : (
                           <input
                             type="file"
                             accept="image/*"
-                            onChange={(e) =>
-                              readPhoto(
-                                e.target.files?.[0],
-                                setApprPhoto
-                              )
-                            }
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              e.target.value = ''
+                              if (!file) {
+                                setApprPhoto('')
+                                return
+                              }
+                              if (file.size > 5 * 1024 * 1024) {
+                                toast.error('File 5MB se kam honi chahiye')
+                                return
+                              }
+                              readPhoto(file, setApprPhoto)
+                            }}
                             className="w-full text-xs"
                           />
                         )}
@@ -2105,6 +2133,7 @@ const OwnerPayments = () => {
                             setApprWitness(e.target.value)
                           }
                           placeholder={t('witnessOptional')}
+                          maxLength={100}
                           className="w-full rounded-lg border px-3 py-2 text-sm"
                         />
                         <textarea
@@ -2114,6 +2143,7 @@ const OwnerPayments = () => {
                             setApprNote(e.target.value)
                           }
                           placeholder="Note"
+                          maxLength={500}
                           className="w-full rounded-lg border p-2 text-sm"
                         />
                         <button

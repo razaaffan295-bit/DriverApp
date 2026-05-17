@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import { getUser } from '../../utils/helpers'
@@ -8,6 +8,7 @@ import {
 } from '../../utils/pdfUpload'
 import { getOwnerTrips, handleTrip } from '../../api/tripAPI'
 import { getOwnerPaymentsSummary } from '../../api/paymentAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const fmtMoney = (n) =>
   `₹${Number.isFinite(Number(n)) ? Number(n) : 0}`
@@ -24,6 +25,22 @@ const tripFrom = (trip) => trip.fromLocation || trip.from || ''
 const tripTo = (trip) => trip.toLocation || trip.to || ''
 const tripCargo = (trip) => trip.cargo || trip.description || ''
 
+const isPdf = (url) =>
+  url &&
+  (url.toLowerCase().includes('.pdf') ||
+    url.toLowerCase().includes('/pdf'))
+
+const getThumbUrl = (url) => {
+  if (!url) return ''
+  if (url.includes('cloudinary.com')) {
+    return url.replace(
+      '/upload/',
+      '/upload/w_150,h_150,c_fill,q_auto/'
+    )
+  }
+  return url
+}
+
 const OwnerTrips = () => {
   const { t } = useTranslation()
   const [user, setUser] = useState(null)
@@ -35,58 +52,44 @@ const OwnerTrips = () => {
   const [expandTripId, setExpandTripId] = useState(null)
   const [printTrip, setPrintTrip] = useState(null)
   const [tripPayments, setTripPayments] = useState([])
-
-  const handleTripReceipt = useCallback(
-    async (trip) => {
-      if (isNativeApp()) {
-        await generateAndOpenPDF(
-          'trip',
-          {
-            from: trip.fromLocation || trip.from || '',
-            to: trip.toLocation || trip.to || '',
-            cargo: trip.cargo || trip.description || '',
-            date: new Date(
-              trip.tripDate || trip.createdAt
-            ).toLocaleDateString('en-IN'),
-            totalExpenses: trip.totalExpenses || 0,
-            totalRepairs: trip.totalRepairs || 0,
-            grandTotal:
-              (Number(trip.totalExpenses) || 0) +
-              (Number(trip.totalRepairs) || 0),
-            approvedAmount:
-              Number(trip.approvedAmount) ||
-              Number(trip.approvedExpenses) || 0,
-            driverName: trip.driverId?.name || '',
-            ownerName: trip.ownerId?.name || '',
-          },
-          `trip-receipt-${trip._id}.pdf`
-        )
-      } else {
-        setPrintTrip(trip)
-        setTimeout(() => window.print(), 300)
-      }
-    },
-    []
-  )
+  const printTimeoutRef = useRef(null)
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache,
+  } = useDataCache()
 
   useEffect(() => {
     setUser(getUser())
   }, [])
 
-  const load = async () => {
-    setLoading(true)
+  useEffect(() => {
+    return () => {
+      if (printTimeoutRef.current) {
+        clearTimeout(printTimeoutRef.current)
+      }
+      setPrintTrip(null)
+    }
+  }, [])
+
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const res = await getOwnerTrips()
-      setTrips(res.data?.trips || [])
+      const list = res.data?.trips || []
+      setTrips(list)
+      setCachedData('owner_trips', list)
     } catch (e) {
-      setTrips([])
-      toast.error(e.response?.data?.message || t('tripsLoadError3'))
+      if (!silent) {
+        setTrips([])
+        toast.error(e.response?.data?.message || t('tripsLoadError3'))
+      }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }
+  }, [t, setCachedData])
 
-  const loadTripPayments = async () => {
+  const loadTripPayments = useCallback(async () => {
     try {
       const paymentsRes = await getOwnerPaymentsSummary()
       if (paymentsRes.data?.success) {
@@ -96,26 +99,78 @@ const OwnerTrips = () => {
             p.paymentType === 'trip' && p.driverConfirmed === true
         )
         setTripPayments(tripPays)
+        setCachedData('owner_trip_payments', tripPays)
       }
     } catch (err) {
-      console.error(err)
+      // Silent fail
     }
-  }
-
-  const getTripPaid = (tripId) => {
-    const tid = String(tripId)
-    return tripPayments
-      .filter((p) => {
-        const pid = p.tripId?._id ?? p.tripId
-        return String(pid) === tid
-      })
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
-  }
+  }, [setCachedData])
 
   useEffect(() => {
-    load()
+    const cachedTrips = getCachedData('owner_trips')
+    const cachedPayments = getCachedData('owner_trip_payments')
+
+    if (cachedTrips) {
+      setTrips(cachedTrips)
+      setLoading(false)
+    }
+    if (cachedPayments) {
+      setTripPayments(cachedPayments)
+    }
+
+    const hasCachedData = !!cachedTrips
+    load(hasCachedData)
     loadTripPayments()
   }, [])
+
+  const handleTripReceipt = useCallback(
+    async (trip) => {
+      try {
+        if (isNativeApp()) {
+          await generateAndOpenPDF(
+            'trip',
+            {
+              from: trip.fromLocation || trip.from || '',
+              to: trip.toLocation || trip.to || '',
+              cargo: trip.cargo || trip.description || '',
+              date: new Date(
+                trip.tripDate || trip.createdAt
+              ).toLocaleDateString('en-IN'),
+              totalExpenses: trip.totalExpenses || 0,
+              totalRepairs: trip.totalRepairs || 0,
+              grandTotal:
+                (Number(trip.totalExpenses) || 0) +
+                (Number(trip.totalRepairs) || 0),
+              approvedAmount:
+                Number(trip.approvedAmount) ||
+                Number(trip.approvedExpenses) || 0,
+              driverName: trip.driverId?.name || '',
+              ownerName: trip.ownerId?.name || '',
+            },
+            `trip-receipt-${trip._id}.pdf`
+          )
+        } else {
+          setPrintTrip(trip)
+          if (printTimeoutRef.current) {
+            clearTimeout(printTimeoutRef.current)
+          }
+          printTimeoutRef.current = setTimeout(() => {
+            window.print()
+            setTimeout(() => {
+              setPrintTrip(null)
+            }, 500)
+          }, 300)
+        }
+      } catch (err) {
+        console.error('Trip PDF failed:', err)
+        toast.error(
+          err.response?.data?.message ||
+          'PDF generation failed'
+        )
+      }
+    },
+    []
+  )
 
   const pendingTrips = useMemo(
     () =>
@@ -127,6 +182,22 @@ const OwnerTrips = () => {
     () =>
       (trips || []).filter((trip) => trip.status !== 'submitted'),
     [trips]
+  )
+
+  const tripPaidMap = useMemo(() => {
+    const map = new Map()
+    tripPayments.forEach((p) => {
+      const tripId = String(p.tripId?._id ?? p.tripId ?? '')
+      if (!tripId) return
+      const current = map.get(tripId) || 0
+      map.set(tripId, current + (Number(p.amount) || 0))
+    })
+    return map
+  }, [tripPayments])
+
+  const getTripPaid = useCallback(
+    (tripId) => tripPaidMap.get(String(tripId)) || 0,
+    [tripPaidMap]
   )
 
   useEffect(() => {
@@ -145,21 +216,52 @@ const OwnerTrips = () => {
     })
   }, [pendingTrips])
 
-  const isPdf = (url) =>
-    url &&
-    (url.toLowerCase().includes('.pdf') ||
-      url.toLowerCase().includes('/pdf'))
-
-  const getThumbUrl = (url) => {
-    if (!url) return ''
-    if (url.includes('cloudinary.com')) {
-      return url.replace(
-        '/upload/',
-        '/upload/w_150,h_150,c_fill,q_auto/'
+  const handleApprove = useCallback(async (tr, review) => {
+    try {
+      setSaving(true)
+      await handleTrip({
+        tripId: tr._id,
+        action: 'approved',
+        approvedAmount: Number(review.approvedAmount) || 0,
+        note: review.note || '',
+      })
+      toast.success(t('tripApproved'))
+      clearCache('owner_trips')
+      clearCache('owner_trip_payments')
+      clearCache('owner_dashboard')
+      await load(false)
+      await loadTripPayments()
+    } catch (e) {
+      toast.error(
+        e.response?.data?.message || t('approveError2')
       )
+    } finally {
+      setSaving(false)
     }
-    return url
-  }
+  }, [t, load, loadTripPayments, clearCache])
+
+  const handleReject = useCallback(async (tr, review) => {
+    try {
+      setSaving(true)
+      await handleTrip({
+        tripId: tr._id,
+        action: 'rejected',
+        approvedAmount: 0,
+        note: review.note || '',
+      })
+      toast.success(t('tripRejected'))
+      clearCache('owner_trips')
+      clearCache('owner_dashboard')
+      await load(false)
+      await loadTripPayments()
+    } catch (e) {
+      toast.error(
+        e.response?.data?.message || t('rejectError2')
+      )
+    } finally {
+      setSaving(false)
+    }
+  }, [t, load, loadTripPayments, clearCache])
 
   return (
     <div style={{ minHeight: '100vh', background: '#F0F4FF' }}>
@@ -226,7 +328,7 @@ const OwnerTrips = () => {
                             <p className="text-sm font-semibold text-gray-900">
                               {tr.driverId?.name || t('driver')}{' '}
                               {tr.driverId?.phone
-                                ? `· ${tr.driverId.phone}`
+                                ? `Â· ${tr.driverId.phone}`
                                 : ''}
                             </p>
                             <p className="mt-1 text-xs text-gray-600">
@@ -331,9 +433,10 @@ const OwnerTrips = () => {
                                             }}
                                           >
                                             <span
+                                              aria-hidden="true"
                                               style={{ fontSize: '18px' }}
                                             >
-                                              📄
+                                              ðŸ“„
                                             </span>
                                             <span
                                               style={{
@@ -415,9 +518,10 @@ const OwnerTrips = () => {
                                             }}
                                           >
                                             <span
+                                              aria-hidden="true"
                                               style={{ fontSize: '18px' }}
                                             >
-                                              📄
+                                              ðŸ“„
                                             </span>
                                             <span
                                               style={{
@@ -504,9 +608,10 @@ const OwnerTrips = () => {
                                                 }}
                                               >
                                                 <span
+                                                  aria-hidden="true"
                                                   style={{ fontSize: '18px' }}
                                                 >
-                                                  📄
+                                                  ðŸ“„
                                                 </span>
                                                 <span
                                                   style={{
@@ -549,6 +654,7 @@ const OwnerTrips = () => {
                           <input
                             type="number"
                             min={0}
+                            max="10000000"
                             value={review.approvedAmount}
                             onChange={(e) =>
                                     setReviewByTripId((p) => ({
@@ -576,6 +682,7 @@ const OwnerTrips = () => {
                               }))
                             }
                             placeholder={t('noteOptional')}
+                            maxLength={500}
                             className="input-field w-full resize-y"
                           />
                         </div>
@@ -592,29 +699,7 @@ const OwnerTrips = () => {
                           <button
                             type="button"
                             disabled={saving}
-                            onClick={async () => {
-                              try {
-                                setSaving(true)
-                                await handleTrip({
-                                  tripId: tr._id,
-                                  action: 'approved',
-                                  approvedAmount:
-                                    Number(review.approvedAmount) ||
-                                    0,
-                                  note: review.note || '',
-                                })
-                                toast.success(t('tripApproved'))
-                                await load()
-                                await loadTripPayments()
-                              } catch (e) {
-                                toast.error(
-                                  e.response?.data?.message ||
-                                    t('approveError2')
-                                )
-                              } finally {
-                                setSaving(false)
-                              }
-                            }}
+                            onClick={() => handleApprove(tr, review)}
                             className="rounded-xl bg-green-600 py-3 text-sm font-semibold text-white disabled:opacity-60"
                           >
                             {t('approveBtn2')}
@@ -622,27 +707,7 @@ const OwnerTrips = () => {
                           <button
                             type="button"
                             disabled={saving}
-                            onClick={async () => {
-                              try {
-                                setSaving(true)
-                                await handleTrip({
-                                  tripId: tr._id,
-                                  action: 'rejected',
-                                  approvedAmount: 0,
-                                  note: review.note || '',
-                                })
-                                toast.success(t('tripRejected'))
-                                await load()
-                                await loadTripPayments()
-                              } catch (e) {
-                                toast.error(
-                                  e.response?.data?.message ||
-                                    t('rejectError2')
-                                )
-                              } finally {
-                                setSaving(false)
-                              }
-                            }}
+                            onClick={() => handleReject(tr, review)}
                             className="rounded-xl border-2 border-red-500 py-3 text-sm font-semibold text-red-600 disabled:opacity-60"
                           >
                             {t('rejectBtn3')}
@@ -684,16 +749,16 @@ const OwnerTrips = () => {
                           <p className="text-sm font-semibold text-gray-900">
                             {tr.driverId?.name || t('driver')}{' '}
                             {tr.driverId?.phone
-                              ? `· ${tr.driverId.phone}`
+                              ? `Â· ${tr.driverId.phone}`
                               : ''}
                           </p>
                           <p className="mt-1 text-xs text-gray-600">
                             {tripFrom(tr)} → {tripTo(tr)}
                           </p>
                           <p className="mt-2 text-sm text-gray-700">
-                            {t('totalExpenses')} {fmtMoney(tr.totalExpenses)} ·{' '}
+                            {t('totalExpenses')} {fmtMoney(tr.totalExpenses)} Â·{' '}
                             {t('totalRepairs')}{' '}
-                            {fmtMoney(tr.totalRepairs)} · {t('grandTotal')}{' '}
+                            {fmtMoney(tr.totalRepairs)} Â· {t('grandTotal')}{' '}
                             {fmtMoney(grandTotal(tr))}
                           </p>
                           <p className="text-xs text-gray-600">
@@ -800,7 +865,7 @@ const OwnerTrips = () => {
                             ? t('approved')
                             : tr.status === 'rejected'
                               ? t('rejected')
-                              : tr.status}
+                              : t('pending')}
                         </span>
                       </div>
                       {tr.ownerNote ? (
@@ -819,27 +884,6 @@ const OwnerTrips = () => {
                     )
                   })
                 )}
-
-                <div className="print-area hidden">
-                  <div className="print-heading">
-                    {t('ownerTripHistory').toUpperCase()}
-                  </div>
-                  <div className="print-row">
-                    <span>{t('owner')}</span>
-                    <span>{user?.name}</span>
-                  </div>
-                  {historyTrips.map((trip, i) => (
-                    <div key={trip._id} className="mt-4">
-                      <strong>
-                        {t('trip')} {i + 1}
-                      </strong>
-                      <div className="print-row">
-                        <span>{t('driver')}</span>
-                        <span>{trip.driverId?.name}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
           </>

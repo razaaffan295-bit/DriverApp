@@ -1,15 +1,24 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import API from '../../api/axios'
 import { getOwnerContracts } from '../../api/contractAPI'
 import { getMyComplaints } from '../../api/complaintAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const STATUS_STYLE = {
   pending: 'bg-yellow-100 text-yellow-800',
   under_review: 'bg-blue-100 text-blue-800',
   resolved: 'bg-green-100 text-green-800',
   rejected: 'bg-red-100 text-red-600',
+}
+
+const getStatusLabel = (status, t) => {
+  if (status === 'pending') return t('pending')
+  if (status === 'under_review') return t('underReview') || 'Under Review'
+  if (status === 'resolved') return t('resolved') || 'Resolved'
+  if (status === 'rejected') return t('rejected') || 'Rejected'
+  return status
 }
 
 const fmtDate = (d) =>
@@ -20,14 +29,14 @@ const fmtDate = (d) =>
 const OwnerComplaints = () => {
   const { t } = useTranslation()
 
-  const OWNER_TYPES = [
+  const OWNER_TYPES = useMemo(() => [
     { value: 'part_chori', label: t('partTheft') },
     { value: 'kaam_choda', label: t('leftWorkMidway') },
     { value: 'machine_damage', label: t('machineDamage') },
     { value: 'attendance_fraud', label: t('attendanceFraud') },
     { value: 'misbehavior', label: t('misbehavior') },
     { value: 'other', label: t('other') },
-  ]
+  ], [t])
 
   const [tab, setTab] = useState('mine')
   const [complaints, setComplaints] = useState([])
@@ -39,21 +48,30 @@ const OwnerComplaints = () => {
   const [description, setDescription] = useState('')
   const [evidenceFiles, setEvidenceFiles] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache,
+  } = useDataCache()
 
-  const loadMine = useCallback(async () => {
-    setLoading(true)
+  const loadMine = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const res = await getMyComplaints()
-      setComplaints(res.data?.complaints ?? [])
+      const list = res.data?.complaints ?? []
+      setComplaints(list)
+      setCachedData('owner_complaints_mine', list)
     } catch (e) {
-      toast.error(e.response?.data?.message || t('loadError2'))
+      if (!silent) {
+        toast.error(e.response?.data?.message || t('loadError2'))
+      }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [t])
+  }, [t, setCachedData])
 
-  const loadContracts = useCallback(async () => {
-    setCLoading(true)
+  const loadContracts = useCallback(async (silent = false) => {
+    if (!silent) setCLoading(true)
     try {
       const res = await getOwnerContracts()
       const raw = res.data?.contracts || []
@@ -69,24 +87,47 @@ const OwnerComplaints = () => {
       }
       const list = [...map.values()]
       setContracts(list)
-      if (list.length > 0) {
+      if (list.length > 0 && !selectedContract) {
         setSelectedContract(list[0])
       }
+      setCachedData('owner_complaints_contracts', list)
     } catch (e) {
-      toast.error(
-        e.response?.data?.message || t('contractsLoadError2')
-      )
+      if (!silent) {
+        toast.error(
+          e.response?.data?.message || t('contractsLoadError2')
+        )
+      }
     } finally {
-      setCLoading(false)
+      if (!silent) setCLoading(false)
     }
-  }, [t])
+  }, [t, setCachedData, selectedContract])
 
   useEffect(() => {
-    if (tab === 'mine') loadMine()
-    else loadContracts()
-  }, [tab, loadMine, loadContracts])
+    if (tab === 'mine') {
+      const cached = getCachedData('owner_complaints_mine')
+      if (cached) {
+        setComplaints(cached)
+        setLoading(false)
+        loadMine(true)
+      } else {
+        loadMine(false)
+      }
+    } else {
+      const cached = getCachedData('owner_complaints_contracts')
+      if (cached) {
+        setContracts(cached)
+        if (cached.length > 0 && !selectedContract) {
+          setSelectedContract(cached[0])
+        }
+        setCLoading(false)
+        loadContracts(true)
+      } else {
+        loadContracts(false)
+      }
+    }
+  }, [tab])
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!selectedContract) {
       toast.error(t('driverRequired'))
       return
@@ -143,7 +184,11 @@ const OwnerComplaints = () => {
       setSelectedContract(null)
       setEvidenceFiles(null)
       setTab('mine')
-      await loadMine()
+
+      clearCache('owner_complaints_mine')
+      clearCache('owner_dashboard')
+
+      await loadMine(false)
     } catch (err) {
       toast.error(
         err.response?.data?.message ||
@@ -152,7 +197,15 @@ const OwnerComplaints = () => {
     } finally {
       setSubmitting(false)
     }
-  }
+  }, [
+    selectedContract,
+    complaintType,
+    description,
+    evidenceFiles,
+    t,
+    loadMine,
+    clearCache,
+  ])
 
   return (
     <div style={{ minHeight: '100vh', background: '#F0F4FF' }}>
@@ -185,7 +238,11 @@ const OwnerComplaints = () => {
         {tab === 'mine' ? (
           loading ? (
             <div className="flex justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent"
+                role="status"
+                aria-label={t('loading')}
+              />
             </div>
           ) : complaints.length === 0 ? (
             <p className="text-center text-gray-500">
@@ -208,11 +265,11 @@ const OwnerComplaints = () => {
                         'bg-gray-100 text-gray-600'
                       }`}
                     >
-                      {c.status === 'pending' ? t('pending') : c.status}
+                      {getStatusLabel(c.status, t)}
                     </span>
                   </div>
                   <p className="mt-2 text-sm font-medium text-gray-900">
-                    {t('againstLabel')}: {c.againstUser?.name || 'Driver'}
+                    {t('againstLabel')}: {c.againstUser?.name || t('driver')}
                   </p>
                   <p className="mt-1 text-sm text-gray-600">
                     {c.description}
@@ -233,7 +290,7 @@ const OwnerComplaints = () => {
                           key={i}
                           href={url}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           className="text-xs font-medium text-blue-700 underline"
                         >
                           {t('proofLabel')} {i + 1}
@@ -247,7 +304,11 @@ const OwnerComplaints = () => {
           )
         ) : cLoading ? (
           <div className="flex justify-center py-16">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
+            <div
+              className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent"
+              role="status"
+              aria-label={t('loading')}
+            />
           </div>
         ) : (
           <div className="space-y-4">
@@ -284,7 +345,7 @@ const OwnerComplaints = () => {
                           fontSize: '14px',
                           pointerEvents: 'none'
                         }}>
-                          {d?.name || 'Driver'}
+                          {d?.name || t('driver')}
                         </span>
                         <span style={{
                           display: 'block',
@@ -326,6 +387,7 @@ const OwnerComplaints = () => {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t('complaintDescPlaceholder')}
+              maxLength={2000}
               className="w-full rounded-xl border border-gray-200 p-3 text-sm"
             />
 
@@ -337,7 +399,32 @@ const OwnerComplaints = () => {
                 type="file"
                 accept="image/*,application/pdf"
                 multiple
-                onChange={(e) => setEvidenceFiles(e.target.files)}
+                onChange={(e) => {
+                  const files = e.target.files
+                  if (!files || files.length === 0) {
+                    setEvidenceFiles(null)
+                    return
+                  }
+
+                  if (files.length > 5) {
+                    toast.error(t('maxFilesError') || 'Maximum 5 files allowed')
+                    e.target.value = ''
+                    return
+                  }
+
+                  const maxSize = 5 * 1024 * 1024
+                  for (let i = 0; i < files.length; i++) {
+                    if (files[i].size > maxSize) {
+                      toast.error(
+                        `${files[i].name} - ${t('fileSizeError') || '5MB se kam honi chahiye'}`
+                      )
+                      e.target.value = ''
+                      return
+                    }
+                  }
+
+                  setEvidenceFiles(files)
+                }}
                 className="mt-2 w-full text-sm"
               />
             </div>
