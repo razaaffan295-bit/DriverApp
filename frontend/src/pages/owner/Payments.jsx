@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   useNavigate,
@@ -125,43 +125,9 @@ const OwnerPayments = () => {
   const [tripNetDue, setTripNetDue] = useState(0)
   const [tripLoading, setTripLoading] = useState(false)
   const [printTrip, setPrintTrip] = useState(null)
-  const printTimeoutRef = useRef(null)
 
-  const validateImageFile = useCallback((file) => {
-    if (!file) return { valid: false, error: 'No file' }
-
-    const maxSize = 5 * 1024 * 1024
-    if (file.size > maxSize) {
-      return {
-        valid: false,
-        error: 'File size 5MB se kam honi chahiye',
-      }
-    }
-
-    const allowedTypes = [
-      'image/jpeg',
-      'image/png',
-      'image/jpg',
-      'image/webp',
-    ]
-    if (!allowedTypes.includes(file.type)) {
-      return {
-        valid: false,
-        error: 'Sirf JPG/PNG/WEBP allowed',
-      }
-    }
-
-    return { valid: true, error: null }
-  }, [])
-
-  const cid = useMemo(
-    () => selectedContract?._id,
-    [selectedContract]
-  )
-  const selectedIsTransport = useMemo(
-    () => isTransportContract(selectedContract),
-    [selectedContract]
-  )
+  const cid = selectedContract?._id
+  const selectedIsTransport = isTransportContract(selectedContract)
 
   const tabs = useMemo(
     () => [
@@ -228,9 +194,11 @@ const OwnerPayments = () => {
         try {
           const res = await API.get('/api/payments/history')
           const all = res.data?.payments || []
+          console.log('All payments:', all)
           const tripPays = all.filter(
             (p) => p.paymentType === 'trip'
           )
+          console.log('Trip payments:', tripPays)
           return tripPays
         } catch (err) {
           console.error(err)
@@ -260,6 +228,9 @@ const OwnerPayments = () => {
         0
       )
       const totalBaaki = totalApproved - totalTripPaid
+
+      console.log('tripPayments:', tripPayments)
+      console.log('tripEarnings:', approved)
 
       setTripEarnings(approved)
       setTripPaymentsList(tripPayments)
@@ -349,129 +320,44 @@ const OwnerPayments = () => {
   }, [selectedIsTransport, tab])
 
   useEffect(() => {
-    if (tab !== 'payment') {
-      setTripPayContext(null)
-      setAmount('')
-      setUtr('')
-      setWitness('')
-      setNote('')
-      setProofPhoto(null)
-      setDeductAdvance(false)
-      setDeductAmt('')
-    }
-    if (tab !== 'advance') {
-      setExpandAdvanceId(null)
-      setApprAmt('')
-      setApprType('upi')
-      setApprUtr('')
-      setApprWitness('')
-      setApprNote('')
-      setApprPhoto('')
-    }
+    if (tab !== 'payment') setTripPayContext(null)
   }, [tab])
 
-  useEffect(() => {
-    setAmount('')
-    setUtr('')
-    setWitness('')
-    setNote('')
-    setProofPhoto(null)
-    setDeductAdvance(false)
-    setDeductAmt('')
-    setTripPayContext(null)
-    setExpandAdvanceId(null)
-    setApprAmt('')
-    setApprType('upi')
-    setApprUtr('')
-    setApprWitness('')
-    setApprNote('')
-    setApprPhoto('')
-  }, [cid])
+  const driverName =
+    selectedContract?.driverId?.name || t('driver')
 
-  useEffect(() => {
-    return () => {
-      if (printTimeoutRef.current) {
-        clearTimeout(printTimeoutRef.current)
+  const monthlySalary =
+    summary?.attendance?.reduce((acc, row) => {
+      if (
+        Number(row.month) === payMonth &&
+        Number(row.year) === payYear
+      ) {
+        return acc + (Number(row.totalSalaryEarned) || 0)
       }
-      setPrintPayment(null)
-      setPrintTrip(null)
-    }
-  }, [])
+      return acc
+    }, 0) ?? 0
 
-  useEffect(() => {
-    if (!submittingPay) return
-    const timeout = setTimeout(() => {
-      setSubmittingPay(false)
-      toast.error('Request timeout - try again')
-    }, 60000)
-    return () => clearTimeout(timeout)
-  }, [submittingPay])
-
-  useEffect(() => {
-    if (!handlingAdvance) return
-    const timeout = setTimeout(() => {
-      setHandlingAdvance(false)
-      toast.error('Request timeout - try again')
-    }, 60000)
-    return () => clearTimeout(timeout)
-  }, [handlingAdvance])
-
-  const driverName = useMemo(
-    () => selectedContract?.driverId?.name || t('driver'),
-    [selectedContract, t]
+  const openAdvance = advances.find(
+    (a) =>
+      (a.status === 'approved' || a.status === 'partial') &&
+      !a.isCleared &&
+      (Number(a.remaining) || 0) > 0
   )
 
-  const monthlySalary = useMemo(
-    () =>
-      summary?.attendance?.reduce((acc, row) => {
-        if (
-          Number(row.month) === payMonth &&
-          Number(row.year) === payYear
-        ) {
-          return acc + (Number(row.totalSalaryEarned) || 0)
-        }
-        return acc
-      }, 0) ?? 0,
-    [summary, payMonth, payYear]
-  )
+  const remainingAdvance = Number(openAdvance?.remaining) || 0
 
-  const openAdvance = useMemo(
-    () =>
-      advances.find(
-        (a) =>
-          (a.status === 'approved' || a.status === 'partial') &&
-          !a.isCleared &&
-          (Number(a.remaining) || 0) > 0
-      ),
-    [advances]
-  )
-
-  const remainingAdvance = useMemo(
-    () => Number(openAdvance?.remaining) || 0,
-    [openAdvance]
-  )
-
-  const netPayDisplay = useMemo(
-    () => {
-      const a = Number(amount) || 0
-      const d =
-        deductAdvance && openAdvance
-          ? Math.min(
-              Number(deductAmt) || 0,
-              remainingAdvance,
-              a
-            )
-          : 0
-      return Math.max(0, a - d)
-    },
-    [
-      amount,
-      deductAdvance,
-      openAdvance,
-      deductAmt,
-      remainingAdvance,
-    ]
-  )
+  const netPayDisplay = (() => {
+    const a = Number(amount) || 0
+    const d =
+      deductAdvance && openAdvance
+        ? Math.min(
+            Number(deductAmt) || 0,
+            remainingAdvance,
+            a
+          )
+        : 0
+    return Math.max(0, a - d)
+  })()
 
   const readPhoto = (file, setter) => {
     if (!file) {
@@ -479,17 +365,7 @@ const OwnerPayments = () => {
       return
     }
     const r = new FileReader()
-    r.onload = () => {
-      try {
-        setter(String(r.result || ''))
-      } catch (e) {
-        console.error('FileReader setter failed:', e)
-      }
-    }
-    r.onerror = () => {
-      console.error('FileReader error')
-      toast.error('File read failed')
-    }
+    r.onload = () => setter(String(r.result || ''))
     r.readAsDataURL(file)
   }
 
@@ -515,8 +391,8 @@ const OwnerPayments = () => {
         : 0
 
     const driverIdVal =
-      selectedContract?.driverId?._id ||
-      selectedContract?.driverId
+      selectedContract.driverId?._id ||
+      selectedContract.driverId
 
     setSubmittingPay(true)
     let didTripPayment = false
@@ -577,20 +453,13 @@ const OwnerPayments = () => {
       setProofPhoto(null)
       setDeductAdvance(false)
       setDeductAmt('')
-      const reloads = [
-        loadSummary(),
-        loadHistory(),
-        loadAdvances(),
-      ]
-      if (didTripPayment) {
-        reloads.push(loadOwnerTripEarnings())
-      }
-      await Promise.all(reloads)
+      await loadSummary()
+      await loadHistory()
+      await loadAdvances()
+      if (didTripPayment) await loadOwnerTripEarnings()
     } catch (err) {
       toast.error(
-        err.response?.data?.message ||
-          t('paymentFailed') ||
-          'Payment failed'
+        err.response?.data?.message || 'Payment nahi hui'
       )
     } finally {
       setSubmittingPay(false)
@@ -641,15 +510,12 @@ const OwnerPayments = () => {
       toast.success(t('advanceApproved'))
       setExpandAdvanceId(null)
       setApprAmt('')
-      setApprType('upi')
       setApprUtr('')
       setApprWitness('')
       setApprNote('')
       setApprPhoto('')
-      await Promise.all([
-        loadAdvances(),
-        loadSummary(),
-      ])
+      await loadAdvances()
+      await loadSummary()
     } catch (err) {
       toast.error(
         err.response?.data?.message || t('approveError')
@@ -659,53 +525,31 @@ const OwnerPayments = () => {
     }
   }
 
-  const pendingAdvances = useMemo(
-    () => advances.filter((a) => a.status === 'pending'),
-    [advances]
+  const pendingAdvances = advances.filter(
+    (a) => a.status === 'pending'
   )
 
   const s = summary
 
   const pendingPaymentRequests = s?.pendingRequests || []
-  const salaryPending = useMemo(
-    () =>
-      pendingPaymentRequests.filter(
-        (p) => p.paymentType === 'salary' || !p.paymentType
-      ),
-    [pendingPaymentRequests]
+  const salaryPending = pendingPaymentRequests.filter(
+    (p) => p.paymentType === 'salary' || !p.paymentType
   )
-  const tripPending = useMemo(
-    () =>
-      pendingPaymentRequests.filter(
-        (p) => p.paymentType === 'trip'
-      ),
-    [pendingPaymentRequests]
+  const tripPending = pendingPaymentRequests.filter(
+    (p) => p.paymentType === 'trip'
   )
-  const salaryPendingRequests = useMemo(
-    () =>
-      pendingPaymentRequests.filter(
-        (p) => !isTripPaymentRow(p)
-      ),
-    [pendingPaymentRequests]
+  const salaryPendingRequests = pendingPaymentRequests.filter(
+    (p) => !isTripPaymentRow(p)
   )
-  const tripPendingRequests = useMemo(
-    () =>
-      pendingPaymentRequests.filter((p) =>
-        isTripPaymentRow(p)
-      ),
-    [pendingPaymentRequests]
+  const tripPendingRequests = pendingPaymentRequests.filter((p) =>
+    isTripPaymentRow(p)
   )
   const ownerPendingConfirmations = s?.pendingPayments || []
-  const netDue = useMemo(
-    () => {
-      if (s == null) return 0
-      return (
-        (Number(s.totalSalaryEarned) || 0) -
+  const netDue =
+    s != null
+      ? (Number(s.totalSalaryEarned) || 0) -
         (Number(s.totalPaid) || 0)
-      )
-    },
-    [s]
-  )
+      : 0
 
   const payTabBankDetails = useMemo(() => {
     const fromRequest = (row) =>
@@ -779,28 +623,16 @@ const OwnerPayments = () => {
       accountName: '',
       qr: '',
     }
-  }, [
-    s?.pendingRequests,
-    s?.driverBankDetails,
-    payMonth,
-    payYear,
-    tripPayContext,
-  ])
+  }, [s, payMonth, payYear, tripPayContext])
 
-  const filteredOwnerHistory = useMemo(
-    () => {
-      if (historyFilter === 'salary') {
-        return payments.filter((p) => !isTripPaymentRow(p))
-      }
-      if (historyFilter === 'trip') {
-        return payments.filter((p) => isTripPaymentRow(p))
-      }
-      return payments
-    },
-    [historyFilter, payments]
-  )
+  const filteredOwnerHistory =
+    historyFilter === 'salary'
+      ? payments.filter((p) => !isTripPaymentRow(p))
+      : historyFilter === 'trip'
+        ? payments.filter((p) => isTripPaymentRow(p))
+        : payments
 
-  const copyUpi = useCallback(async (text) => {
+  const copyUpi = async (text) => {
     const trimmed = String(text || '').trim()
     if (!trimmed) {
       toast.error(t('noUpiError'))
@@ -812,9 +644,9 @@ const OwnerPayments = () => {
     } catch {
       toast.error(t('copyUpiError'))
     }
-  }, [t])
+  }
 
-  const openPayTabFromRequest = useCallback((req) => {
+  const openPayTabFromRequest = (req) => {
     setTripPayContext(null)
     const amt =
       Number(req?.netAmount) ||
@@ -824,9 +656,9 @@ const OwnerPayments = () => {
     if (req?.month) setPayMonth(Number(req.month))
     if (req?.year) setPayYear(Number(req.year))
     setTab('payment')
-  }, [])
+  }
 
-  const openPayTabForTrip = useCallback((req) => {
+  const openPayTabForTrip = (req) => {
     const amt =
       Number(req?.netAmount) ||
       Number(req?.amount) ||
@@ -834,103 +666,66 @@ const OwnerPayments = () => {
     if (amt > 0) setAmount(String(amt))
     setTripPayContext(req)
     setTab('payment')
-  }, [])
+  }
 
-  const tripPaidMap = useMemo(() => {
-    const map = new Map()
-    tripPaymentsList.forEach((p) => {
-      const tripId = String(p.tripId?._id || p.tripId || '')
-      if (!tripId) return
-      const current = map.get(tripId) || 0
-      map.set(tripId, current + (Number(p.amount) || 0))
-    })
-    return map
-  }, [tripPaymentsList])
+  const getTripPaid = (tripId) => {
+    return tripPaymentsList
+      .filter((p) => {
+        const pTripId = p.tripId?._id || p.tripId
+        return String(pTripId) === String(tripId)
+      })
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+  }
 
-  const getTripPaid = useCallback(
-    (tripId) => tripPaidMap.get(String(tripId)) || 0,
-    [tripPaidMap]
-  )
-
-  const handlePrintReceipt = useCallback(async (payment) => {
-    try {
-      if (isNativeApp()) {
-        await generateAndOpenPDF(
-          'payment',
-          {
-            amount: payment.amount,
-            netAmount: payment.netAmount || payment.amount,
-            payoutMethod: payment.payoutMethod || 'upi',
-            utrNumber: payment.utrNumber || '',
-            date: new Date(
-              payment.ownerPaidAt || payment.createdAt
-            ).toLocaleDateString('en-IN'),
-            driverName: payment.driverId?.name || '',
-            ownerName: payment.ownerId?.name || '',
-            status: payment.status,
-          },
-          `receipt-${payment._id}.pdf`
-        )
-      } else {
-        setPrintTrip(null)
-        setPrintPayment(payment)
-        if (printTimeoutRef.current) {
-          clearTimeout(printTimeoutRef.current)
-        }
-        printTimeoutRef.current = setTimeout(() => {
-          window.print()
-        }, 300)
-      }
-    } catch (err) {
-      console.error('PDF generation failed:', err)
-      toast.error(
-        err.response?.data?.message ||
-          t('pdfGenError') ||
-          'PDF generation failed'
+  const handlePrintReceipt = async (payment) => {
+    if (isNativeApp()) {
+      await generateAndOpenPDF(
+        'payment',
+        {
+          amount: payment.amount,
+          netAmount: payment.netAmount || payment.amount,
+          payoutMethod: payment.payoutMethod || 'upi',
+          utrNumber: payment.utrNumber || '',
+          date: new Date(
+            payment.ownerPaidAt || payment.createdAt
+          ).toLocaleDateString('en-IN'),
+          driverName: payment.driverId?.name || '',
+          ownerName: payment.ownerId?.name || '',
+          status: payment.status,
+        },
+        `receipt-${payment._id}.pdf`
       )
+    } else {
+      setPrintPayment(payment)
+      setTimeout(() => window.print(), 300)
     }
-  }, [t])
+  }
 
-  const handleTripReceipt = useCallback(async (trip) => {
-    try {
-      if (isNativeApp()) {
-        await generateAndOpenPDF(
-          'trip',
-          {
-            from: trip.fromLocation || trip.from || '',
-            to: trip.toLocation || trip.to || '',
-            cargo: trip.cargo || trip.description || '',
-            date: new Date(
-              trip.tripDate || trip.createdAt
-            ).toLocaleDateString('en-IN'),
-            totalExpenses: trip.totalExpenses || 0,
-            totalRepairs: trip.totalRepairs || 0,
-            grandTotal: grandTotalTrip(trip),
-            approvedAmount: tripApprovedAmount(trip),
-            driverName: trip.driverId?.name || '',
-            ownerName: trip.ownerId?.name || '',
-          },
-          `trip-receipt-${trip._id}.pdf`
-        )
-      } else {
-        setPrintPayment(null)
-        setPrintTrip(trip)
-        if (printTimeoutRef.current) {
-          clearTimeout(printTimeoutRef.current)
-        }
-        printTimeoutRef.current = setTimeout(() => {
-          window.print()
-        }, 300)
-      }
-    } catch (err) {
-      console.error('Trip PDF failed:', err)
-      toast.error(
-        err.response?.data?.message ||
-          t('pdfGenError') ||
-          'PDF generation failed'
+  const handleTripReceipt = async (trip) => {
+    if (isNativeApp()) {
+      await generateAndOpenPDF(
+        'trip',
+        {
+          from: trip.fromLocation || trip.from || '',
+          to: trip.toLocation || trip.to || '',
+          cargo: trip.cargo || trip.description || '',
+          date: new Date(
+            trip.tripDate || trip.createdAt
+          ).toLocaleDateString('en-IN'),
+          totalExpenses: trip.totalExpenses || 0,
+          totalRepairs: trip.totalRepairs || 0,
+          grandTotal: grandTotalTrip(trip),
+          approvedAmount: tripApprovedAmount(trip),
+          driverName: trip.driverId?.name || '',
+          ownerName: trip.ownerId?.name || '',
+        },
+        `trip-receipt-${trip._id}.pdf`
       )
+    } else {
+      setPrintTrip(trip)
+      setTimeout(() => window.print(), 300)
     }
-  }, [t])
+  }
 
   const yearOptions = useMemo(() => {
     const y = new Date().getFullYear()
@@ -993,11 +788,7 @@ const OwnerPayments = () => {
 
           {!contractsReady ? (
             <div className="flex justify-center py-16">
-              <div
-                className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent"
-                role="status"
-                aria-label={t('loading')}
-              />
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
             </div>
           ) : !cid && tab !== 'trip' ? (
             <p className="text-center text-gray-600">
@@ -1005,11 +796,7 @@ const OwnerPayments = () => {
             </p>
           ) : loading && tab !== 'trip' ? (
             <div className="flex justify-center py-16">
-              <div
-                className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent"
-                role="status"
-                aria-label={t('loading')}
-              />
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
             </div>
           ) : tab === 'summary' ? (
             s ? (
@@ -1131,7 +918,7 @@ const OwnerPayments = () => {
                           const routeLabel =
                             req.tripId &&
                             typeof req.tripId === 'object'
-                              ? `${req.tripId?.fromLocation || req.tripId?.from || '—'} → ${req.tripId?.toLocation || req.tripId?.to || '—'}`
+                              ? `${req.tripId.fromLocation || req.tripId.from || '—'} → ${req.tripId.toLocation || req.tripId.to || '—'}`
                               : null
                           return (
                             <li
@@ -1627,7 +1414,6 @@ const OwnerPayments = () => {
                 <input
                   type="number"
                   min="1"
-                  max="1000000"
                   step="1"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -1674,7 +1460,6 @@ const OwnerPayments = () => {
                     value={utr}
                     onChange={(e) => setUtr(e.target.value)}
                     placeholder="UTR123456789"
-                    maxLength={50}
                     className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
                     required
                   />
@@ -1697,19 +1482,10 @@ const OwnerPayments = () => {
                       type="file"
                       accept="image/*"
                       onChange={(e) => {
-                        const file = e.target.files?.[0]
+                        setProofPhoto(
+                          e.target.files?.[0] || null
+                        )
                         e.target.value = ''
-                        if (!file) {
-                          setProofPhoto(null)
-                          return
-                        }
-                        const check = validateImageFile(file)
-                        if (!check.valid) {
-                          toast.error(check.error)
-                          setProofPhoto(null)
-                          return
-                        }
-                        setProofPhoto(file)
                       }}
                       style={{ fontSize: '13px' }}
                     />
@@ -1745,19 +1521,10 @@ const OwnerPayments = () => {
                       type="file"
                       accept="image/*"
                       onChange={(e) => {
-                        const file = e.target.files?.[0]
+                        setProofPhoto(
+                          e.target.files?.[0] || null
+                        )
                         e.target.value = ''
-                        if (!file) {
-                          setProofPhoto(null)
-                          return
-                        }
-                        const check = validateImageFile(file)
-                        if (!check.valid) {
-                          toast.error(check.error)
-                          setProofPhoto(null)
-                          return
-                        }
-                        setProofPhoto(file)
                       }}
                       style={{ fontSize: '13px' }}
                     />
@@ -1784,7 +1551,6 @@ const OwnerPayments = () => {
                 value={witness}
                 onChange={(e) => setWitness(e.target.value)}
                 placeholder={t('witnessPlaceholder')}
-                maxLength={100}
                 className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
               />
 
@@ -1795,7 +1561,6 @@ const OwnerPayments = () => {
                 rows={2}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                maxLength={500}
                 className="mt-1 w-full rounded-xl border border-gray-200 p-3 text-sm"
               />
 
@@ -2276,8 +2041,6 @@ const OwnerPayments = () => {
                           <span>₹</span>
                           <input
                             type="number"
-                            min="1"
-                            max="1000000"
                             value={apprAmt}
                             onChange={(e) =>
                               setApprAmt(e.target.value)
@@ -2320,27 +2083,18 @@ const OwnerPayments = () => {
                               setApprUtr(e.target.value)
                             }
                             placeholder="UTR"
-                            maxLength={50}
                             className="w-full rounded-lg border px-3 py-2 text-sm"
                           />
                         ) : (
                           <input
                             type="file"
                             accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0]
-                              if (!file) {
-                                setApprPhoto('')
-                                return
-                              }
-                              const check = validateImageFile(file)
-                              if (!check.valid) {
-                                toast.error(check.error)
-                                setApprPhoto('')
-                                return
-                              }
-                              readPhoto(file, setApprPhoto)
-                            }}
+                            onChange={(e) =>
+                              readPhoto(
+                                e.target.files?.[0],
+                                setApprPhoto
+                              )
+                            }
                             className="w-full text-xs"
                           />
                         )}
@@ -2351,7 +2105,6 @@ const OwnerPayments = () => {
                             setApprWitness(e.target.value)
                           }
                           placeholder={t('witnessOptional')}
-                          maxLength={100}
                           className="w-full rounded-lg border px-3 py-2 text-sm"
                         />
                         <textarea
@@ -2361,7 +2114,6 @@ const OwnerPayments = () => {
                             setApprNote(e.target.value)
                           }
                           placeholder="Note"
-                          maxLength={500}
                           className="w-full rounded-lg border p-2 text-sm"
                         />
                         <button
@@ -2377,11 +2129,6 @@ const OwnerPayments = () => {
                           onClick={() => {
                             setExpandAdvanceId(null)
                             setApprAmt('')
-                            setApprType('upi')
-                            setApprUtr('')
-                            setApprWitness('')
-                            setApprNote('')
-                            setApprPhoto('')
                           }}
                           className="w-full text-sm text-gray-500"
                         >
@@ -2499,14 +2246,12 @@ const OwnerPayments = () => {
               </div>
             )}
 
-            {printPayment.month && printPayment.year ? (
-              <div className="print-row">
-                <span>{t('month')}:</span>
-                <span>
-                  {printPayment.month}/{printPayment.year}
-                </span>
-              </div>
-            ) : null}
+            <div className="print-row">
+              <span>{t('month')}:</span>
+              <span>
+                {printPayment.month}/{printPayment.year}
+              </span>
+            </div>
 
             <div className="print-row">
               <span>{t('status')}:</span>

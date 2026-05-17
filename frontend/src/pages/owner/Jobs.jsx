@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getOwnerJobs, closeJob } from '../../api/ownerAPI'
-import { useDataCache } from '../../contexts/DataCacheContext'
 
 const formatJobDate = (d) => {
   if (!d) return '—'
@@ -36,41 +35,24 @@ const OwnerJobs = () => {
   const [filter, setFilter] = useState('sab')
   const [loading, setLoading] = useState(true)
   const [closeLoadingId, setCloseLoadingId] = useState(null)
-  const { 
-    getCachedData, 
-    setCachedData, 
-    clearCache 
-  } = useDataCache()
 
-  const loadJobs = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true)
+  const loadJobs = useCallback(async () => {
+    setLoading(true)
     try {
       const { data } = await getOwnerJobs()
-      const jobsList = data?.jobs ?? []
-      setJobs(jobsList)
-      setCachedData('owner_jobs', jobsList)
+      setJobs(data?.jobs ?? [])
     } catch (e) {
-      if (!silent) {
-        toast.error(
-          e.response?.data?.message || t('jobsLoadError')
-        )
-      }
+      toast.error(
+        e.response?.data?.message || t('jobsLoadError')
+      )
     } finally {
-      if (!silent) setLoading(false)
-    }
-  }, [setCachedData, t])
-
-  useEffect(() => {
-    const cached = getCachedData('owner_jobs')
-    if (cached) {
-      setJobs(cached)
       setLoading(false)
-      // Silent background refresh
-      loadJobs(true)
-    } else {
-      loadJobs(false)
     }
   }, [])
+
+  useEffect(() => {
+    loadJobs()
+  }, [loadJobs])
 
   const filteredJobs =
     filter === 'sab'
@@ -92,9 +74,7 @@ const OwnerJobs = () => {
     try {
       await closeJob(id)
       toast.success(t('jobClosed'))
-      clearCache('owner_jobs')
-      clearCache('owner_dashboard')
-      await loadJobs(false)
+      await loadJobs()
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('jobCloseError')

@@ -7,7 +7,6 @@ import {
   getResignRequests,
   handleResign,
 } from '../../api/resignAPI'
-import { useDataCache } from '../../contexts/DataCacheContext'
 
 const fmtDate = (d) =>
   d
@@ -29,14 +28,8 @@ const MyDrivers = () => {
   const [actionType, setActionType] = useState(null)
   const [actionText, setActionText] = useState('')
 
-  const {
-    getCachedData,
-    setCachedData,
-    clearCache,
-  } = useDataCache()
-
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true)
+  const load = useCallback(async () => {
+    setLoading(true)
     try {
       const [cRes, rRes] = await Promise.all([
         getOwnerContracts(),
@@ -47,36 +40,20 @@ const MyDrivers = () => {
           c.status
         )
       )
-      const resignsList = rRes.data?.resigns || []
       setContracts(list)
-      setResigns(resignsList)
-      setCachedData('owner_drivers', {
-        contracts: list,
-        resigns: resignsList,
-      })
+      setResigns(rRes.data?.resigns || [])
     } catch (e) {
-      if (!silent) {
-        toast.error(
-          e.response?.data?.message || t('myDriversLoadError')
-        )
-      }
+      toast.error(
+        e.response?.data?.message || t('myDriversLoadError')
+      )
     } finally {
-      if (!silent) setLoading(false)
+      setLoading(false)
     }
-  }, [t, setCachedData])
+  }, [t])
 
   useEffect(() => {
-    const cached = getCachedData('owner_drivers')
-    if (cached) {
-      setContracts(cached.contracts || [])
-      setResigns(cached.resigns || [])
-      setLoading(false)
-      // Silent background refresh
-      load(true)
-    } else {
-      load(false)
-    }
-  }, [])
+    load()
+  }, [load])
 
   const pendingByContract = useCallback(
     (contractId) =>
@@ -110,9 +87,7 @@ const MyDrivers = () => {
       setActionId(null)
       setActionType(null)
       setActionText('')
-      clearCache('owner_drivers')
-      clearCache('owner_dashboard')
-      load(false)
+      load()
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('resignHandleError')
@@ -217,11 +192,11 @@ const MyDrivers = () => {
                             disabled={
                               handlingId === pending._id
                             }
-                            onClick={() => {
-                              setActionId(pending._id)
-                              setActionType('approved')
-                              setActionText('')
-                            }}
+                            onClick={() =>
+                              (setActionId(pending._id),
+                              setActionType('approved'),
+                              setActionText(''))
+                            }
                             className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                           >
                             {handlingId === pending._id
