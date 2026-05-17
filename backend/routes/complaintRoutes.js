@@ -7,10 +7,13 @@ const {
   getComplaintById,
 } = require("../controllers/complaintController");
 const { verifyToken } = require("../middleware/authMiddleware");
+const { requireActiveSubscription } =
+  require("../middleware/subscriptionMiddleware");
 
 router.use(verifyToken);
 router.post(
   "/",
+  requireActiveSubscription,
   upload.array("evidence", 5),
   createComplaint
 );

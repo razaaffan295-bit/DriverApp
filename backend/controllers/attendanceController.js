@@ -139,9 +139,12 @@ const driverAddRecord = async (req, res) => {
       message: "Record save ho gaya!",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -198,9 +201,12 @@ const driverGetRecords = async (req, res) => {
       contract,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -269,9 +275,12 @@ const driverDeleteRecord = async (req, res) => {
       message: "Record delete ho gaya",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -341,9 +350,12 @@ const ownerAddRecord = async (req, res) => {
       message: "Record save ho gaya!",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -405,28 +417,42 @@ const ownerGetRecords = async (req, res) => {
       contract,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
 
 const ownerDeleteRecord = async (req, res) => {
   try {
-    await OwnerAttendance.findOneAndDelete({
+    const ownerId = req.user._id || req.user.id;
+    const deleted = await OwnerAttendance.findOneAndDelete({
       _id: req.params.id,
-      ownerId: req.user.id,
+      ownerId,
     });
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Record not found",
+      });
+    }
 
     return res.json({
       success: true,
       message: "Record delete ho gaya",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -442,9 +468,12 @@ const ownerGetAllContracts = async (req, res) => {
 
     return res.json({ success: true, contracts });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };

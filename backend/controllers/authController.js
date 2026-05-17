@@ -138,9 +138,9 @@ const login = async (req, res) => {
     const user = await User.findOne({ phone: phoneTrim });
 
     if (!user) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        message: "Yeh phone number registered nahi hai",
+        message: "Invalid phone or password",
       });
     }
 
@@ -163,9 +163,9 @@ const login = async (req, res) => {
 
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        message: "Password galat hai",
+        message: "Invalid phone or password",
       });
     }
 
@@ -211,7 +211,14 @@ const getMe = async (req, res) => {
 
 const checkPhone = async (req, res) => {
   try {
-    const { phone } = req.query
+    const phone = String(req.query.phone || "").trim();
+
+    if (!/^\d{10}$/.test(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid phone number",
+      });
+    }
 
     const user = await User.findOne({
       phone,
@@ -230,9 +237,12 @@ const checkPhone = async (req, res) => {
       driver: user,
     })
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     })
   }
 }

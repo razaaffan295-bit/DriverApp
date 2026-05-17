@@ -11,7 +11,7 @@ const createOrder = async (req, res) => {
     const User = require("../models/User");
     const user = await User.findById(req.user.id);
 
-    console.log("User:", user?.name, user?.role);
+    console.log('Subscription order requested')
 
     if (!user) {
       return res.status(404).json({
@@ -26,6 +26,10 @@ const createOrder = async (req, res) => {
       amount,
       currency: "INR",
       receipt: `rcpt_${Date.now()}`,
+      notes: {
+        userId: String(user._id),
+        role: user.role,
+      },
     });
 
     res.json({
@@ -40,11 +44,12 @@ const createOrder = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Order error:", error.message);
-    console.error("Full error:", error);
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -70,11 +75,61 @@ const verifyPayment = async (req, res) => {
       });
     }
 
+    const existingSub = await Subscription.findOne({
+      razorpayPaymentId: razorpay_payment_id,
+    }).lean();
+
+    if (existingSub) {
+      return res.json({
+        success: true,
+        message: "Payment already verified",
+        alreadyProcessed: true,
+      });
+    }
+
     const user = await User.findById(userIdFromReq(req));
     if (!user) {
       return res.status(404).json({
         success: false,
         message: "User nahi mila",
+      });
+    }
+
+    const razorpay = require("../config/razorpay");
+
+    try {
+      const order = await razorpay.orders.fetch(razorpay_order_id);
+
+      const expectedAmount = user.role === "owner" ? 49900 : 9900;
+
+      if (order.amount !== expectedAmount) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid payment amount",
+        });
+      }
+
+      if (order.status !== "paid") {
+        return res.status(400).json({
+          success: false,
+          message: "Order not paid",
+        });
+      }
+
+      if (
+        order.notes?.userId &&
+        String(order.notes.userId) !== String(userIdFromReq(req))
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "Order does not belong to this user",
+        });
+      }
+    } catch (orderErr) {
+      console.error("Razorpay order verify failed:", orderErr);
+      return res.status(400).json({
+        success: false,
+        message: "Could not verify order",
       });
     }
 
@@ -120,9 +175,12 @@ const verifyPayment = async (req, res) => {
         "Payment successful! Subscription active ho gayi.",
     });
   } catch (error) {
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -184,9 +242,12 @@ const checkSubscription = async (req, res) => {
       amount: user.role === 'owner' ? 499 : 99,
     })
   } catch (error) {
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };

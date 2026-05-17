@@ -3,6 +3,8 @@ const router = express.Router()
 const { upload } = require('../config/cloudinary')
 const { verifyToken, isDriver } =
   require('../middleware/authMiddleware')
+const { requireActiveSubscription } =
+  require('../middleware/subscriptionMiddleware')
 const {
   getPublicDriverProfile,
   getDriverProfile,
@@ -46,6 +48,12 @@ router.get(
 )
 router.get('/jobs/search', verifyToken, isDriver, searchJobs)
 router.get('/jobs/:id', verifyToken, isDriver, getJobDetail)
-router.post('/jobs/:id/apply', verifyToken, isDriver, applyJob)
+router.post(
+  '/jobs/:id/apply',
+  verifyToken,
+  isDriver,
+  requireActiveSubscription,
+  applyJob
+)
 
 module.exports = router

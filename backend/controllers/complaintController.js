@@ -50,6 +50,33 @@ const createComplaint = async (req, res) => {
       });
     }
 
+    const raisedBy = req.user._id || req.user.id;
+    const Contract = require("../models/Contract");
+    const Application = require("../models/Application");
+
+    const [contract, application] = await Promise.all([
+      Contract.findOne({
+        $or: [
+          { ownerId: raisedBy, driverId: againstUserId },
+          { ownerId: againstUserId, driverId: raisedBy },
+        ],
+      }).lean(),
+      Application.findOne({
+        $or: [
+          { ownerId: raisedBy, driverId: againstUserId },
+          { ownerId: againstUserId, driverId: raisedBy },
+        ],
+      }).lean(),
+    ]);
+
+    if (!contract && !application) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "You can only complain about parties you have worked with",
+      });
+    }
+
     if (req.user.role !== "owner" && req.user.role !== "driver") {
       return res.status(403).json({
         success: false,
@@ -101,9 +128,12 @@ const createComplaint = async (req, res) => {
         "Complaint darj ho gayi. Admin review karega.",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -121,9 +151,12 @@ const getMyComplaints = async (req, res) => {
 
     return res.json({ success: true, complaints });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -157,9 +190,12 @@ const getComplaintById = async (req, res) => {
 
     return res.json({ success: true, complaint });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };

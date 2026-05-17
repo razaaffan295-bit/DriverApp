@@ -7,12 +7,19 @@ const uid = (req) => req.user._id || req.user.id;
 
 const giveRating = async (req, res) => {
   try {
-    const { ratedToId, jobId, contractId, score, review } = req.body;
+    const { contractId, ratedToId, score, review, jobId } = req.body;
 
-    if (!ratedToId || score === undefined || score === null) {
+    if (!contractId) {
       return res.status(400).json({
         success: false,
-        message: "User aur score required",
+        message: "contractId is required",
+      });
+    }
+
+    if (!ratedToId) {
+      return res.status(400).json({
+        success: false,
+        message: "ratedToId is required",
       });
     }
 
@@ -20,7 +27,41 @@ const giveRating = async (req, res) => {
     if (!Number.isFinite(n) || n < 1 || n > 5) {
       return res.status(400).json({
         success: false,
-        message: "Score 1 se 5 ke beech hona chahiye",
+        message: "Score must be between 1 and 5",
+      });
+    }
+
+    const contract = await Contract.findById(contractId).lean();
+
+    if (!contract) {
+      return res.status(404).json({
+        success: false,
+        message: "Contract not found",
+      });
+    }
+
+    const userId = req.user._id || req.user.id;
+    const userIdStr = String(userId);
+    const ownerIdStr = String(contract.ownerId);
+    const driverIdStr = String(contract.driverId);
+    const ratedToStr = String(ratedToId);
+
+    const isOwnerRating =
+      userIdStr === ownerIdStr && ratedToStr === driverIdStr;
+    const isDriverRating =
+      userIdStr === driverIdStr && ratedToStr === ownerIdStr;
+
+    if (!isOwnerRating && !isDriverRating) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only rate parties of your contract",
+      });
+    }
+
+    if (contract.status !== "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Can only rate completed contracts",
       });
     }
 
@@ -31,7 +72,7 @@ const giveRating = async (req, res) => {
       });
     }
 
-    const cid = contractId || null;
+    const cid = contractId;
     const existing = await Rating.findOne({
       ratedBy: uid(req),
       ratedTo: ratedToId,
@@ -43,41 +84,6 @@ const giveRating = async (req, res) => {
         success: false,
         message: "Aap pehle se rate kar chuke hain",
       });
-    }
-
-    if (contractId) {
-      const contract = await Contract.findById(contractId);
-      if (!contract) {
-        return res.status(404).json({
-          success: false,
-          message: "Contract nahi mila",
-        });
-      }
-
-      const allowed = [
-        "active",
-        "completed",
-        "terminated",
-      ].includes(contract.status);
-      if (!allowed) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Sirf active, complete ya terminate contract pe hi rating de sakte hain",
-        });
-      }
-
-      const me = String(uid(req));
-      const isOwner =
-        String(contract.ownerId) === me;
-      const isDriver =
-        String(contract.driverId) === me;
-      if (!isOwner && !isDriver) {
-        return res.status(403).json({
-          success: false,
-          message: "Is contract mein aap nahi hain",
-        });
-      }
     }
 
     const rating = await Rating.create({
@@ -110,9 +116,12 @@ const giveRating = async (req, res) => {
       message: "Rating de di gayi!",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -149,9 +158,12 @@ const getMyRatings = async (req, res) => {
       totalRatings: received.length,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -182,9 +194,12 @@ const getUserRatings = async (req, res) => {
       total: ratings.length,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };

@@ -24,16 +24,15 @@ const verifyToken = async (req, res, next) => {
         message: "User nahi mila",
       });
     }
-    if (user.isBlocked && user.blockUntil && new Date(user.blockUntil) <= new Date()) {
-      user.isBlocked = false;
-      user.blockReason = "";
-      user.blockUntil = null;
-      await user.save();
-    }
-    if (user.isBlocked) {
+    const isCurrentlyBlocked =
+      user.isBlocked &&
+      (!user.blockUntil ||
+        new Date(user.blockUntil) > new Date());
+
+    if (isCurrentlyBlocked) {
       return res.status(403).json({
         success: false,
-        message: "Aapka account block hai",
+        message: "Your account is blocked",
       });
     }
     req.user = user;

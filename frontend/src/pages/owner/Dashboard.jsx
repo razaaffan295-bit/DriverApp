@@ -7,7 +7,7 @@ import { getVehicles, getOwnerJobs } from '../../api/ownerAPI'
 import { getOwnerApplications as getApplications } from '../../api/ownerAPI'
 import { getOwnerContracts } from '../../api/contractAPI'
 import { getMyComplaints } from '../../api/complaintAPI'
-import { getPayments } from '../../api/paymentAPI'
+import { getOwnerPaymentsSummary } from '../../api/paymentAPI'
 
 const OwnerDashboard = () => {
   const { t } = useTranslation()
@@ -126,21 +126,14 @@ const OwnerDashboard = () => {
           }))
         }
 
-        const paymentResults = await Promise.allSettled(
-          contractsList.map((c) =>
-            getPayments({ contractId: c._id })
-          )
-        )
-        const merged = []
-        for (const pr of paymentResults) {
-          if (
-            pr.status === 'fulfilled' &&
-            pr.value?.data?.payments
-          ) {
-            merged.push(...pr.value.data.payments)
+        try {
+          const paymentsRes = await getOwnerPaymentsSummary()
+          if (paymentsRes.data?.success) {
+            setPayments(paymentsRes.data.payments || [])
           }
+        } catch (e) {
+          console.error('Payments load failed:', e)
         }
-        setPayments(merged)
       } catch (err) {
         console.error(err)
       } finally {

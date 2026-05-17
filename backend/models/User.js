@@ -1,8 +1,18 @@
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  phone: { type: String, required: true, unique: true },
+  name: {
+    type: String,
+    required: true,
+    maxlength: 100,
+    trim: true,
+  },
+  phone: {
+    type: String,
+    required: true,
+    unique: true,
+    maxlength: 15,
+  },
   password: { type: String, required: true },
   role: { type: String, enum: ["owner", "driver", "admin"], required: true },
   location: {
@@ -12,7 +22,11 @@ const userSchema = new mongoose.Schema({
   profilePhoto: { type: String },
   isVerified: { type: Boolean, default: false },
   isBlocked: { type: Boolean, default: false },
-  blockReason: { type: String, default: "" },
+  blockReason: {
+    type: String,
+    default: "",
+    maxlength: 500,
+  },
   blockedAt: { type: Date },
   blockUntil: { type: Date },
   subscription: {

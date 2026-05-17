@@ -136,6 +136,23 @@ const authLimiter = rateLimit({
 })
 app.use('/api/auth/', authLimiter)
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => {
+    const phone = req.body?.phone
+    return phone
+      ? `login_${phone}`
+      : ipKeyGenerator(req.ip || '')
+  },
+  message: {
+    success: false,
+    message: 'Too many login attempts. Try after 15 minutes.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
 // Subscription rate limit
 const subscriptionLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -161,6 +178,24 @@ app.use(
     extended: true,
   })
 )
+
+app.use('/api/auth/login', loginLimiter)
+
+const paymentLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => {
+    const auth = req.headers.authorization
+    if (auth) return auth
+    return ipKeyGenerator(req.ip || '')
+  },
+  message: {
+    success: false,
+    message: 'Too many payment requests. Try after 1 hour.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -206,6 +241,7 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/contracts", contractRoutes);
 app.use("/api/attendance", attendanceRoutes);
+app.use('/api/payments/', paymentLimiter)
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use('/api/admin/subscriptions', adminSubRoutes)

@@ -15,6 +15,9 @@ export const rejectPayment = (data) =>
 export const getPayments = (params) =>
   API.get('/api/payments/history', { params })
 
+export const getOwnerPaymentsSummary = () =>
+  API.get('/api/payments/owner-summary')
+
 export const requestPayment = (data) =>
   API.post('/api/payments/request', data)
 

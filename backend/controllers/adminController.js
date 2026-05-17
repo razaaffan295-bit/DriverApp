@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const { escapeRegex } = require("../utils/validators");
 const Job = require("../models/Job");
 const Contract = require("../models/Contract");
 const Complaint = require("../models/Complaint");
@@ -66,9 +67,12 @@ const getDashboardStats = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -126,8 +130,8 @@ const getUsers = async (req, res) => {
     if (search) {
       const term = String(search).trim();
       query.$or = [
-        { name: { $regex: term, $options: "i" } },
-        { phone: { $regex: term, $options: "i" } },
+        { name: { $regex: escapeRegex(term), $options: "i" } },
+        { phone: { $regex: escapeRegex(term), $options: "i" } },
       ];
     }
 
@@ -168,9 +172,12 @@ const getUsers = async (req, res) => {
       totalPages: Math.ceil(total / lim) || 0,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -219,9 +226,12 @@ const blockUser = async (req, res) => {
       message: "User block ho gaya",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -255,9 +265,12 @@ const unblockUser = async (req, res) => {
       message: "User unblock ho gaya",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -271,7 +284,7 @@ const getAllComplaints = async (req, res) => {
     if (state) query["location.state"] = state;
     if (search) {
       const t = String(search).trim();
-      query.description = { $regex: t, $options: "i" };
+      query.description = { $regex: escapeRegex(t), $options: "i" };
     }
 
     const lim = Math.min(Number(limit) || 20, 100);
@@ -295,9 +308,12 @@ const getAllComplaints = async (req, res) => {
       totalPages: Math.ceil(total / lim) || 0,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -413,9 +429,12 @@ const resolveComplaint = async (req, res) => {
       message: "Complaint resolve ho gayi",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -437,9 +456,12 @@ const getSubscriptions = async (req, res) => {
       subscriptions,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -470,9 +492,12 @@ const verifyUser = async (req, res) => {
       message: "User verify ho gaya",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };

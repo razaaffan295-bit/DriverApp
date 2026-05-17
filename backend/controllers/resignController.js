@@ -63,9 +63,12 @@ const requestResign = async (req, res) => {
       message: "Resign request bhej di!",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -189,9 +192,12 @@ const handleResign = async (req, res) => {
       message: `Resign ${action} ho gayi`,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -214,9 +220,12 @@ const getResignRequests = async (req, res) => {
 
     return res.json({ success: true, resigns });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };

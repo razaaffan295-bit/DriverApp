@@ -6,12 +6,12 @@ const {
   getMe,
   checkPhone,
 } = require('../controllers/authController')
-const { verifyToken } =
+const { verifyToken, isOwner } =
   require('../middleware/authMiddleware')
 
 router.post('/register', register)
 router.post('/login', login)
 router.get('/me', verifyToken, getMe)
-router.get('/check-phone', verifyToken, checkPhone)
+router.get('/check-phone', verifyToken, isOwner, checkPhone)
 
 module.exports = router

@@ -60,9 +60,12 @@ const getJobApplications = async (req, res) => {
       applications,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -131,8 +134,31 @@ const getOwnerApplications = async (req, res) => {
       });
     }
 
-    const applications = await Promise.all(
-      apps.map(async (a) => {
+    const ratingDriverIds = apps
+      .map((a) => a.driverId?._id || a.driverId)
+      .filter(Boolean);
+    const ratingsData =
+      ratingDriverIds.length > 0
+        ? await Rating.aggregate([
+            { $match: { ratedTo: { $in: ratingDriverIds } } },
+            {
+              $group: {
+                _id: "$ratedTo",
+                avgRating: { $avg: "$score" },
+                count: { $sum: 1 },
+              },
+            },
+          ])
+        : [];
+    const ratingsMap = {};
+    ratingsData.forEach((r) => {
+      ratingsMap[String(r._id)] = {
+        avgRating: r.avgRating,
+        count: r.count,
+      };
+    });
+
+    const applications = apps.map((a) => {
         const did = a.driverId?._id && String(a.driverId._id);
         const jid = a.jobId?._id || a.jobId;
         const dk = jid && did ? `${String(jid)}_${did}` : "";
@@ -140,21 +166,14 @@ const getOwnerApplications = async (req, res) => {
         let avgRating = 0;
         let totalRatings = 0;
         if (did) {
-          const ratings = await Rating.find({
-            ratedTo: did,
-          })
-            .select("score")
-            .lean();
-          totalRatings = ratings.length;
-          avgRating =
-            totalRatings > 0
-              ? (
-                  ratings.reduce(
-                    (s, r) => s + (Number(r.score) || 0),
-                    0
-                  ) / totalRatings
-                ).toFixed(1)
-              : 0;
+          const hit = ratingsMap[did];
+          if (hit) {
+            totalRatings = hit.count;
+            avgRating =
+              totalRatings > 0
+                ? Number(hit.avgRating).toFixed(1)
+                : 0;
+          }
         }
 
         const driverIdEnriched = a.driverId
@@ -176,17 +195,19 @@ const getOwnerApplications = async (req, res) => {
           contractId: dk ? contractIdByKey[dk] || null : null,
           contractStatus: dk ? contractStatusByKey[dk] || null : null,
         };
-      })
-    );
+    });
 
     return res.json({
       success: true,
       applications,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -245,9 +266,12 @@ const acceptApplication = async (req, res) => {
 
     return res.json({ success: true });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -278,9 +302,12 @@ const rejectApplication = async (req, res) => {
     await application.save();
     return res.json({ success: true });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -332,9 +359,12 @@ const cancelApplication = async (req, res) => {
 
     return res.json({ success: true });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };

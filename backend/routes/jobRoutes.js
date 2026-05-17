@@ -7,12 +7,16 @@ const {
   getJobById,
   closeJob,
 } = require('../controllers/jobController')
-const { verifyToken, isOwner } =
+const { verifyToken, isOwner, isDriver } =
   require('../middleware/authMiddleware')
 const { cacheMiddleware } = require('../middleware/cacheMiddleware')
+const { requireActiveSubscription } =
+  require('../middleware/subscriptionMiddleware')
+const { validateObjectId } =
+  require('../middleware/validateParams')
 
 const publicJobRouter = express.Router()
-publicJobRouter.get('/public/:id', verifyToken, cacheMiddleware(60), async (req, res) => {
+publicJobRouter.get('/public/:id', verifyToken, isDriver, validateObjectId('id'), cacheMiddleware(60), async (req, res) => {
   try {
     const job = await Job.findById(req.params.id).populate(
       'ownerId',
@@ -27,9 +31,12 @@ publicJobRouter.get('/public/:id', verifyToken, cacheMiddleware(60), async (req,
     }
     return res.json({ success: true, job })
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || 'Server error',
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     })
   }
 })
@@ -37,9 +44,9 @@ publicJobRouter.get('/public/:id', verifyToken, cacheMiddleware(60), async (req,
 router.use(publicJobRouter)
 
 router.use(verifyToken, isOwner)
-router.post('/', createJob)
+router.post('/', requireActiveSubscription, createJob)
 router.get('/my-jobs', cacheMiddleware(60), getOwnerJobs)
-router.get('/:id', cacheMiddleware(60), getJobById)
-router.put('/:id/close', closeJob)
+router.get('/:id', validateObjectId('id'), cacheMiddleware(60), getJobById)
+router.put('/:id/close', validateObjectId('id'), closeJob)
 
 module.exports = router

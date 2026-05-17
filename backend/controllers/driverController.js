@@ -41,9 +41,12 @@ const getDriverProfile = async (req, res) => {
       user,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -78,9 +81,12 @@ const uploadProfilePhoto = async (req, res) => {
       photo: photoUrl,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -178,9 +184,12 @@ const updateDriverProfile = async (req, res) => {
       profile: updated,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -210,26 +219,40 @@ const searchJobs = async (req, res) => {
       Job.countDocuments(filter),
     ]);
 
-    const jobsWithRating = await Promise.all(
-      jobs.map(async (job) => {
+    const ownerIds = jobs
+      .map((job) => job.ownerId?._id || job.ownerId)
+      .filter(Boolean);
+    const ratingsData =
+      ownerIds.length > 0
+        ? await Rating.aggregate([
+            { $match: { ratedTo: { $in: ownerIds } } },
+            {
+              $group: {
+                _id: "$ratedTo",
+                avgRating: { $avg: "$score" },
+                count: { $sum: 1 },
+              },
+            },
+          ])
+        : [];
+    const ratingsMap = {};
+    ratingsData.forEach((r) => {
+      ratingsMap[String(r._id)] = {
+        avgRating: r.avgRating,
+        count: r.count,
+      };
+    });
+
+    const jobsWithRating = jobs.map((job) => {
         const oid = job.ownerId?._id || job.ownerId;
         if (!oid) {
           return job;
         }
-        const ratings = await Rating.find({
-          ratedTo: oid,
-        })
-          .select("score")
-          .lean();
-        const totalRatings = ratings.length;
+        const hit = ratingsMap[String(oid)];
+        const totalRatings = hit ? hit.count : 0;
         const avgRating =
           totalRatings > 0
-            ? (
-                ratings.reduce(
-                  (s, r) => s + (Number(r.score) || 0),
-                  0
-                ) / totalRatings
-              ).toFixed(1)
+            ? Number(hit.avgRating).toFixed(1)
             : 0;
         return {
           ...job,
@@ -242,8 +265,7 @@ const searchJobs = async (req, res) => {
                 }
               : job.ownerId,
         };
-      })
-    );
+    });
 
     return res.json({
       success: true,
@@ -251,9 +273,12 @@ const searchJobs = async (req, res) => {
       total,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -286,9 +311,12 @@ const getJobDetail = async (req, res) => {
       hasApplied,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -366,15 +394,58 @@ const applyJob = async (req, res) => {
       application,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
 
 const getPublicDriverProfile = async (req, res) => {
   try {
+    const ownerId = req.user._id || req.user.id;
+    const userRole = req.user.role;
+    const targetDriverId = req.params.id;
+
+    if (String(ownerId) !== String(targetDriverId)) {
+      if (userRole === "admin") {
+        // allow
+      } else if (userRole === "owner") {
+        const DriverInvite = require("../models/DriverInvite");
+
+        const [app, contract, invite] = await Promise.all([
+          Application.findOne({
+            ownerId,
+            driverId: targetDriverId,
+          }).lean(),
+          Contract.findOne({
+            ownerId,
+            driverId: targetDriverId,
+          }).lean(),
+          DriverInvite.findOne({
+            ownerId,
+            driverId: targetDriverId,
+          }).lean(),
+        ]);
+
+        if (!app && !contract && !invite) {
+          return res.status(403).json({
+            success: false,
+            message:
+              "You need to invite or have application from this driver first",
+          });
+        }
+      } else {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied",
+        });
+      }
+    }
+
     const user = await User.findById(req.params.id).select(
       "_id name location isVerified profilePhoto role createdAt"
     );
@@ -424,10 +495,12 @@ const getPublicDriverProfile = async (req, res) => {
       completedJobs,
     });
   } catch (error) {
-    console.error("getPublicDriverProfile error:", error);
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -489,9 +562,12 @@ const uploadDocuments = async (req, res) => {
       documents: profile.documents,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -513,9 +589,12 @@ const getDriverApplications = async (req, res) => {
       applications,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };

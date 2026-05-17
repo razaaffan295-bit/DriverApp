@@ -10,9 +10,17 @@ const {
   isDriver,
   isOwner,
 } = require("../middleware/authMiddleware");
+const { requireActiveSubscription } =
+  require("../middleware/subscriptionMiddleware");
 
 router.get("/", verifyToken, getResignRequests);
-router.post("/request", verifyToken, isDriver, requestResign);
+router.post(
+  "/request",
+  verifyToken,
+  isDriver,
+  requireActiveSubscription,
+  requestResign
+);
 router.put("/handle", verifyToken, isOwner, handleResign);
 
 module.exports = router;

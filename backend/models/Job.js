@@ -4,8 +4,8 @@ const jobSchema = new mongoose.Schema({
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   vehicleId: { type: mongoose.Schema.Types.ObjectId, ref: "Vehicle" },
   vehicleType: { type: String },
-  title: { type: String },
-  description: { type: String },
+  title: { type: String, maxlength: 200 },
+  description: { type: String, maxlength: 2000 },
   location: {
     state: { type: String },
     district: { type: String },

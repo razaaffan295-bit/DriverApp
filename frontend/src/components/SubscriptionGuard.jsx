@@ -99,7 +99,40 @@ const SubscriptionGuard = ({ children }) => {
 
         setChecked(true)
       } catch (e) {
-        setChecked(true)
+        console.error('Subscription check failed:', e)
+
+        let retries = 0
+        const maxRetries = 3
+        const retryCheck = async () => {
+          if (retries >= maxRetries) {
+            console.error(
+              'Max retries reached for sub check'
+            )
+            setChecked(true)
+            return
+          }
+          retries++
+          try {
+            const retryRes = await checkSubscription()
+            const retryData = retryRes.data
+            if (retryData.isActive) {
+              setChecked(true)
+              setShowPopup(false)
+              return
+            }
+            if (
+              retryData.subscriptionRequired &&
+              retryData.deadlinePassed
+            ) {
+              navigate('/subscription', { replace: true })
+              return
+            }
+            setChecked(true)
+          } catch (retryErr) {
+            setTimeout(retryCheck, 2000 * retries)
+          }
+        }
+        setTimeout(retryCheck, 2000)
       }
     }
 

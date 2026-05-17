@@ -7,8 +7,7 @@ import {
   generateAndOpenPDF,
 } from '../../utils/pdfUpload'
 import { getOwnerTrips, handleTrip } from '../../api/tripAPI'
-import { getOwnerContracts } from '../../api/contractAPI'
-import { getPayments } from '../../api/paymentAPI'
+import { getOwnerPaymentsSummary } from '../../api/paymentAPI'
 
 const fmtMoney = (n) =>
   `₹${Number.isFinite(Number(n)) ? Number(n) : 0}`
@@ -89,22 +88,15 @@ const OwnerTrips = () => {
 
   const loadTripPayments = async () => {
     try {
-      const contractsRes = await getOwnerContracts()
-      const raw = contractsRes.data?.contracts || []
-      const merged = []
-      for (const c of raw) {
-        try {
-          const res = await getPayments({ contractId: c._id })
-          merged.push(...(res.data?.payments || []))
-        } catch (e) {
-          console.error(e)
-        }
+      const paymentsRes = await getOwnerPaymentsSummary()
+      if (paymentsRes.data?.success) {
+        const all = paymentsRes.data.payments || []
+        const tripPays = all.filter(
+          (p) =>
+            p.paymentType === 'trip' && p.driverConfirmed === true
+        )
+        setTripPayments(tripPays)
       }
-      const tripPays = merged.filter(
-        (p) =>
-          p.paymentType === 'trip' && p.driverConfirmed === true
-      )
-      setTripPayments(tripPays)
     } catch (err) {
       console.error(err)
     }

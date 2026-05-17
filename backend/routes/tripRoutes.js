@@ -20,13 +20,22 @@ const {
   isOwner,
   isDriver,
 } = require('../middleware/authMiddleware')
+const { requireActiveSubscription } =
+  require('../middleware/subscriptionMiddleware')
 
-router.post('/create', verifyToken, isDriver, createTrip)
+router.post(
+  '/create',
+  verifyToken,
+  isDriver,
+  requireActiveSubscription,
+  createTrip
+)
 
 router.post(
   '/add-expense',
   verifyToken,
   isDriver,
+  requireActiveSubscription,
   upload.single('image'),
   addExpense
 )
@@ -34,6 +43,7 @@ router.post(
   '/expense/add',
   verifyToken,
   isDriver,
+  requireActiveSubscription,
   upload.single('image'),
   addExpense
 )
@@ -42,6 +52,7 @@ router.post(
   '/add-repair',
   verifyToken,
   isDriver,
+  requireActiveSubscription,
   upload.single('image'),
   addRepair
 )

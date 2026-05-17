@@ -30,6 +30,18 @@ const createContract = async (req, res) => {
       });
     }
 
+    const existingActive = await Contract.findOne({
+      driverId,
+      status: { $in: ["active", "sent"] },
+    }).lean();
+
+    if (existingActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Driver already has an active or pending contract",
+      });
+    }
+
     const application = await Application.findOne({
       jobId,
       driverId,
@@ -112,9 +124,12 @@ const createContract = async (req, res) => {
       contract: populated,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -136,9 +151,12 @@ const getOwnerContracts = async (req, res) => {
       contracts,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -175,9 +193,12 @@ const getContractById = async (req, res) => {
       contract,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -203,6 +224,23 @@ const driverSignContract = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Sign ke liye contract sent hona chahiye",
+      });
+    }
+
+    const driverIdToCheck =
+      contract.driverId._id || contract.driverId;
+
+    const otherActive = await Contract.findOne({
+      driverId: driverIdToCheck,
+      status: "active",
+      _id: { $ne: contract._id },
+    }).lean();
+
+    if (otherActive) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "You already have an active contract. Complete or resign first.",
       });
     }
 
@@ -237,9 +275,12 @@ const driverSignContract = async (req, res) => {
       contract: populated,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -292,9 +333,12 @@ const completeContract = async (req, res) => {
       message: "Contract complete ho gaya!",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -316,9 +360,12 @@ const getDriverContracts = async (req, res) => {
       contracts,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -343,9 +390,12 @@ const getDriverContractHistory = async (req, res) => {
       contracts,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -378,9 +428,12 @@ const getDriverContract = async (req, res) => {
       contract,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };

@@ -98,10 +98,13 @@ const createTrip = async (req, res) => {
       message: 'Trip start ho gaya!',
     })
   } catch (error) {
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -168,10 +171,13 @@ const addExpense = async (req, res) => {
       trip,
     })
   } catch (error) {
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -217,10 +223,13 @@ const addRepair = async (req, res) => {
       trip,
     })
   } catch (error) {
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -279,10 +288,13 @@ const completeTrip = async (req, res) => {
       trip,
     })
   } catch (error) {
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -301,10 +313,13 @@ const getActiveTrip = async (req, res) => {
       trip: trip || null,
     })
   } catch (error) {
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -341,10 +356,13 @@ const getDriverTrips = async (req, res) => {
       contract,
     })
   } catch (error) {
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -372,10 +390,13 @@ const getOwnerTrips = async (req, res) => {
       trips,
     })
   } catch (error) {
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -469,10 +490,13 @@ const handleTrip = async (req, res) => {
       trip,
     })
   } catch (error) {
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -532,10 +556,13 @@ const createRepairRequest = async (req, res) => {
       message: 'Repair request bhej di!',
     })
   } catch (error) {
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -583,10 +610,13 @@ const reviewRepairRequest = async (req, res) => {
       message: `Repair ${action} ho gayi!`,
     })
   } catch (error) {
+    console.error('[Error]', error)
     res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 

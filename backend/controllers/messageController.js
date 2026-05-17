@@ -24,6 +24,46 @@ const sendMessage = async (req, res) => {
 
     const text = String(message).trim();
 
+    const Application = require("../models/Application");
+    const Contract = require("../models/Contract");
+    const DriverInvite = require("../models/DriverInvite");
+
+    const senderId = uidFromReq(req);
+
+    const [app, contract, invite, prevMsg] = await Promise.all([
+      Application.findOne({
+        $or: [
+          { ownerId: senderId, driverId: receiverId },
+          { ownerId: receiverId, driverId: senderId },
+        ],
+      }).lean(),
+      Contract.findOne({
+        $or: [
+          { ownerId: senderId, driverId: receiverId },
+          { ownerId: receiverId, driverId: senderId },
+        ],
+      }).lean(),
+      DriverInvite.findOne({
+        $or: [
+          { ownerId: senderId, driverId: receiverId },
+          { ownerId: receiverId, driverId: senderId },
+        ],
+      }).lean(),
+      Message.findOne({
+        $or: [
+          { senderId, receiverId },
+          { senderId: receiverId, receiverId: senderId },
+        ],
+      }).lean(),
+    ]);
+
+    if (!app && !contract && !invite && !prevMsg) {
+      return res.status(403).json({
+        success: false,
+        message: "No relationship with this user",
+      });
+    }
+
     const newMessage = await Message.create({
       jobId: jobId || null,
       senderId: uidFromReq(req),
@@ -62,10 +102,12 @@ const sendMessage = async (req, res) => {
       message: populated,
     });
   } catch (error) {
-    console.error("sendMessage:", error);
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -121,10 +163,12 @@ const getMessages = async (req, res) => {
       messages,
     });
   } catch (error) {
-    console.error("getMessages error:", error);
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -200,9 +244,12 @@ const getConversations = async (req, res) => {
       conversations,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };

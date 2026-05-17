@@ -124,10 +124,13 @@ const sendInvite = async (req, res) => {
       message: `${driver.name} ko invite bhej diya! Driver ke accept karne ka wait karein.`,
     })
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -156,10 +159,13 @@ const getOwnerInvites = async (req, res) => {
 
     return res.json({ success: true, invites })
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -177,10 +183,13 @@ const getDriverInvites = async (req, res) => {
 
     return res.json({ success: true, invites })
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -237,6 +246,21 @@ const acceptInvite = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Yeh invite already process ho chuka hai',
+      })
+    }
+
+    const driverIdToCheck =
+      invite.driverId._id || invite.driverId
+
+    const existingContract = await Contract.findOne({
+      driverId: driverIdToCheck,
+      status: { $in: ['active', 'sent'] },
+    }).lean()
+
+    if (existingContract) {
+      return res.status(400).json({
+        success: false,
+        message: 'You already have an active or pending contract',
       })
     }
 
@@ -309,10 +333,13 @@ const acceptInvite = async (req, res) => {
       message: 'Invite accept kar liya! Kaam shuru ho gaya.',
     })
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 
@@ -352,10 +379,13 @@ const rejectInvite = async (req, res) => {
       message: 'Invite reject kar diya',
     })
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
-    })
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
   }
 }
 

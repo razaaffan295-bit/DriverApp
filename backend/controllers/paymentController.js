@@ -125,7 +125,7 @@ const getPaymentSummary = async (req, res) => {
       contractId: cid,
       status: "paid",
       driverConfirmed: true,
-    });
+    }).lean();
     const salaryConfirmed = confirmedPayments.filter(
       (p) => !isTripPaymentDoc(p)
     );
@@ -138,7 +138,7 @@ const getPaymentSummary = async (req, res) => {
       contractId: cid,
       status: { $in: ["approved", "partial"] },
       isCleared: false,
-    });
+    }).lean();
 
     const totalAdvanceRemaining = activeAdvances.reduce(
       (sum, a) => sum + (Number(a.remaining) || 0),
@@ -169,13 +169,15 @@ const getPaymentSummary = async (req, res) => {
       .populate("tripId")
       .lean();
 
-    const contractPop = await Contract.findById(cid)
-      .populate(
-        "jobId",
-        "title vehicleType salaryType vehicleCategory salaryPerDay salaryPerMonth salaryPerHour dailyBhatta hasHourlyBonus"
-      )
-      .populate("driverId", "name phone")
-      .lean();
+    await contract.populate([
+      {
+        path: "jobId",
+        select:
+          "title vehicleType salaryType vehicleCategory salaryPerDay salaryPerMonth salaryPerHour dailyBhatta hasHourlyBonus",
+      },
+      { path: "driverId", select: "name phone" },
+    ]);
+    const contractPop = contract.toObject();
 
     const pendingRequests = await Payment.find({
       contractId: cid,
@@ -213,9 +215,12 @@ const getPaymentSummary = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -526,9 +531,12 @@ const makePayment = async (req, res) => {
       message: "Payment mark ho gayi! Driver confirm karega.",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -628,9 +636,12 @@ const confirmPayment = async (req, res) => {
       message: "Payment confirm ho gayi!",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -698,9 +709,12 @@ const rejectPayment = async (req, res) => {
       message: "Payment reject ho gayi",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -739,9 +753,12 @@ const getPayments = async (req, res) => {
       payments,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -801,9 +818,12 @@ const requestAdvance = async (req, res) => {
       advance,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -916,9 +936,12 @@ const handleAdvance = async (req, res) => {
       advance: adv,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -1072,9 +1095,12 @@ const requestPayment = async (req, res) => {
       requestAmount: requestAmt,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -1209,9 +1235,12 @@ const createTripPaymentRequest = async (req, res) => {
       payment: populated,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -1244,12 +1273,45 @@ const getAdvances = async (req, res) => {
       advances,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
+
+const getOwnerPaymentsSummary = async (req, res) => {
+  try {
+    const Payment = require('../models/Payment')
+    const ownerId = req.user._id || req.user.id
+
+    // Get ALL payments for this owner in ONE query
+    const payments = await Payment.find({
+      ownerId,
+    })
+      .select(
+        'amount month year status driverConfirmed isDriverRequested ownerMarkedPaid contractId createdAt paymentType requestKind tripId'
+      )
+      .sort({ createdAt: -1 })
+      .lean()
+
+    return res.json({
+      success: true,
+      payments,
+    })
+  } catch (error) {
+    console.error('[Error]', error)
+    return res.status(500).json({
+      success: false,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    });
+  }
+}
 
 module.exports = {
   getPaymentSummary,
@@ -1262,4 +1324,5 @@ module.exports = {
   requestAdvance,
   handleAdvance,
   getAdvances,
+  getOwnerPaymentsSummary,
 };

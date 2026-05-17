@@ -21,7 +21,11 @@ const complaintSchema = new mongoose.Schema({
     ],
     required: true,
   },
-  description: { type: String },
+  description: {
+    type: String,
+    required: true,
+    maxlength: 2000,
+  },
   evidence: [{ type: String }],
   location: {
     state: { type: String },

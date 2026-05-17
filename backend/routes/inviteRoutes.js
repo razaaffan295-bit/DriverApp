@@ -8,11 +8,25 @@ const {
   rejectInvite,
 } = require('../controllers/inviteController')
 const { verifyToken, isOwner, isDriver } = require('../middleware/authMiddleware')
+const { requireActiveSubscription } =
+  require('../middleware/subscriptionMiddleware')
 
-router.post('/send', verifyToken, isOwner, sendInvite)
+router.post(
+  '/send',
+  verifyToken,
+  isOwner,
+  requireActiveSubscription,
+  sendInvite
+)
 router.get('/owner', verifyToken, isOwner, getOwnerInvites)
 router.get('/driver', verifyToken, isDriver, getDriverInvites)
-router.put('/accept', verifyToken, isDriver, acceptInvite)
+router.put(
+  '/accept',
+  verifyToken,
+  isDriver,
+  requireActiveSubscription,
+  acceptInvite
+)
 router.put('/reject', verifyToken, isDriver, rejectInvite)
 
 module.exports = router

@@ -14,5 +14,9 @@ const subscriptionSchema = new mongoose.Schema({
 
 subscriptionSchema.index({ userId: 1, status: 1 })
 subscriptionSchema.index({ endDate: 1 })
+subscriptionSchema.index(
+  { razorpayPaymentId: 1 },
+  { unique: true, sparse: true }
+)
 
 module.exports = mongoose.model("Subscription", subscriptionSchema);

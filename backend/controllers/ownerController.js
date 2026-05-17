@@ -29,9 +29,12 @@ const getOwnerProfile = async (req, res) => {
       user,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -75,9 +78,12 @@ const uploadProfilePhoto = async (req, res) => {
       photo: photoUrl,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -135,9 +141,12 @@ const updateOwnerProfile = async (req, res) => {
       user: await User.findById(ownerId).select("-password").lean(),
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -178,9 +187,12 @@ const addVehicle = async (req, res) => {
       vehicle,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -195,9 +207,12 @@ const getVehicles = async (req, res) => {
       vehicles,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -226,9 +241,12 @@ const deleteVehicle = async (req, res) => {
     await Vehicle.deleteOne({ _id: vehicle._id });
     return res.json({ success: true });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -282,10 +300,12 @@ const getPublicOwnerProfile = async (req, res) => {
       totalRatings: ratings.length,
     });
   } catch (error) {
-    console.error("getPublicOwnerProfile error:", error);
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || "Server error",
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -356,16 +376,36 @@ const getVehicleDetail = async (req, res) => {
       ratingCount,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
 
 const getDriverDetail = async (req, res) => {
   try {
+    const Application = require("../models/Application");
+    const DriverInvite = require("../models/DriverInvite");
+
+    const ownerId = req.user._id || req.user.id;
     const driverId = req.params.id;
+
+    const [app, contract, invite] = await Promise.all([
+      Application.findOne({ ownerId, driverId }).lean(),
+      Contract.findOne({ ownerId, driverId }).lean(),
+      DriverInvite.findOne({ ownerId, driverId }).lean(),
+    ]);
+
+    if (!app && !contract && !invite) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have access to this driver",
+      });
+    }
 
     const driver = await User.findById(driverId).select(
       "name phone location profilePhoto isVerified createdAt"
@@ -480,9 +520,12 @@ const getDriverDetail = async (req, res) => {
       paymentSummary,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };

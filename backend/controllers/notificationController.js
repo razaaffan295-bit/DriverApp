@@ -23,9 +23,12 @@ const getNotifications = async (req, res) => {
       unreadCount,
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -47,9 +50,12 @@ const markAllRead = async (req, res) => {
       message: "Sab notifications read mark ho gayi",
     });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };
@@ -57,15 +63,27 @@ const markAllRead = async (req, res) => {
 const markOneRead = async (req, res) => {
   try {
     const uid = uidFromReq(req);
-    await Notification.findOneAndUpdate(
+    const updated = await Notification.findOneAndUpdate(
       { _id: req.params.id, userId: uid },
-      { isRead: true }
+      { isRead: true },
+      { new: true }
     );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
     return res.json({ success: true });
   } catch (error) {
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     });
   }
 };

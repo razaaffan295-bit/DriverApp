@@ -349,20 +349,100 @@ const generateAndUploadPDF = async (type, data) => {
 
 const generatePDF = async (req, res) => {
   try {
+    const userId = req.user._id || req.user.id
     const { type, data } = req.body
+
     if (!type || !data) {
       return res.status(400).json({
         success: false,
-        message: 'type aur data required hai'
+        message: 'type and data required',
       })
     }
+
+    const allowedTypes = [
+      'attendance',
+      'payment',
+      'trip',
+      'contract',
+    ]
+    if (!allowedTypes.includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid PDF type',
+      })
+    }
+
+    if (type === 'contract') {
+      const Contract = require('../models/Contract')
+
+      const found = await Contract.findOne({
+        $or: [{ ownerId: userId }, { driverId: userId }],
+      })
+        .limit(1)
+        .lean()
+
+      if (!found) {
+        return res.status(403).json({
+          success: false,
+          message: 'No contract found for user',
+        })
+      }
+    }
+
+    if (type === 'attendance') {
+      const DriverAttendance = require('../models/DriverAttendance')
+      const OwnerAttendance = require('../models/OwnerAttendance')
+
+      const [drvAtt, ownAtt] = await Promise.all([
+        DriverAttendance.findOne({ driverId: userId }).lean(),
+        OwnerAttendance.findOne({ ownerId: userId }).lean(),
+      ])
+
+      if (!drvAtt && !ownAtt) {
+        return res.status(403).json({
+          success: false,
+          message: 'No attendance records found',
+        })
+      }
+    }
+
+    if (type === 'payment') {
+      const Payment = require('../models/Payment')
+      const found = await Payment.findOne({
+        $or: [{ driverId: userId }, { ownerId: userId }],
+      }).lean()
+
+      if (!found) {
+        return res.status(403).json({
+          success: false,
+          message: 'No payment records found',
+        })
+      }
+    }
+
+    if (type === 'trip') {
+      const TripRecord = require('../models/TripRecord')
+      const found = await TripRecord.findOne({
+        $or: [{ driverId: userId }, { ownerId: userId }],
+      }).lean()
+
+      if (!found) {
+        return res.status(403).json({
+          success: false,
+          message: 'No trip records found',
+        })
+      }
+    }
+
     const url = await generateAndUploadPDF(type, data)
     return res.json({ success: true, url })
   } catch (error) {
-    console.error('PDF generation error:', error)
+    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
-      message: error.message || 'PDF generate nahi hua'
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     })
   }
 }

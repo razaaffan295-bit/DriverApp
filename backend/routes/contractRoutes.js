@@ -16,8 +16,18 @@ const {
   isDriver,
 } = require('../middleware/authMiddleware')
 const { cacheMiddleware } = require('../middleware/cacheMiddleware')
+const { requireActiveSubscription } =
+  require('../middleware/subscriptionMiddleware')
+const { validateObjectId } =
+  require('../middleware/validateParams')
 
-router.post('/', verifyToken, isOwner, createContract)
+router.post(
+  '/',
+  verifyToken,
+  isOwner,
+  requireActiveSubscription,
+  createContract
+)
 router.get('/owner', verifyToken, isOwner, cacheMiddleware(60), getOwnerContracts)
 router.get(
   '/driver/active',
@@ -39,11 +49,25 @@ router.get(
   cacheMiddleware(60),
   getDriverContracts
 )
-router.get('/:id', verifyToken, cacheMiddleware(60), getContractById)
-router.put('/:id/sign', verifyToken, isDriver, driverSignContract)
+router.get(
+  '/:id',
+  verifyToken,
+  validateObjectId('id'),
+  cacheMiddleware(60),
+  getContractById
+)
+router.put(
+  '/:id/sign',
+  verifyToken,
+  validateObjectId('id'),
+  isDriver,
+  requireActiveSubscription,
+  driverSignContract
+)
 router.put(
   '/:id/complete',
   verifyToken,
+  validateObjectId('id'),
   isOwner,
   completeContract
 )

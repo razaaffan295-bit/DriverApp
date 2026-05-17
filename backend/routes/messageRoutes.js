@@ -7,12 +7,14 @@ const {
 } = require('../controllers/messageController')
 const { verifyToken } =
   require('../middleware/authMiddleware')
+const { requireActiveSubscription } =
+  require('../middleware/subscriptionMiddleware')
 
 router.use(verifyToken)
 router.get('/conversations/all',
   getConversations)
 router.get('/:jobId/:otherUserId',
   getMessages)
-router.post('/send', sendMessage)
+router.post('/send', requireActiveSubscription, sendMessage)
 
 module.exports = router

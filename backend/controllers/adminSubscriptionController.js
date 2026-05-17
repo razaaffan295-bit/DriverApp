@@ -61,9 +61,12 @@ const getFreeTrialUsers = async (req, res) => {
 
     res.json({ success: true, users: result })
   } catch (error) {
-    res.status(500).json({
+    console.error('[Error]', error)
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     })
   }
 }
@@ -103,9 +106,12 @@ const requireSubscription = async (req, res) => {
       deadline,
     })
   } catch (error) {
-    res.status(500).json({
+    console.error('[Error]', error)
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     })
   }
 }
@@ -158,9 +164,12 @@ const extendFreeTrial = async (req, res) => {
       message: `Free trial ${days} din extend kiya`,
     })
   } catch (error) {
-    res.status(500).json({
+    console.error('[Error]', error)
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     })
   }
 }
@@ -204,9 +213,12 @@ const setPermanentFree = async (req, res) => {
       message: 'Permanent free set kiya',
     })
   } catch (error) {
-    res.status(500).json({
+    console.error('[Error]', error)
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     })
   }
 }
@@ -220,9 +232,12 @@ const removePermanentFree = async (req, res) => {
     })
     res.json({ success: true })
   } catch (error) {
-    res.status(500).json({
+    console.error('[Error]', error)
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
     })
   }
 }

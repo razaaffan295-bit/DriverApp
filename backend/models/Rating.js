@@ -11,4 +11,8 @@ const ratingSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+ratingSchema.index({ ratedTo: 1 })
+ratingSchema.index({ ratedBy: 1 })
+ratingSchema.index({ contractId: 1 })
+
 module.exports = mongoose.model("Rating", ratingSchema);
