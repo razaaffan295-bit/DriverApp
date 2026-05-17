@@ -13,7 +13,6 @@ import {
   driverDeleteRecord,
   driverGetRecords,
 } from '../../api/attendanceAPI'
-import { useDataCache } from '../../contexts/DataCacheContext'
 
 const MONTH_NAMES = [
   'January',
@@ -96,47 +95,30 @@ const DriverAttendance = () => {
     hoursWorked: '',
     note: '',
   })
-  const { getCachedData, setCachedData, clearCache } = useDataCache()
 
   useEffect(() => {
     setUser(getUser())
   }, [])
 
   useEffect(() => {
-    const loadContractFresh = async (silent) => {
-      if (!silent) setLoading(true)
+    const loadContract = async () => {
+      setLoading(true)
       try {
         const res = await getDriverActiveContract()
-        const c = res.data?.contract || null
-        setContract(c)
-        const prev = getCachedData('driver_attendance') || {}
-        setCachedData('driver_attendance', {
-          ...prev,
-          contract: c,
-        })
+        setContract(res.data?.contract || null)
       } catch (e) {
         setContract(null)
         toast.error(e.response?.data?.message || 'Contract load nahi hua')
       } finally {
-        if (!silent) setLoading(false)
-      }
-    }
-    const run = async () => {
-      const cached = getCachedData('driver_attendance')
-      if (cached?.contract !== undefined) {
-        setContract(cached.contract)
         setLoading(false)
-        loadContractFresh(true)
-        return
       }
-      loadContractFresh(false)
     }
-    run()
+    loadContract()
   }, [])
 
   useEffect(() => {
-    const loadRecordsFresh = async (silent) => {
-      if (!silent) setLoading(true)
+    const loadRecords = async () => {
+      setLoading(true)
       try {
         const res = await driverGetRecords({
           month: selectedMonth,
@@ -166,14 +148,6 @@ const DriverAttendance = () => {
         s.totalHours = Math.round(s.totalHours * 100) / 100
         s.grossTotal = Math.round(s.grossTotal)
         setSummary(s)
-        const prev = getCachedData('driver_attendance') || {}
-        setCachedData('driver_attendance', {
-          ...prev,
-          records: list,
-          summary: s,
-          selectedMonth,
-          selectedYear,
-        })
       } catch (e) {
         setRecords([])
         setSummary({
@@ -185,32 +159,11 @@ const DriverAttendance = () => {
         })
         toast.error(e.response?.data?.message || 'Attendance load nahi hua')
       } finally {
-        if (!silent) setLoading(false)
+        setLoading(false)
       }
     }
 
-    const run = async () => {
-      const cached = getCachedData('driver_attendance')
-      if (
-        cached?.records &&
-        cached.selectedMonth === selectedMonth &&
-        cached.selectedYear === selectedYear
-      ) {
-        setRecords(cached.records)
-        setSummary(cached.summary || {
-          presentDays: 0,
-          absentDays: 0,
-          halfDays: 0,
-          totalHours: 0,
-          grossTotal: 0,
-        })
-        setLoading(false)
-        loadRecordsFresh(true)
-        return
-      }
-      loadRecordsFresh(false)
-    }
-    run()
+    loadRecords()
   }, [selectedMonth, selectedYear, contract])
 
   const showHoursInput = useMemo(() => {
@@ -678,8 +631,6 @@ const DriverAttendance = () => {
                               note: form.note || '',
                             })
                             toast.success(t('recordSaved'))
-                            clearCache('driver_attendance')
-                            clearCache('driver_dashboard')
                             setForm((f) => ({ ...f, status: '', hoursWorked: '', note: '' }))
                             const res = await driverGetRecords({
                               month: selectedMonth,
@@ -767,8 +718,6 @@ const DriverAttendance = () => {
                                     setSaving(true)
                                     await driverDeleteRecord(r._id)
                                     toast.success(t('recordDeleted'))
-                                    clearCache('driver_attendance')
-                                    clearCache('driver_dashboard')
                                     const res = await driverGetRecords({
                                       month: selectedMonth,
                                       year: selectedYear,

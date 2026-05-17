@@ -18,7 +18,6 @@ import {
   isNativeApp,
   generateAndOpenPDF,
 } from '../../utils/pdfUpload'
-import { useDataCache } from '../../contexts/DataCacheContext'
 
 const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
@@ -124,27 +123,20 @@ const DriverPayments = () => {
   const [printTrip, setPrintTrip] = useState(null)
 
   const navigate = useNavigate()
-  const { getCachedData, setCachedData, clearCache } = useDataCache()
 
   const loadSummary = useCallback(async () => {
     const res = await getPaymentSummary()
-    const data = res.data?.summary ?? null
-    setSummary(data)
-    return data
+    setSummary(res.data?.summary ?? null)
   }, [])
 
   const loadHistory = useCallback(async () => {
     const res = await getPayments()
-    const data = res.data?.payments ?? []
-    setPayments(data)
-    return data
+    setPayments(res.data?.payments ?? [])
   }, [])
 
   const loadAdvances = useCallback(async () => {
     const res = await getAdvances()
-    const data = res.data?.advances ?? []
-    setAdvances(data)
-    return data
+    setAdvances(res.data?.advances ?? [])
   }, [])
 
   const loadTripEarnings = useCallback(async () => {
@@ -192,69 +184,29 @@ const DriverPayments = () => {
     }
   }, [])
 
-  const refreshTab = useCallback(async (silent = false) => {
+  const refreshTab = useCallback(async () => {
     if (tab === 'trip') return
-    if (!silent) setLoading(true)
-    let nextSummary = null
-    let nextPayments = []
-    let nextAdvances = []
+    setLoading(true)
     try {
       if (tab === 'summary') {
-        const [s, p] = await Promise.all([
-          loadSummary(),
-          loadHistory(),
-        ])
-        nextSummary = s
-        nextPayments = p
-      } else if (tab === 'history') {
-        nextPayments = await loadHistory()
-      } else if (tab === 'advance' || tab === 'request') {
-        const [s, a] = await Promise.all([
-          loadSummary(),
-          loadAdvances(),
-        ])
-        nextSummary = s
-        nextAdvances = a
+        await Promise.all([loadSummary(), loadHistory()])
+      } else if (tab === 'history') await loadHistory()
+      else if (tab === 'advance' || tab === 'request') {
+        await Promise.all([loadSummary(), loadAdvances()])
       }
-      setCachedData('driver_payments', {
-        tab,
-        summary: nextSummary,
-        payments: nextPayments,
-        advances: nextAdvances,
-      })
     } catch (e) {
       if (tab === 'summary') setSummary(null)
       toast.error(
         e.response?.data?.message || 'Load nahi hua'
       )
     } finally {
-      if (!silent) setLoading(false)
+      setLoading(false)
     }
-  }, [tab, loadSummary, loadHistory, loadAdvances, setCachedData])
+  }, [tab, loadSummary, loadHistory, loadAdvances])
 
   useEffect(() => {
-    const run = async () => {
-      const cached = getCachedData('driver_payments')
-      if (cached && cached.tab === tab) {
-        if (tab === 'summary') {
-          setSummary(cached.summary ?? null)
-          setPayments(cached.payments ?? [])
-        }
-        if (tab === 'history') {
-          setPayments(cached.payments ?? [])
-        }
-        if (tab === 'advance' || tab === 'request') {
-          setSummary(cached.summary ?? null)
-          setAdvances(cached.advances ?? [])
-        }
-        setLoading(false)
-        refreshTab(true)
-        return
-      }
-      refreshTab(false)
-    }
-    run()
-  }, [refreshTab, getCachedData, tab])
+    refreshTab()
+  }, [refreshTab])
 
   const isTransport = summary?.isTransport || false
 
@@ -330,8 +282,6 @@ const DriverPayments = () => {
         note: reqPayNote || '',
       })
       toast.success(t('paymentRequestSent'))
-      clearCache('driver_payments')
-      clearCache('driver_dashboard')
       setReqPayNote('')
       await loadSummary()
       await loadHistory()
@@ -349,8 +299,6 @@ const DriverPayments = () => {
     try {
       await confirmPaymentApi({ paymentId })
       toast.success(t('confirmDone'))
-      clearCache('driver_payments')
-      clearCache('driver_dashboard')
       await loadHistory()
       await loadSummary()
     } catch (e) {
@@ -369,8 +317,6 @@ const DriverPayments = () => {
         reason: rejectReason,
       })
       toast.success(t('rejectDone'))
-      clearCache('driver_payments')
-      clearCache('driver_dashboard')
       setRejectingId(null)
       setRejectReason('')
       await loadHistory()
@@ -420,8 +366,6 @@ const DriverPayments = () => {
         reason: reqReason,
       })
       toast.success(t('advanceRequested'))
-      clearCache('driver_payments')
-      clearCache('driver_dashboard')
       setReqAmount('')
       setReqReason('')
       await loadAdvances()
@@ -482,8 +426,6 @@ const DriverPayments = () => {
         amount: baaki,
       })
       toast.success(t('tripPaymentRequestSent'))
-      clearCache('driver_payments')
-      clearCache('driver_dashboard')
       await loadTripEarnings()
     } catch (err) {
       toast.error(

@@ -13,7 +13,6 @@ import {
   ownerGetRecords,
 } from '../../api/attendanceAPI'
 import { getUser } from '../../utils/helpers'
-import { useDataCache } from '../../contexts/DataCacheContext'
 
 const MONTH_NAMES = [
   'January',
@@ -104,11 +103,10 @@ const OwnerAttendance = () => {
     hoursWorked: '',
     note: ''
   })
-  const { getCachedData, setCachedData, clearCache } = useDataCache()
 
   useEffect(() => {
-    const loadContractsFresh = async (silent) => {
-      if (!silent) setLoading(true)
+    const loadContracts = async () => {
+      setLoading(true)
       try {
         const res = await ownerGetContracts()
         const list = (res.data?.contracts || [])
@@ -117,12 +115,6 @@ const OwnerAttendance = () => {
         setContracts(list)
         const first = list[0]?._id ? String(list[0]._id) : ''
         setSelectedContractId(first)
-        const prev = getCachedData('owner_attendance') || {}
-        setCachedData('owner_attendance', {
-          ...prev,
-          contracts: list,
-          selectedContractId: first,
-        })
       } catch (e) {
         setContracts([])
         setSelectedContractId('')
@@ -130,22 +122,11 @@ const OwnerAttendance = () => {
           e.response?.data?.message || t('contractsLoadError')
         )
       } finally {
-        if (!silent) setLoading(false)
+        setLoading(false)
       }
     }
 
-    const run = async () => {
-      const cached = getCachedData('owner_attendance')
-      if (cached?.contracts) {
-        setContracts(cached.contracts)
-        setSelectedContractId(cached.selectedContractId || '')
-        setLoading(false)
-        loadContractsFresh(true)
-        return
-      }
-      loadContractsFresh(false)
-    }
-    run()
+    loadContracts()
   }, [])
 
   useEffect(() => {
@@ -154,7 +135,7 @@ const OwnerAttendance = () => {
   }, [contracts, selectedContractId])
 
   useEffect(() => {
-    const loadRecordsFresh = async (silent) => {
+    const loadRecords = async () => {
       if (!selectedContractId) {
         setRecords([])
         setSummary({
@@ -167,7 +148,7 @@ const OwnerAttendance = () => {
         return
       }
 
-      if (!silent) setLoading(true)
+      setLoading(true)
       try {
         const res = await ownerGetRecords({
           contractId: selectedContractId,
@@ -194,15 +175,6 @@ const OwnerAttendance = () => {
         s.totalHours = Math.round(s.totalHours * 100) / 100
         s.grossTotal = Math.round(s.grossTotal)
         setSummary(s)
-        const prev = getCachedData('owner_attendance') || {}
-        setCachedData('owner_attendance', {
-          ...prev,
-          records: list,
-          summary: s,
-          selectedMonth,
-          selectedYear,
-          selectedContractId,
-        })
       } catch (e) {
         setRecords([])
         setSummary({
@@ -216,37 +188,11 @@ const OwnerAttendance = () => {
           e.response?.data?.message || t('attendanceLoadError')
         )
       } finally {
-        if (!silent) setLoading(false)
+        setLoading(false)
       }
     }
 
-    const run = async () => {
-      if (!selectedContractId) {
-        loadRecordsFresh(false)
-        return
-      }
-      const cached = getCachedData('owner_attendance')
-      if (
-        cached?.records &&
-        cached.selectedMonth === selectedMonth &&
-        cached.selectedYear === selectedYear &&
-        String(cached.selectedContractId) === String(selectedContractId)
-      ) {
-        setRecords(cached.records)
-        setSummary(cached.summary || {
-          presentDays: 0,
-          absentDays: 0,
-          halfDays: 0,
-          totalHours: 0,
-          grossTotal: 0,
-        })
-        setLoading(false)
-        loadRecordsFresh(true)
-        return
-      }
-      loadRecordsFresh(false)
-    }
-    run()
+    loadRecords()
   }, [selectedContractId, selectedMonth, selectedYear, selectedContract])
 
   const driverName = selectedContract?.driverId?.name || t('driver')
@@ -529,8 +475,6 @@ const OwnerAttendance = () => {
                           note: form.note || '',
                         })
                         toast.success(t('recordSaved'))
-                        clearCache('owner_attendance')
-                        clearCache('owner_dashboard')
                         setForm((f) => ({ ...f, status: '', hoursWorked: '', note: '' }))
                         const res = await ownerGetRecords({
                           contractId: selectedContractId,
@@ -624,8 +568,6 @@ const OwnerAttendance = () => {
                                 setSaving(true)
                                 await ownerDeleteRecord(r._id)
                                 toast.success(t('recordDeleted'))
-                                clearCache('owner_attendance')
-                                clearCache('owner_dashboard')
                                 const res = await ownerGetRecords({
                                   contractId: selectedContractId,
                                   month: selectedMonth,

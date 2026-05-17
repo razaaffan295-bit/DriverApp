@@ -8,7 +8,6 @@ import {
 } from '../../utils/pdfUpload'
 import { getOwnerTrips, handleTrip } from '../../api/tripAPI'
 import { getOwnerPaymentsSummary } from '../../api/paymentAPI'
-import { useDataCache } from '../../contexts/DataCacheContext'
 
 const fmtMoney = (n) =>
   `₹${Number.isFinite(Number(n)) ? Number(n) : 0}`
@@ -36,7 +35,6 @@ const OwnerTrips = () => {
   const [expandTripId, setExpandTripId] = useState(null)
   const [printTrip, setPrintTrip] = useState(null)
   const [tripPayments, setTripPayments] = useState([])
-  const { getCachedData, setCachedData, clearCache } = useDataCache()
 
   const handleTripReceipt = useCallback(
     async (trip) => {
@@ -75,35 +73,32 @@ const OwnerTrips = () => {
     setUser(getUser())
   }, [])
 
-  const load = async (silent = false) => {
-    if (!silent) setLoading(true)
+  const load = async () => {
+    setLoading(true)
     try {
       const res = await getOwnerTrips()
-      const tripList = res.data?.trips || []
-      setTrips(tripList)
-      let tripPays = []
-      try {
-        const paymentsRes = await getOwnerPaymentsSummary()
-        if (paymentsRes.data?.success) {
-          const all = paymentsRes.data.payments || []
-          tripPays = all.filter(
-            (p) =>
-              p.paymentType === 'trip' && p.driverConfirmed === true
-          )
-          setTripPayments(tripPays)
-        }
-      } catch (err) {
-        console.error(err)
-      }
-      setCachedData('owner_trips', {
-        trips: tripList,
-        tripPayments: tripPays,
-      })
+      setTrips(res.data?.trips || [])
     } catch (e) {
       setTrips([])
       toast.error(e.response?.data?.message || t('tripsLoadError3'))
     } finally {
-      if (!silent) setLoading(false)
+      setLoading(false)
+    }
+  }
+
+  const loadTripPayments = async () => {
+    try {
+      const paymentsRes = await getOwnerPaymentsSummary()
+      if (paymentsRes.data?.success) {
+        const all = paymentsRes.data.payments || []
+        const tripPays = all.filter(
+          (p) =>
+            p.paymentType === 'trip' && p.driverConfirmed === true
+        )
+        setTripPayments(tripPays)
+      }
+    } catch (err) {
+      console.error(err)
     }
   }
 
@@ -118,18 +113,8 @@ const OwnerTrips = () => {
   }
 
   useEffect(() => {
-    const run = async () => {
-      const cached = getCachedData('owner_trips')
-      if (cached?.trips) {
-        setTrips(cached.trips)
-        setTripPayments(cached.tripPayments || [])
-        setLoading(false)
-        load(true)
-        return
-      }
-      load(false)
-    }
-    run()
+    load()
+    loadTripPayments()
   }, [])
 
   const pendingTrips = useMemo(
@@ -619,9 +604,8 @@ const OwnerTrips = () => {
                                   note: review.note || '',
                                 })
                                 toast.success(t('tripApproved'))
-                                clearCache('owner_trips')
-                                clearCache('owner_dashboard')
                                 await load()
+                                await loadTripPayments()
                               } catch (e) {
                                 toast.error(
                                   e.response?.data?.message ||
@@ -648,9 +632,8 @@ const OwnerTrips = () => {
                                   note: review.note || '',
                                 })
                                 toast.success(t('tripRejected'))
-                                clearCache('owner_trips')
-                                clearCache('owner_dashboard')
                                 await load()
+                                await loadTripPayments()
                               } catch (e) {
                                 toast.error(
                                   e.response?.data?.message ||

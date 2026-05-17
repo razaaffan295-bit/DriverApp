@@ -9,7 +9,6 @@ import {
   createTrip,
   completeTrip,
 } from '../../api/tripAPI'
-import { useDataCache } from '../../contexts/DataCacheContext'
 
 const ACTIVE = ['draft', 'active']
 
@@ -63,24 +62,19 @@ const DriverTrips = () => {
   })
 
   const [repairImage, setRepairImage] = useState(null)
-  const { getCachedData, setCachedData, clearCache } = useDataCache()
 
   useEffect(() => {
     setUser(getUser())
   }, [])
 
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true)
+  const load = useCallback(async () => {
+    setLoading(true)
     try {
       const res = await getDriverTrips()
       const c = res.data?.contract || null
       const list = res.data?.trips || []
       setContract(c)
       setTrips(list)
-      setCachedData('driver_trips', {
-        contract: c,
-        trips: list,
-      })
       if (!c) {
         toast.error(t('notTransportContract'))
         navigate('/driver/attendance')
@@ -90,24 +84,13 @@ const DriverTrips = () => {
       setTrips([])
       toast.error(e.response?.data?.message || 'Trips load nahi hue')
     } finally {
-      if (!silent) setLoading(false)
+      setLoading(false)
     }
-  }, [navigate, setCachedData, t])
+  }, [navigate, t])
 
   useEffect(() => {
-    const run = async () => {
-      const cached = getCachedData('driver_trips')
-      if (cached?.trips) {
-        setContract(cached.contract ?? null)
-        setTrips(cached.trips)
-        setLoading(false)
-        load(true)
-        return
-      }
-      load(false)
-    }
-    run()
-  }, [getCachedData, load])
+    load()
+  }, [load])
 
   const activeTrip = useMemo(
     () => (trips || []).find((t) => ACTIVE.includes(t.status)) || null,
@@ -155,8 +138,6 @@ const DriverTrips = () => {
         }
       )
       toast.success(t('expenseAdded'))
-      clearCache('driver_trips')
-      clearCache('driver_dashboard')
       setExpenseForm((f) => ({
         ...f,
         amount: '',
@@ -195,8 +176,6 @@ const DriverTrips = () => {
         }
       )
       toast.success(t('repairAdded'))
-      clearCache('driver_trips')
-      clearCache('driver_dashboard')
       setRepairForm({
         description: '',
         amount: '',
@@ -362,8 +341,6 @@ const DriverTrips = () => {
                                 tripForm.cargo,
                             })
                             toast.success(t('tripStarted'))
-                            clearCache('driver_trips')
-                            clearCache('driver_dashboard')
                             await load()
                           } catch (e) {
                             toast.error(
@@ -724,8 +701,6 @@ const DriverTrips = () => {
                           toast.success(
                             t('tripSubmitted')
                           )
-                          clearCache('driver_trips')
-                          clearCache('driver_dashboard')
                           await load()
                         } catch (e) {
                           toast.error(

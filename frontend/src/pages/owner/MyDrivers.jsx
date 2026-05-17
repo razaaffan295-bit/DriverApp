@@ -7,7 +7,6 @@ import {
   getResignRequests,
   handleResign,
 } from '../../api/resignAPI'
-import { useDataCache } from '../../contexts/DataCacheContext'
 
 const fmtDate = (d) =>
   d
@@ -28,10 +27,9 @@ const MyDrivers = () => {
   const [actionId, setActionId] = useState(null)
   const [actionType, setActionType] = useState(null)
   const [actionText, setActionText] = useState('')
-  const { getCachedData, setCachedData, clearCache } = useDataCache()
 
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true)
+  const load = useCallback(async () => {
+    setLoading(true)
     try {
       const [cRes, rRes] = await Promise.all([
         getOwnerContracts(),
@@ -42,36 +40,20 @@ const MyDrivers = () => {
           c.status
         )
       )
-      const resignList = rRes.data?.resigns || []
       setContracts(list)
-      setResigns(resignList)
-      setCachedData('owner_drivers', {
-        contracts: list,
-        resigns: resignList,
-      })
+      setResigns(rRes.data?.resigns || [])
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('myDriversLoadError')
       )
     } finally {
-      if (!silent) setLoading(false)
+      setLoading(false)
     }
-  }, [setCachedData, t])
+  }, [t])
 
   useEffect(() => {
-    const run = async () => {
-      const cached = getCachedData('owner_drivers')
-      if (cached?.contracts) {
-        setContracts(cached.contracts)
-        setResigns(cached.resigns || [])
-        setLoading(false)
-        load(true)
-        return
-      }
-      load(false)
-    }
-    run()
-  }, [getCachedData, load])
+    load()
+  }, [load])
 
   const pendingByContract = useCallback(
     (contractId) =>
@@ -105,8 +87,6 @@ const MyDrivers = () => {
       setActionId(null)
       setActionType(null)
       setActionText('')
-      clearCache('owner_drivers')
-      clearCache('owner_dashboard')
       load()
     } catch (e) {
       toast.error(
