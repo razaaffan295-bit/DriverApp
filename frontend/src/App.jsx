@@ -3,6 +3,7 @@ import { App as CapApp } from '@capacitor/app'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import ErrorBoundary from './components/ErrorBoundary'
+import { DataCacheProvider } from './contexts/DataCacheContext'
 import NetworkStatus from './components/NetworkStatus'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import SubscriptionGuard from './components/SubscriptionGuard'
@@ -97,9 +98,10 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <BrowserRouter>
-        <NetworkStatus />
-        <Toaster position="top-right" />
+      <DataCacheProvider>
+        <BrowserRouter>
+          <NetworkStatus />
+          <Toaster position="top-right" />
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
         {/* Public */}
@@ -220,7 +222,8 @@ function App() {
         />
           </Routes>
         </Suspense>
-      </BrowserRouter>
+        </BrowserRouter>
+      </DataCacheProvider>
     </ErrorBoundary>
   )
 }

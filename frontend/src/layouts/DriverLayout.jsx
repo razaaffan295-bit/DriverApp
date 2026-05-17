@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useDataCache } from '../contexts/DataCacheContext'
 
 const NOTIF_API_BASE =
   process.env.REACT_APP_API_URL || 'http://localhost:5000'
@@ -14,8 +15,10 @@ const DriverLayout = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { i18n, t } = useTranslation()
+  const { clearCache } = useDataCache()
 
   const handleLogout = () => {
+    clearCache()
     localStorage.clear()
     navigate('/login')
   }

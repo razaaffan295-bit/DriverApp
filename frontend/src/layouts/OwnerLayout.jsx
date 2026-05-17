@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import API from '../api/axios'
 import { useTranslation } from 'react-i18next'
+import { useDataCache } from '../contexts/DataCacheContext'
 
 const notifTypeIcon = (type) => {
   if (type === 'new_message') return '💬'
@@ -45,10 +46,12 @@ const OwnerLayout = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { i18n, t } = useTranslation()
+  const { clearCache } = useDataCache()
 
   const unreadDotColor = '#3B82F6'
 
   const handleLogout = () => {
+    clearCache()
     localStorage.clear()
     navigate('/login')
   }

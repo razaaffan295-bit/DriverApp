@@ -8,6 +8,7 @@ import { getDriverApplications as getMyApplications } from '../../api/driverAPI'
 import { getMyRatings } from '../../api/ratingAPI'
 import { driverGetRecords as getDriverAttendance } from '../../api/attendanceAPI'
 import { getDriverInvites } from '../../api/inviteAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const DriverDashboard = () => {
   const { t } = useTranslation()
@@ -22,6 +23,7 @@ const DriverDashboard = () => {
     avgRating: 0,
     ratingCount: 0,
   })
+  const { getCachedData, setCachedData } = useDataCache()
 
   const thisMonth = new Date().getMonth() + 1
   const thisYear = new Date().getFullYear()
@@ -31,10 +33,12 @@ const DriverDashboard = () => {
   }, [])
 
   useEffect(() => {
-    const loadAll = async () => {
+    const loadFresh = async (silent) => {
       const m = new Date().getMonth() + 1
       const y = new Date().getFullYear()
       try {
+        if (!silent) setLoading(true)
+
         const [
           summaryRes,
           contractRes,
@@ -50,37 +54,82 @@ const DriverDashboard = () => {
           getDriverAttendance({ month: m, year: y }),
           getDriverInvites(),
         ])
+
+        let nextSummary = null
+        let nextContract = null
+        let nextApplications = []
+        let nextAttendance = null
+        let nextInviteCount = 0
+        let nextStats = {
+          avgRating: 0,
+          ratingCount: 0,
+        }
+
         if (invitesRes.status === 'fulfilled') {
-          setInviteCount(
+          nextInviteCount =
             (invitesRes.value.data?.invites || []).length
-          )
+          setInviteCount(nextInviteCount)
         }
 
         if (summaryRes.status === 'fulfilled') {
-          setSummary(summaryRes.value.data?.summary)
+          nextSummary = summaryRes.value.data?.summary
+          setSummary(nextSummary)
         }
         if (contractRes.status === 'fulfilled') {
-          setContract(contractRes.value.data?.contract)
+          nextContract = contractRes.value.data?.contract
+          setContract(nextContract)
         }
         if (appsRes.status === 'fulfilled') {
-          setApplications(appsRes.value.data?.applications || [])
+          nextApplications =
+            appsRes.value.data?.applications || []
+          setApplications(nextApplications)
         }
         if (ratingsRes.status === 'fulfilled') {
-          setStats((s) => ({
-            ...s,
+          nextStats = {
             avgRating: ratingsRes.value.data?.avgScore || 0,
             ratingCount: ratingsRes.value.data?.totalRatings || 0,
+          }
+          setStats((s) => ({
+            ...s,
+            ...nextStats,
           }))
         }
         if (attendanceRes.status === 'fulfilled') {
-          setAttendance(attendanceRes.value.data)
+          nextAttendance = attendanceRes.value.data
+          setAttendance(nextAttendance)
         }
+
+        setCachedData('driver_dashboard', {
+          summary: nextSummary,
+          contract: nextContract,
+          applications: nextApplications,
+          attendance: nextAttendance,
+          inviteCount: nextInviteCount,
+          stats: nextStats,
+        })
       } catch (err) {
         console.error(err)
       } finally {
-        setLoading(false)
+        if (!silent) setLoading(false)
       }
     }
+
+    const loadAll = async () => {
+      const cached = getCachedData('driver_dashboard')
+      if (cached) {
+        setSummary(cached.summary ?? null)
+        setContract(cached.contract ?? null)
+        setApplications(cached.applications || [])
+        setAttendance(cached.attendance ?? null)
+        setInviteCount(cached.inviteCount || 0)
+        setStats(cached.stats || stats)
+        setLoading(false)
+        loadFresh(true)
+        return
+      }
+      loadFresh(false)
+    }
+
     loadAll()
   }, [])
 

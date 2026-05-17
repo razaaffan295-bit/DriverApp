@@ -8,6 +8,7 @@ import { getOwnerApplications as getApplications } from '../../api/ownerAPI'
 import { getOwnerContracts } from '../../api/contractAPI'
 import { getMyComplaints } from '../../api/complaintAPI'
 import { getOwnerPaymentsSummary } from '../../api/paymentAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const OwnerDashboard = () => {
   const { t } = useTranslation()
@@ -29,6 +30,7 @@ const OwnerDashboard = () => {
   })
   const [vacantVehicles, setVacantVehicles] = useState([])
   const [showBanner, setShowBanner] = useState(true)
+  const { getCachedData, setCachedData } = useDataCache()
 
   const thisMonth = new Date().getMonth() + 1
   const thisYear = new Date().getFullYear()
@@ -38,8 +40,10 @@ const OwnerDashboard = () => {
   }, [])
 
   useEffect(() => {
-    const loadAll = async () => {
+    const loadFresh = async (silent) => {
       try {
+        if (!silent) setLoading(true)
+
         const [
           contractsRes,
           jobsRes,
@@ -57,6 +61,18 @@ const OwnerDashboard = () => {
         ])
 
         let contractsList = []
+        let jobsList = []
+        let applicationsList = []
+        let complaintsList = []
+        let vacant = []
+        let cachedStats = {
+          totalVehicles: 0,
+          activeDrivers: 0,
+          openJobs: 0,
+          pendingComplaints: 0,
+          avgRating: 0,
+          ratingCount: 0,
+        }
 
         if (contractsRes.status === 'fulfilled') {
           contractsList =
@@ -65,6 +81,10 @@ const OwnerDashboard = () => {
           const active = contractsList.filter(
             (c) => c.status === 'active'
           )
+          cachedStats = {
+            ...cachedStats,
+            activeDrivers: active.length,
+          }
           setStats((s) => ({
             ...s,
             activeDrivers: active.length,
@@ -72,40 +92,54 @@ const OwnerDashboard = () => {
         }
 
         if (jobsRes.status === 'fulfilled') {
-          const list = jobsRes.value.data?.jobs || []
-          setJobs(list)
+          jobsList = jobsRes.value.data?.jobs || []
+          setJobs(jobsList)
+          const openJobs = jobsList.filter((j) => j.status === 'open')
+            .length
+          cachedStats = {
+            ...cachedStats,
+            openJobs,
+          }
           setStats((s) => ({
             ...s,
-            openJobs: list.filter((j) => j.status === 'open')
-              .length,
+            openJobs,
           }))
         }
 
         if (appsRes.status === 'fulfilled') {
-          setApplications(
+          applicationsList =
             appsRes.value.data?.applications || []
-          )
+          setApplications(applicationsList)
         }
 
         if (complaintsRes.status === 'fulfilled') {
-          const list =
+          complaintsList =
             complaintsRes.value.data?.complaints || []
-          setComplaints(list)
+          setComplaints(complaintsList)
+          const pendingComplaints = complaintsList.filter(
+            (c) => c.status === 'pending'
+          ).length
+          cachedStats = {
+            ...cachedStats,
+            pendingComplaints,
+          }
           setStats((s) => ({
             ...s,
-            pendingComplaints: list.filter(
-              (c) => c.status === 'pending'
-            ).length,
+            pendingComplaints,
           }))
         }
 
         if (vehiclesRes.status === 'fulfilled') {
           const list = vehiclesRes.value.data?.vehicles || []
+          cachedStats = {
+            ...cachedStats,
+            totalVehicles: list.length,
+          }
           setStats((s) => ({
             ...s,
             totalVehicles: list.length,
           }))
-          const vacant = list.filter((v) => {
+          vacant = list.filter((v) => {
             const isActive =
               v?.isActive === true || v?.active === true
             const noDriver =
@@ -117,6 +151,13 @@ const OwnerDashboard = () => {
         }
 
         if (ratingsRes.status === 'fulfilled') {
+          cachedStats = {
+            ...cachedStats,
+            avgRating:
+              ratingsRes.value.data?.avgScore || 0,
+            ratingCount:
+              ratingsRes.value.data?.totalRatings || 0,
+          }
           setStats((s) => ({
             ...s,
             avgRating:
@@ -126,20 +167,50 @@ const OwnerDashboard = () => {
           }))
         }
 
+        let paymentsList = []
         try {
           const paymentsRes = await getOwnerPaymentsSummary()
           if (paymentsRes.data?.success) {
-            setPayments(paymentsRes.data.payments || [])
+            paymentsList = paymentsRes.data.payments || []
+            setPayments(paymentsList)
           }
         } catch (e) {
           console.error('Payments load failed:', e)
         }
+
+        setCachedData('owner_dashboard', {
+          contracts: contractsList,
+          jobs: jobsList,
+          applications: applicationsList,
+          complaints: complaintsList,
+          payments: paymentsList,
+          stats: cachedStats,
+          vacantVehicles: vacant,
+        })
       } catch (err) {
         console.error(err)
       } finally {
-        setLoading(false)
+        if (!silent) setLoading(false)
       }
     }
+
+    const loadAll = async () => {
+      const cached = getCachedData('owner_dashboard')
+      if (cached) {
+        setContracts(cached.contracts || [])
+        setJobs(cached.jobs || [])
+        setApplications(cached.applications || [])
+        setComplaints(cached.complaints || [])
+        setPayments(cached.payments || [])
+        setStats(cached.stats || stats)
+        setVacantVehicles(cached.vacantVehicles || [])
+        setLoading(false)
+        loadFresh(true)
+        return
+      }
+      loadFresh(false)
+    }
+
     loadAll()
   }, [])
 
