@@ -14,6 +14,7 @@ import {
 } from '../../api/ownerAPI'
 import DriverProfileModal from '../../components/owner/DriverProfileModal'
 import { getOwnerContracts } from '../../api/contractAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const formatApplied = (d) => {
   if (!d) return '—'
@@ -53,8 +54,14 @@ const OwnerApplications = () => {
   const [driverProfileData, setDriverProfileData] =
     useState(null)
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache,
+  } = useDataCache()
+
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const [appsRes, jobsRes, contractsRes] = await Promise.all([
         getOwnerApplications(),
@@ -91,18 +98,33 @@ const OwnerApplications = () => {
       })
       setApplications(merged)
       setJobs(jobsRes.data?.jobs ?? [])
+      setCachedData('owner_applications', {
+        applications: merged,
+        jobs: jobsRes.data?.jobs ?? [],
+      })
     } catch (e) {
-      toast.error(
-        e.response?.data?.message || t('dataLoadError2')
-      )
+      if (!silent) {
+        toast.error(
+          e.response?.data?.message || t('dataLoadError2')
+        )
+      }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [t])
+  }, [t, setCachedData])
 
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    const cached = getCachedData('owner_applications')
+    if (cached) {
+      setApplications(cached.applications || [])
+      setJobs(cached.jobs || [])
+      setLoading(false)
+      // Silent background refresh
+      loadData(true)
+    } else {
+      loadData(false)
+    }
+  }, [])
 
   const driverInitials = (name) =>
     name
@@ -133,7 +155,9 @@ const OwnerApplications = () => {
     try {
       await acceptApplication(id)
       toast.success(t('driverAccepted'))
-      await loadData()
+      clearCache('owner_applications')
+      clearCache('owner_dashboard')
+      await loadData(false)
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('acceptError2')
@@ -148,7 +172,9 @@ const OwnerApplications = () => {
     try {
       await rejectApplication(id)
       toast.success(t('applicationRejected'))
-      await loadData()
+      clearCache('owner_applications')
+      clearCache('owner_dashboard')
+      await loadData(false)
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('rejectError3')
@@ -262,7 +288,9 @@ const OwnerApplications = () => {
       setSelectedDriver(null)
       setSelectedApplication(null)
       setDriverProfileData(null)
-      await loadData()
+      clearCache('owner_applications')
+      clearCache('owner_dashboard')
+      await loadData(false)
     } catch (e) {
       toast.error(
         e.response?.data?.message || t('cancelError')
@@ -568,7 +596,9 @@ const OwnerApplications = () => {
               setSelectedDriver(null)
               setSelectedApplication(null)
               setDriverProfileData(null)
-              await loadData()
+              clearCache('owner_applications')
+              clearCache('owner_dashboard')
+              await loadData(false)
             } catch (e) {
               toast.error(
                 e.response?.data?.message ||
@@ -588,7 +618,9 @@ const OwnerApplications = () => {
               setSelectedDriver(null)
               setSelectedApplication(null)
               setDriverProfileData(null)
-              await loadData()
+              clearCache('owner_applications')
+              clearCache('owner_dashboard')
+              await loadData(false)
             } catch (e) {
               toast.error(
                 e.response?.data?.message ||
