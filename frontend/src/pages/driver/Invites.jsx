@@ -1,8 +1,31 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { acceptInvite, getDriverInvites, rejectInvite } from '../../api/inviteAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
+
+const fmtDate = (date) => {
+  if (!date) return '—'
+  return new Date(date).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+const getInitials = (name) => {
+  if (!name) return 'O'
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'O'
+  )
+}
 
 const DriverInvites = () => {
   const { t } = useTranslation()
@@ -13,32 +36,95 @@ const DriverInvites = () => {
   const [acceptingId, setAcceptingId] = useState(null)
   const [rejectingId, setRejectingId] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache
+  } = useDataCache()
 
-  useEffect(() => {
-    ;(async () => {
-      setLoading(true)
-      try {
-        const res = await getDriverInvites()
-        setInvites(res.data?.invites || [])
-      } catch (e) {
+  const loadInvites = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    try {
+      const res = await getDriverInvites()
+      const list = res.data?.invites || []
+      setInvites(list)
+      setCachedData('driver_invites', list)
+    } catch (e) {
+      if (!silent) {
         setInvites([])
         toast.error(
           e.response?.data?.message || t('invitesLoadError')
         )
-      } finally {
+      }
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }, [t, setCachedData])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const cached = getCachedData('driver_invites')
+    if (cached) {
+      if (!cancelled) {
+        setInvites(cached)
         setLoading(false)
       }
-    })()
-  }, [t])
+      loadInvites(true)
+    } else {
+      loadInvites(false)
+    }
 
-  const fmtDate = (date) => {
-    if (!date) return '—'
-    return new Date(date).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  }
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleAccept = useCallback(async (inviteId) => {
+    try {
+      setAcceptingId(inviteId)
+      await acceptInvite({ inviteId })
+      toast.success(t('offerAccepted'))
+
+      clearCache('driver_invites')
+      clearCache('driver_active_job')
+      clearCache('driver_dashboard')
+
+      navigate('/driver/active-job')
+    } catch (e) {
+      toast.error(
+        e.response?.data?.message || t('acceptError')
+      )
+    } finally {
+      setAcceptingId(null)
+    }
+  }, [t, navigate, clearCache])
+
+  const handleReject = useCallback(async (inviteId) => {
+    if (!rejectReason.trim()) return
+    try {
+      await rejectInvite({
+        inviteId,
+        reason: rejectReason.trim(),
+      })
+      toast.success(t('offerRejected'))
+
+      clearCache('driver_invites')
+
+      await loadInvites(false)
+      setRejectingId(null)
+      setRejectReason('')
+    } catch (e) {
+      toast.error(
+        e.response?.data?.message || t('rejectError')
+      )
+    }
+  }, [rejectReason, t, loadInvites, clearCache])
+
+  const handleCancelReject = useCallback(() => {
+    setRejectingId(null)
+    setRejectReason('')
+  }, [])
 
   return (
     <div
@@ -52,6 +138,7 @@ const DriverInvites = () => {
             <div className="flex justify-center py-16">
               <div
                 className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent"
+                role="status"
                 aria-label={t('loading')}
               />
             </div>
@@ -72,7 +159,7 @@ const DriverInvites = () => {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="font-bold text-gray-900">
-                    🎯 {t('workOffer')}
+                    <span aria-hidden="true">🎯</span> {t('workOffer')}
                   </div>
                   <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
                     {t('offer')}
@@ -80,14 +167,11 @@ const DriverInvites = () => {
                 </div>
 
                 <div className="mt-4 flex gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-800">
-                    {inv.ownerId?.name
-                      ?.split(/\s+/)
-                      .filter(Boolean)
-                      .map((w) => w[0])
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase() || 'O'}
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-800"
+                    aria-hidden="true"
+                  >
+                    {getInitials(inv.ownerId?.name)}
                   </div>
                   <div>
                     <div className="font-bold text-lg text-gray-900">{inv.ownerId?.name}</div>
@@ -193,36 +277,20 @@ const DriverInvites = () => {
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       placeholder={t('inviteRejectReasonPlaceholder')}
+                      maxLength={500}
                       className="input-field w-full"
                     />
                     <button
                       type="button"
                       disabled={!rejectReason.trim()}
-                      onClick={async () => {
-                        try {
-                          await rejectInvite({ inviteId: inv._id, reason: rejectReason.trim() })
-                          toast.success(t('offerRejected'))
-                          const res = await getDriverInvites()
-                          setInvites(res.data?.invites || [])
-                          setRejectingId(null)
-                          setRejectReason('')
-                        } catch (e) {
-                          toast.error(
-                            e.response?.data?.message ||
-                              t('rejectError')
-                          )
-                        }
-                      }}
+                      onClick={() => handleReject(inv._id)}
                       className="mt-3 w-full rounded-xl bg-red-600 py-3 text-sm font-semibold text-white"
                     >
                       {t('confirm')}
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        setRejectingId(null)
-                        setRejectReason('')
-                      }}
+                      onClick={handleCancelReject}
                       className="mt-2 w-full text-sm text-gray-500"
                     >
                       {t('cancel')}
@@ -233,33 +301,19 @@ const DriverInvites = () => {
                     <button
                       type="button"
                       disabled={acceptingId === inv._id}
-                      onClick={async () => {
-                        try {
-                          setAcceptingId(inv._id)
-                          await acceptInvite({ inviteId: inv._id })
-                          toast.success(t('offerAccepted'))
-                          navigate('/driver/active-job')
-                        } catch (e) {
-                          toast.error(
-                            e.response?.data?.message ||
-                              t('acceptError')
-                          )
-                        } finally {
-                          setAcceptingId(null)
-                        }
-                      }}
+                      onClick={() => handleAccept(inv._id)}
                       className="w-full rounded-xl bg-green-600 py-3 text-sm font-semibold text-white mb-2 disabled:opacity-60"
                     >
                       {acceptingId === inv._id
                         ? t('loading')
-                        : `✅ ${t('confirm')} — ${t('startWork')}`}
+                        : <><span aria-hidden="true">✅</span> {t('confirm')} — {t('startWork')}</>}
                     </button>
                     <button
                       type="button"
                       onClick={() => setRejectingId(inv._id)}
                       className="w-full rounded-xl border border-red-400 py-3 text-sm font-semibold text-red-500"
                     >
-                      ❌ {t('declineOffer')}
+                      <span aria-hidden="true">❌</span> {t('declineOffer')}
                     </button>
                   </div>
                 )}
@@ -272,4 +326,3 @@ const DriverInvites = () => {
 }
 
 export default DriverInvites
-

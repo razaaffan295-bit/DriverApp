@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
@@ -9,6 +9,7 @@ import {
   createTrip,
   completeTrip,
 } from '../../api/tripAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const ACTIVE = ['draft', 'active']
 
@@ -28,6 +29,14 @@ const fmtWhen = (d) =>
       })
     : '—'
 
+const tripFrom = (trip) => trip.fromLocation || trip.from || ''
+const tripTo = (trip) => trip.toLocation || trip.to || ''
+const tripCargo = (trip) => trip.cargo || trip.description || ''
+
+const grandTotal = (trip) =>
+  (Number(trip.totalExpenses) || 0) +
+  (Number(trip.totalRepairs) || 0)
+
 const DriverTrips = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -39,6 +48,12 @@ const DriverTrips = () => {
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
   const [printTrip, setPrintTrip] = useState(null)
+  const printTimeoutRef = useRef(null)
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache
+  } = useDataCache()
 
   const [tripForm, setTripForm] = useState({
     tripDate: new Date().toISOString().split('T')[0],
@@ -67,55 +82,81 @@ const DriverTrips = () => {
     setUser(getUser())
   }, [])
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  useEffect(() => {
+    return () => {
+      if (printTimeoutRef.current) {
+        clearTimeout(printTimeoutRef.current)
+      }
+      setPrintTrip(null)
+    }
+  }, [])
+
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const res = await getDriverTrips()
       const c = res.data?.contract || null
       const list = res.data?.trips || []
       setContract(c)
       setTrips(list)
-      if (!c) {
+
+      setCachedData('driver_trips', {
+        contract: c,
+        trips: list,
+      })
+
+      if (!c && !silent) {
         toast.error(t('notTransportContract'))
         navigate('/driver/attendance')
       }
     } catch (e) {
-      setContract(null)
-      setTrips([])
-      toast.error(e.response?.data?.message || 'Trips load nahi hue')
+      if (!silent) {
+        setContract(null)
+        setTrips([])
+        toast.error(
+          e.response?.data?.message ||
+          t('tripsLoadError') ||
+          'Trips load nahi hue'
+        )
+      }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [navigate, t])
+  }, [navigate, t, setCachedData])
 
   useEffect(() => {
-    load()
-  }, [load])
+    const cached = getCachedData('driver_trips')
+    if (cached) {
+      setContract(cached.contract || null)
+      setTrips(cached.trips || [])
+      setLoading(false)
+      load(true)
+    } else {
+      load(false)
+    }
+  }, [])
 
   const activeTrip = useMemo(
-    () => (trips || []).find((t) => ACTIVE.includes(t.status)) || null,
+    () =>
+      (trips || []).find((tr) => ACTIVE.includes(tr.status)) || null,
     [trips]
   )
 
   const historyTrips = useMemo(
     () =>
-      (trips || []).filter((t) => !ACTIVE.includes(t.status)),
+      (trips || []).filter((tr) => !ACTIVE.includes(tr.status)),
     [trips]
   )
 
-  const transportTypeLabel =
-    contract?.transportType === 'company_trip'
-      ? t('companyTrip')
-      : t('malikTrip')
+  const transportTypeLabel = useMemo(
+    () =>
+      contract?.transportType === 'company_trip'
+        ? t('companyTrip')
+        : t('malikTrip'),
+    [contract, t]
+  )
 
-  const tripFrom = (t) => t.fromLocation || t.from || ''
-  const tripTo = (t) => t.toLocation || t.to || ''
-  const tripCargo = (t) => t.cargo || t.description || ''
-
-  const grandTotal = (t) =>
-    (Number(t.totalExpenses) || 0) + (Number(t.totalRepairs) || 0)
-
-  const handleAddExpense = async () => {
+  const handleAddExpense = useCallback(async () => {
     if (!activeTrip?._id) return
     try {
       setSaving(true)
@@ -144,7 +185,8 @@ const DriverTrips = () => {
         note: '',
       }))
       setExpenseImage(null)
-      await load()
+      clearCache('driver_trips')
+      await load(false)
     } catch (err) {
       toast.error(
         err.response?.data?.message || t('expenseError')
@@ -152,9 +194,9 @@ const DriverTrips = () => {
     } finally {
       setSaving(false)
     }
-  }
+  }, [activeTrip, expenseForm, expenseImage, t, load, clearCache])
 
-  const handleAddRepair = async () => {
+  const handleAddRepair = useCallback(async () => {
     if (!activeTrip?._id) return
     try {
       setSaving(true)
@@ -181,7 +223,8 @@ const DriverTrips = () => {
         amount: '',
       })
       setRepairImage(null)
-      await load()
+      clearCache('driver_trips')
+      await load(false)
     } catch (err) {
       toast.error(
         err.response?.data?.message || t('repairError')
@@ -189,21 +232,79 @@ const DriverTrips = () => {
     } finally {
       setSaving(false)
     }
-  }
+  }, [activeTrip, repairForm, repairImage, t, load, clearCache])
 
   const handleTripReceipt = useCallback((trip) => {
     setPrintTrip(trip)
-    setTimeout(() => {
+    if (printTimeoutRef.current) {
+      clearTimeout(printTimeoutRef.current)
+    }
+    printTimeoutRef.current = setTimeout(() => {
       window.print()
+      setTimeout(() => {
+        setPrintTrip(null)
+      }, 500)
     }, 300)
   }, [])
+
+  const handleStartTrip = useCallback(async () => {
+    try {
+      setSaving(true)
+      await createTrip({
+        tripDate: tripForm.tripDate,
+        fromLocation: tripForm.fromLocation,
+        toLocation: tripForm.toLocation,
+        cargo: tripForm.cargo,
+        description: tripForm.description || tripForm.cargo,
+      })
+      toast.success(t('tripStarted'))
+      clearCache('driver_trips')
+      clearCache('driver_dashboard')
+      await load(false)
+    } catch (e) {
+      toast.error(
+        e.response?.data?.message || t('tripStartError')
+      )
+    } finally {
+      setSaving(false)
+    }
+  }, [tripForm, t, load, clearCache])
+
+  const handleCompleteTrip = useCallback(async () => {
+    if (!window.confirm(t('submitTripConfirm'))) {
+      return
+    }
+    if (!activeTrip?._id) return
+    try {
+      setSaving(true)
+      await completeTrip({
+        tripId: activeTrip._id,
+      })
+      toast.success(t('tripSubmitted'))
+      clearCache('driver_trips')
+      clearCache('driver_dashboard')
+      await load(false)
+    } catch (e) {
+      toast.error(
+        e.response?.data?.message ||
+        t('submitError') ||
+        'Submit nahi hua'
+      )
+    } finally {
+      setSaving(false)
+    }
+  }, [activeTrip, t, load, clearCache])
 
   return (
     <div style={{ minHeight: '100vh', background: '#F0FDF4' }}>
       <div className="mx-auto max-w-3xl px-4 py-6">
         {loading ? (
           <div className="flex justify-center py-16">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
+            <div
+              className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent"
+              role="status"
+              aria-label={t('loading')}
+            />
           </div>
         ) : !contract ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-gray-600">
@@ -213,8 +314,8 @@ const DriverTrips = () => {
           <>
             <div className="mb-6 rounded-2xl bg-green-50 p-4">
               <p className="text-sm font-semibold text-green-900">
-                {contract?.jobId?.title || 'Job'} ·{' '}
-                {contract?.jobId?.vehicleType || 'Vehicle'}
+                {contract?.jobId?.title || t('job')} ·{' '}
+                {contract?.jobId?.vehicleType || t('vehicle')}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-green-900/80">
                 <span className="rounded-full bg-green-100 px-2 py-0.5 font-semibold">
@@ -272,6 +373,7 @@ const DriverTrips = () => {
                         <input
                           type="date"
                           value={tripForm.tripDate}
+                          max={new Date().toISOString().split('T')[0]}
                           onChange={(e) =>
                             setTripForm((f) => ({
                               ...f,
@@ -289,6 +391,7 @@ const DriverTrips = () => {
                             fromLocation: e.target.value,
                           }))
                         }
+                        maxLength={100}
                         placeholder={`${t('from')} (e.g. Patna)`}
                         className="input-field w-full"
                       />
@@ -300,6 +403,7 @@ const DriverTrips = () => {
                             toLocation: e.target.value,
                           }))
                         }
+                        maxLength={100}
                         placeholder={`${t('to')} (e.g. Delhi)`}
                         className="input-field w-full"
                       />
@@ -311,6 +415,7 @@ const DriverTrips = () => {
                             cargo: e.target.value,
                           }))
                         }
+                        maxLength={200}
                         placeholder={`${t('cargo')} / load`}
                         className="input-field w-full"
                       />
@@ -322,40 +427,17 @@ const DriverTrips = () => {
                             description: e.target.value,
                           }))
                         }
+                        maxLength={500}
                         placeholder={t('noteOptional')}
                         className="input-field w-full"
                       />
                       <button
                         type="button"
                         disabled={saving}
-                        onClick={async () => {
-                          try {
-                            setSaving(true)
-                            await createTrip({
-                              tripDate: tripForm.tripDate,
-                              fromLocation: tripForm.fromLocation,
-                              toLocation: tripForm.toLocation,
-                              cargo: tripForm.cargo,
-                              description:
-                                tripForm.description ||
-                                tripForm.cargo,
-                            })
-                            toast.success(t('tripStarted'))
-                            await load()
-                          } catch (e) {
-                            toast.error(
-                              e.response?.data?.message ||
-                                t('tripStartError')
-                            )
-                          } finally {
-                            setSaving(false)
-                          }
-                        }}
+                        onClick={handleStartTrip}
                         className="w-full rounded-xl bg-green-700 py-3 text-sm font-semibold text-white disabled:opacity-60"
                       >
-                        {saving
-                          ? t('loading')
-                          : t('startTrip')}
+                        {saving ? t('loading') : t('startTrip')}
                       </button>
                     </div>
                   </div>
@@ -418,6 +500,7 @@ const DriverTrips = () => {
                             <input
                               type="number"
                               min={0}
+                              max="1000000"
                               value={expenseForm.amount}
                               onChange={(e) =>
                                 setExpenseForm((f) => ({
@@ -436,6 +519,7 @@ const DriverTrips = () => {
                                 note: e.target.value,
                               }))
                             }
+                            maxLength={500}
                             placeholder={t('noteOptional')}
                             className="input-field w-full"
                           />
@@ -453,9 +537,16 @@ const DriverTrips = () => {
                               type="file"
                               accept="image/*"
                               onChange={(e) => {
-                                setExpenseImage(
-                                  e.target.files?.[0] || null
-                                )
+                                const file = e.target.files?.[0] || null
+                                if (file && file.size > 5 * 1024 * 1024) {
+                                  toast.error(
+                                    t('fileSizeError') ||
+                                    '5MB se kam honi chahiye'
+                                  )
+                                  e.target.value = ''
+                                  return
+                                }
+                                setExpenseImage(file)
                                 e.target.value = ''
                               }}
                               style={{
@@ -472,7 +563,7 @@ const DriverTrips = () => {
                                   marginTop: '4px',
                                 }}
                               >
-                                ✅ {expenseImage.name}
+                                <span aria-hidden="true">✅</span> {expenseImage.name}
                               </p>
                             ) : null}
                           </div>
@@ -561,6 +652,7 @@ const DriverTrips = () => {
                               description: e.target.value,
                             }))
                           }
+                          maxLength={500}
                           placeholder={t('whatRepair')}
                           className="input-field w-full"
                         />
@@ -571,6 +663,7 @@ const DriverTrips = () => {
                           <input
                             type="number"
                             min={0}
+                            max="1000000"
                             value={repairForm.amount}
                             onChange={(e) =>
                               setRepairForm((f) => ({
@@ -595,9 +688,16 @@ const DriverTrips = () => {
                             type="file"
                             accept="image/*"
                             onChange={(e) => {
-                              setRepairImage(
-                                e.target.files?.[0] || null
-                              )
+                              const file = e.target.files?.[0] || null
+                              if (file && file.size > 5 * 1024 * 1024) {
+                                toast.error(
+                                  t('fileSizeError') ||
+                                  '5MB se kam honi chahiye'
+                                )
+                                e.target.value = ''
+                                return
+                              }
+                              setRepairImage(file)
                               e.target.value = ''
                             }}
                             style={{
@@ -614,7 +714,7 @@ const DriverTrips = () => {
                                 marginTop: '4px',
                               }}
                             >
-                              ✅ {repairImage.name}
+                              <span aria-hidden="true">✅</span> {repairImage.name}
                             </p>
                           ) : null}
                         </div>
@@ -685,32 +785,7 @@ const DriverTrips = () => {
                     <button
                       type="button"
                       disabled={saving}
-                      onClick={async () => {
-                        if (
-                          !window.confirm(
-                            t('submitTripConfirm')
-                          )
-                        ) {
-                          return
-                        }
-                        try {
-                          setSaving(true)
-                          await completeTrip({
-                            tripId: activeTrip._id,
-                          })
-                          toast.success(
-                            t('tripSubmitted')
-                          )
-                          await load()
-                        } catch (e) {
-                          toast.error(
-                            e.response?.data?.message ||
-                              'Submit nahi hua'
-                          )
-                        } finally {
-                          setSaving(false)
-                        }
-                      }}
+                      onClick={handleCompleteTrip}
                       className="w-full rounded-xl bg-green-800 py-3 text-sm font-semibold text-white disabled:opacity-60"
                     >
                       {t('completeTrip')}
@@ -800,7 +875,7 @@ const DriverTrips = () => {
                           </p>
                           {tr.ownerNote ? (
                             <p className="mt-1 text-xs text-gray-600">
-                              Owner: {tr.ownerNote}
+                              {t('owner')}: {tr.ownerNote}
                             </p>
                           ) : null}
                           <p className="mt-2 text-xs font-medium text-green-700">
@@ -866,35 +941,6 @@ const DriverTrips = () => {
                   })
                 )}
 
-                <div className="print-area hidden">
-                  <div className="print-heading">
-                    {t('tripHistory').toUpperCase()}
-                  </div>
-                  <div className="print-row">
-                    <span>{t('driver')}</span>
-                    <span>{user?.name}</span>
-                  </div>
-                  {historyTrips.map((trip, index) => (
-                    <div key={trip._id} className="mt-4 border-b pb-4">
-                      <strong>
-                        {t('trip')} {index + 1} —{' '}
-                        {new Date(trip.tripDate).toLocaleDateString(
-                          'en-IN'
-                        )}
-                      </strong>
-              <div className="print-row">
-                <span>{t('route')}</span>
-                <span>
-                  {tripFrom(trip)} → {tripTo(trip)}
-                </span>
-              </div>
-              <div className="print-row">
-                <span>{t('status')}</span>
-                <span>{trip.status}</span>
-              </div>
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
           </>

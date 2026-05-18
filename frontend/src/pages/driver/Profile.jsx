@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import { getUser, setAuth, getToken } from '../../utils/helpers'
@@ -95,26 +95,39 @@ const DriverProfile = () => {
     loadProfile()
   }, [loadProfile])
 
-  const initials =
-    user?.name
-      ?.split(/\s+/)
-      .filter(Boolean)
-      .map((w) => w[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() || 'D'
+  const initials = useMemo(
+    () =>
+      user?.name
+        ?.split(/\s+/)
+        .filter(Boolean)
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase() || 'D',
+    [user]
+  )
 
   const displayPhoto = user?.profilePhoto
 
-  const toggleSkill = (t) => {
+  const toggleSkill = useCallback((skill) => {
     setSkills((prev) =>
-      prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]
+      prev.includes(skill)
+        ? prev.filter((x) => x !== skill)
+        : [...prev, skill]
     )
-  }
+  }, [])
 
-  const handlePhotoUpload = async (e) => {
+  const handlePhotoUpload = useCallback(async (e) => {
     const file = e.target.files[0]
     if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(
+        t('fileSizeError') || '5MB se kam honi chahiye'
+      )
+      e.target.value = ''
+      return
+    }
 
     try {
       const formData = new FormData()
@@ -147,12 +160,22 @@ const DriverProfile = () => {
       toast.error(
         err.response?.data?.message || t('photoUploadError')
       )
+    } finally {
+      e.target.value = ''
     }
-  }
+  }, [t])
 
-  const handleUpiQrChange = async (e) => {
+  const handleUpiQrChange = useCallback(async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(
+        t('fileSizeError') || '5MB se kam honi chahiye'
+      )
+      e.target.value = ''
+      return
+    }
 
     try {
       const formData = new FormData()
@@ -176,10 +199,12 @@ const DriverProfile = () => {
       toast.error(
         err.response?.data?.message || t('qrUploadError')
       )
+    } finally {
+      e.target.value = ''
     }
-  }
+  }, [t])
 
-  const handleDocUpload = async () => {
+  const handleDocUpload = useCallback(async () => {
     try {
       setDocUploading(true)
       setDocUploadProgress(0)
@@ -236,9 +261,9 @@ const DriverProfile = () => {
       setDocUploading(false)
       setDocUploadProgress(0)
     }
-  }
+  }, [docFiles, t, loadProfile])
 
-  const handleSave = async (e) => {
+  const handleSave = useCallback(async (e) => {
     e.preventDefault()
     if (!name?.trim()) {
       toast.error(t('nameRequired'))
@@ -286,7 +311,23 @@ const DriverProfile = () => {
     } finally {
       setSaveLoading(false)
     }
-  }
+  }, [
+    name,
+    skills,
+    experience,
+    licenseNumber,
+    licenseType,
+    licenseExpiry,
+    about,
+    stateVal,
+    districtVal,
+    bankName,
+    bankAccount,
+    bankIfsc,
+    bankUpi,
+    bankUpiQr,
+    t,
+  ])
 
   return (
     <div
@@ -294,7 +335,13 @@ const DriverProfile = () => {
     >
       <div className="p-4 md:p-6 pb-8">
         {loading ? (
-          <p className="text-sm text-gray-500">{t('loading')}</p>
+          <div className="flex justify-center py-16">
+            <div
+              className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent"
+              role="status"
+              aria-label={t('loading')}
+            />
+          </div>
         ) : (
           <div className="mb-6 overflow-hidden rounded-2xl border border-gray-100 bg-white">
             <div className="flex flex-wrap border-b border-gray-100">
@@ -330,11 +377,17 @@ const DriverProfile = () => {
                       {displayPhoto ? (
                         <img
                           src={displayPhoto}
-                          alt=""
+                          alt={user?.name || ''}
+                          onError={(e) => {
+                            e.target.style.display = 'none'
+                          }}
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <span className="text-2xl font-bold text-green-800">
+                        <span
+                          className="text-2xl font-bold text-green-800"
+                          aria-hidden="true"
+                        >
                           {initials}
                         </span>
                       )}
@@ -360,6 +413,7 @@ const DriverProfile = () => {
                       <input
                         type="text"
                         required
+                        maxLength={100}
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         className="input-field w-full"
@@ -383,11 +437,11 @@ const DriverProfile = () => {
                         <span className="text-red-500">*</span>
                       </p>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        {VEHICLE_TYPES.map((t) => {
-                          const checked = skills.includes(t)
+                        {VEHICLE_TYPES.map((vt) => {
+                          const checked = skills.includes(vt)
                           return (
                             <label
-                              key={t}
+                              key={vt}
                               className={`flex cursor-pointer items-center gap-2 rounded-lg border-2 p-2 text-sm ${
                                 checked
                                   ? 'border-green-500 bg-green-100 text-green-700'
@@ -397,10 +451,10 @@ const DriverProfile = () => {
                               <input
                                 type="checkbox"
                                 checked={checked}
-                                onChange={() => toggleSkill(t)}
+                                onChange={() => toggleSkill(vt)}
                                 className="h-4 w-4 shrink-0 rounded border-gray-300 text-green-600 focus:ring-green-500"
                               />
-                              {t}
+                              {vt}
                             </label>
                           )
                         })}
@@ -415,6 +469,7 @@ const DriverProfile = () => {
                         <input
                           type="number"
                           min={0}
+                          max={70}
                           value={experience}
                           onChange={(e) => setExperience(e.target.value)}
                           placeholder="5"
@@ -436,6 +491,7 @@ const DriverProfile = () => {
                           setLicenseNumber(e.target.value)
                         }
                         placeholder="BR-0420XXXX"
+                        maxLength={50}
                         className="input-field w-full"
                       />
                     </div>
@@ -477,6 +533,7 @@ const DriverProfile = () => {
                         rows={3}
                         value={about}
                         onChange={(e) => setAbout(e.target.value)}
+                        maxLength={500}
                         className="input-field w-full resize-y"
                       />
                     </div>
@@ -507,6 +564,7 @@ const DriverProfile = () => {
                       <input
                         type="text"
                         required
+                        maxLength={100}
                         value={districtVal}
                         onChange={(e) =>
                           setDistrictVal(e.target.value)
@@ -532,10 +590,11 @@ const DriverProfile = () => {
                             setBankUpi(e.target.value)
                           }
                           placeholder="yourname@upi"
+                          maxLength={100}
                           className="input-field w-full"
                         />
                         <div className="mt-2 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-900">
-                          ⚠️ {t('upiWarning')}
+                          <span aria-hidden="true">⚠️</span> {t('upiWarning')}
                         </div>
                       </div>
                       <div className="sm:col-span-2">
@@ -555,6 +614,9 @@ const DriverProfile = () => {
                               <img
                                 src={bankUpiQr}
                                 alt="UPI QR"
+                                onError={(e) => {
+                                  e.target.style.display = 'none'
+                                }}
                                 className="max-h-40 rounded-lg border border-gray-200 object-contain"
                               />
                               <button
@@ -577,6 +639,7 @@ const DriverProfile = () => {
                           onChange={(e) =>
                             setBankName(e.target.value)
                           }
+                          maxLength={200}
                           className="input-field w-full"
                         />
                       </div>
@@ -590,6 +653,7 @@ const DriverProfile = () => {
                           onChange={(e) =>
                             setBankAccount(e.target.value)
                           }
+                          maxLength={30}
                           className="input-field w-full"
                         />
                       </div>
@@ -605,6 +669,7 @@ const DriverProfile = () => {
                               e.target.value.toUpperCase()
                             )
                           }
+                          maxLength={11}
                           className="input-field w-full uppercase"
                         />
                       </div>
@@ -635,14 +700,14 @@ const DriverProfile = () => {
                         marginBottom: '8px',
                       }}
                     >
-                      <span>✅</span>
+                      <span aria-hidden="true">✅</span>
                       <span style={{ fontSize: '13px' }}>
                         {t('licenseUploaded')}
                       </span>
                       <a
                         href={documents.license}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         style={{
                           fontSize: '12px',
                           color: '#1D4ED8',
@@ -665,14 +730,14 @@ const DriverProfile = () => {
                         marginBottom: '8px',
                       }}
                     >
-                      <span>✅</span>
+                      <span aria-hidden="true">✅</span>
                       <span style={{ fontSize: '13px' }}>
                         {t('aadharUploaded')}
                       </span>
                       <a
                         href={documents.aadhar}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         style={{
                           fontSize: '12px',
                           color: '#1D4ED8',
@@ -695,14 +760,14 @@ const DriverProfile = () => {
                         marginBottom: '8px',
                       }}
                     >
-                      <span>✅</span>
+                      <span aria-hidden="true">✅</span>
                       <span style={{ fontSize: '13px' }}>
                         {t('docPhotoUploaded')}
                       </span>
                       <a
                         href={documents.photo}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         style={{
                           fontSize: '12px',
                           color: '#1D4ED8',
@@ -725,14 +790,14 @@ const DriverProfile = () => {
                         marginBottom: '8px',
                       }}
                     >
-                      <span>✅</span>
+                      <span aria-hidden="true">✅</span>
                       <span style={{ fontSize: '13px' }}>
                         {t('otherDocUploaded')}
                       </span>
                       <a
                         href={documents.other}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         style={{
                           fontSize: '12px',
                           color: '#1D4ED8',
@@ -752,12 +817,20 @@ const DriverProfile = () => {
                       type="file"
                       accept="image/*,.pdf"
                       className="w-full text-sm"
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null
+                        if (file && file.size > 5 * 1024 * 1024) {
+                          toast.error(
+                            t('fileSizeError') || '5MB se kam honi chahiye'
+                          )
+                          e.target.value = ''
+                          return
+                        }
                         setDocFiles((prev) => ({
                           ...prev,
-                          license: e.target.files?.[0] || null,
+                          license: file,
                         }))
-                      }
+                      }}
                     />
                     {docFiles.license ? (
                       <p className="mt-1 text-xs text-gray-600">
@@ -773,12 +846,20 @@ const DriverProfile = () => {
                       type="file"
                       accept="image/*,.pdf"
                       className="w-full text-sm"
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null
+                        if (file && file.size > 5 * 1024 * 1024) {
+                          toast.error(
+                            t('fileSizeError') || '5MB se kam honi chahiye'
+                          )
+                          e.target.value = ''
+                          return
+                        }
                         setDocFiles((prev) => ({
                           ...prev,
-                          aadhar: e.target.files?.[0] || null,
+                          aadhar: file,
                         }))
-                      }
+                      }}
                     />
                     {docFiles.aadhar ? (
                       <p className="mt-1 text-xs text-gray-600">
@@ -794,12 +875,20 @@ const DriverProfile = () => {
                       type="file"
                       accept="image/*"
                       className="w-full text-sm"
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null
+                        if (file && file.size > 5 * 1024 * 1024) {
+                          toast.error(
+                            t('fileSizeError') || '5MB se kam honi chahiye'
+                          )
+                          e.target.value = ''
+                          return
+                        }
                         setDocFiles((prev) => ({
                           ...prev,
-                          photo: e.target.files?.[0] || null,
+                          photo: file,
                         }))
-                      }
+                      }}
                     />
                     {docFiles.photo ? (
                       <p className="mt-1 text-xs text-gray-600">
@@ -815,12 +904,20 @@ const DriverProfile = () => {
                       type="file"
                       accept="image/*,.pdf"
                       className="w-full text-sm"
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null
+                        if (file && file.size > 5 * 1024 * 1024) {
+                          toast.error(
+                            t('fileSizeError') || '5MB se kam honi chahiye'
+                          )
+                          e.target.value = ''
+                          return
+                        }
                         setDocFiles((prev) => ({
                           ...prev,
-                          other: e.target.files?.[0] || null,
+                          other: file,
                         }))
-                      }
+                      }}
                     />
                     {docFiles.other ? (
                       <p className="mt-1 text-xs text-gray-600">
@@ -864,7 +961,11 @@ const DriverProfile = () => {
                   >
                     {docUploading
                       ? t('loading')
-                      : `📄 ${t('upload')}`}
+                      : (
+                        <>
+                          <span aria-hidden="true">📄</span> {t('upload')}
+                        </>
+                      )}
                   </button>
 
                   <p className="text-sm text-gray-500">

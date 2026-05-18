@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getJobDetail, applyJob } from '../../api/driverAPI'
 import { checkSubscription } from '../../api/subscriptionAPI'
 import API from '../../api/axios'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const formatDate = (d) => {
   if (!d) return '—'
@@ -28,27 +29,51 @@ const JobDetail = () => {
   const [loading, setLoading] = useState(true)
   const [applyLoading, setApplyLoading] = useState(false)
   const [ownerRating, setOwnerRating] = useState(null)
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache,
+  } = useDataCache()
 
-  const loadJob = useCallback(async () => {
+  const loadJob = useCallback(async (silent = false) => {
     if (!id) return
-    setLoading(true)
+    if (!silent) setLoading(true)
     try {
       const { data } = await getJobDetail(id)
       setJob(data.job)
       setHasApplied(!!data.hasApplied)
+
+      // Cache the job data
+      setCachedData(`driver_job_${id}`, {
+        job: data.job,
+        hasApplied: !!data.hasApplied,
+      })
     } catch (e) {
-      toast.error(
-        e.response?.data?.message || t('jobLoadError')
-      )
-      navigate('/driver/jobs')
+      if (!silent) {
+        toast.error(
+          e.response?.data?.message || t('jobLoadError')
+        )
+        navigate('/driver/jobs')
+      }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [id, navigate, t])
+  }, [id, navigate, t, setCachedData])
 
   useEffect(() => {
-    loadJob()
-  }, [loadJob])
+    if (!id) return
+
+    // Check cache for instant display
+    const cached = getCachedData(`driver_job_${id}`)
+    if (cached) {
+      setJob(cached.job)
+      setHasApplied(!!cached.hasApplied)
+      setLoading(false)
+      loadJob(true) // silent refresh
+    } else {
+      loadJob(false)
+    }
+  }, [id])
 
   useEffect(() => {
     const oid = job?.ownerId?._id || job?.ownerId
@@ -64,7 +89,7 @@ const JobDetail = () => {
         )
         if (!cancelled) setOwnerRating(res.data)
       } catch (err) {
-        console.error(err)
+        // Silent fail - rating is optional
       }
     }
     fetchOwnerRating()
@@ -73,47 +98,74 @@ const JobDetail = () => {
     }
   }, [job])
 
-  const owner = job?.ownerId && typeof job.ownerId === 'object'
-    ? job.ownerId
-    : null
-  const ownerInitials =
-    owner?.name
-      ?.split(/\s+/)
-      .filter(Boolean)
-      .map((w) => w[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() || 'O'
+  const owner = useMemo(
+    () =>
+      job?.ownerId && typeof job.ownerId === 'object'
+        ? job.ownerId
+        : null,
+    [job]
+  )
 
-  const getSalaryDisplay = (job) => {
-    if (!job) return '₹0'
-    if (job.salaryType === 'monthly') {
-      return `₹${job.salaryPerMonth || 0}/${t('perMonth')}`
-    }
-    if (job.salaryType === 'hourly') {
-      return `₹${job.salaryPerHour || 0}/${t('perHour')}`
-    }
-    return `₹${job.salaryPerDay || 0}/${t('perDay')}`
-  }
+  const ownerInitials = useMemo(
+    () =>
+      owner?.name
+        ?.split(/\s+/)
+        .filter(Boolean)
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase() || 'O',
+    [owner]
+  )
 
-  const getTotalKamayi = (job) => {
-    if (!job) return 0
-    if (job.salaryType === 'monthly') {
-      const months = Math.ceil((job.duration || 30) / 30)
-      return (job.salaryPerMonth || 0) * months
+  const getSalaryDisplay = useCallback((jobData) => {
+    if (!jobData) return '₹0'
+    if (jobData.salaryType === 'monthly') {
+      return `₹${jobData.salaryPerMonth || 0}/${t('perMonth')}`
     }
-    if (job.salaryType === 'hourly') {
+    if (jobData.salaryType === 'hourly') {
+      return `₹${jobData.salaryPerHour || 0}/${t('perHour')}`
+    }
+    return `₹${jobData.salaryPerDay || 0}/${t('perDay')}`
+  }, [t])
+
+  const getTotalKamayi = useCallback((jobData) => {
+    if (!jobData) return 0
+    if (jobData.salaryType === 'monthly') {
+      const months = Math.ceil((jobData.duration || 30) / 30)
+      return (jobData.salaryPerMonth || 0) * months
+    }
+    if (jobData.salaryType === 'hourly') {
       return t('hourlyBasis')
     }
-    return (job.salaryPerDay || 0) * (job.duration || 0)
-  }
+    return (jobData.salaryPerDay || 0) * (jobData.duration || 0)
+  }, [t])
 
-  const totalKamai = getTotalKamayi(job)
+  const totalKamai = useMemo(
+    () => getTotalKamayi(job),
+    [job, getTotalKamayi]
+  )
 
-  const applied = hasApplied
+  const totalKamaiDisplay = useMemo(
+    () =>
+      typeof totalKamai === 'string'
+        ? totalKamai
+        : `₹${totalKamai}`,
+    [totalKamai]
+  )
 
-  const handleApply = async () => {
-    if (!id || applied) return
+  const ownerRatingRounded = useMemo(
+    () => Math.round(Number(ownerRating?.avgScore) || 0),
+    [ownerRating]
+  )
+
+  const recentRatings = useMemo(
+    () => (ownerRating?.ratings || []).slice(0, 5),
+    [ownerRating]
+  )
+
+  const handleApply = useCallback(async () => {
+    if (!id || hasApplied) return
     setApplyLoading(true)
     try {
       const subRes = await checkSubscription()
@@ -122,18 +174,22 @@ const JobDetail = () => {
         return
       }
       await applyJob(id)
-      toast.success(
-        t('appliedSuccess')
-      )
+      toast.success(t('appliedSuccess'))
       setHasApplied(true)
+
+      // Clear caches
+      clearCache(`driver_job_${id}`)
+      clearCache('driver_applications')
+      clearCache('driver_dashboard')
     } catch (err) {
       const code = err.response?.data?.code
       const msg =
-        err.response?.data?.message || 'Apply nahi ho paya.'
+        err.response?.data?.message ||
+        t('applyError') ||
+        'Apply nahi ho paya.'
       if (
         code === 'SUBSCRIPTION_REQUIRED' ||
-        msg.includes('subscription') ||
-        msg.includes('Subscription')
+        msg.toLowerCase().includes('subscription')
       ) {
         navigate('/subscription')
       } else {
@@ -142,7 +198,7 @@ const JobDetail = () => {
     } finally {
       setApplyLoading(false)
     }
-  }
+  }, [id, hasApplied, navigate, t, clearCache])
 
   return (
     <div
@@ -158,7 +214,13 @@ const JobDetail = () => {
           </button>
 
           {loading ? (
-            <p className="text-sm text-gray-500">{t('loading')}</p>
+            <div className="flex justify-center py-16">
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent"
+                role="status"
+                aria-label={t('loading')}
+              />
+            </div>
           ) : !job ? null : (
             <>
               <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
@@ -180,7 +242,7 @@ const JobDetail = () => {
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">
-                      {owner?.name || 'Owner'}
+                      {owner?.name || t('owner')}
                     </p>
                     <p className="text-sm text-gray-500">
                       {owner?.location?.state},{' '}
@@ -197,7 +259,7 @@ const JobDetail = () => {
                   {!ownerRating ||
                   ownerRating.total === 0 ? (
                     <div className="py-4 text-center">
-                      <div className="mb-2 text-3xl">★</div>
+                      <div className="mb-2 text-3xl" aria-hidden="true">★</div>
                       <p className="text-sm text-gray-400">
                         {t('noRatingYet')}
                       </p>
@@ -217,13 +279,11 @@ const JobDetail = () => {
                               <span
                                 key={star}
                                 className={`text-xl ${
-                                  star <=
-                                  Math.round(
-                                    Number(ownerRating.avgScore)
-                                  )
+                                  star <= ownerRatingRounded
                                     ? 'text-yellow-400'
                                     : 'text-gray-300'
                                 }`}
+                                aria-hidden="true"
                               >
                                 ★
                               </span>
@@ -236,9 +296,7 @@ const JobDetail = () => {
                       </div>
 
                       <div className="max-h-48 space-y-3 overflow-y-auto">
-                        {ownerRating.ratings
-                          .slice(0, 5)
-                          .map((rating, i) => (
+                        {recentRatings.map((rating, i) => (
                             <div
                               key={rating._id || i}
                               className="rounded-xl bg-gray-50 p-3"
@@ -253,6 +311,7 @@ const JobDetail = () => {
                                           ? 'text-yellow-400'
                                           : 'text-gray-300'
                                       }`}
+                                      aria-hidden="true"
                                     >
                                       ★
                                     </span>
@@ -270,7 +329,7 @@ const JobDetail = () => {
                                 </p>
                               ) : null}
                               <p className="mt-1 text-xs text-gray-400">
-                                — {rating.ratedBy?.name || 'Driver'}
+                                — {rating.ratedBy?.name || t('driver')}
                               </p>
                             </div>
                           ))}
@@ -338,9 +397,7 @@ const JobDetail = () => {
                   <div>
                     <p className="text-lg font-bold text-green-700">
                       {t('totalEarningsLabel2')}:{' '}
-                      {typeof totalKamai === 'string'
-                        ? totalKamai
-                        : `₹${totalKamai}`}
+                      {totalKamaiDisplay}
                     </p>
                     <p className="text-sm text-gray-500">
                       {job.duration} {t('days')} × {getSalaryDisplay(job)}
@@ -348,11 +405,11 @@ const JobDetail = () => {
                   </div>
                   <button
                     type="button"
-                    disabled={applied || applyLoading}
+                    disabled={hasApplied || applyLoading}
                     onClick={handleApply}
                     className="rounded-xl bg-green-600 px-8 py-3 text-center text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {applied
+                    {hasApplied
                       ? t('appliedDone')
                       : applyLoading
                         ? t('loading')

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { getUser } from '../../utils/helpers'
@@ -9,6 +9,16 @@ import { getMyRatings } from '../../api/ratingAPI'
 import { driverGetRecords as getDriverAttendance } from '../../api/attendanceAPI'
 import { getDriverInvites } from '../../api/inviteAPI'
 import { useDataCache } from '../../contexts/DataCacheContext'
+
+const formatStartDate = (c) => {
+  const d = c?.startDate || c?.jobId?.startDate
+  if (!d) return '—'
+  try {
+    return new Date(d).toLocaleDateString('hi-IN')
+  } catch {
+    return '—'
+  }
+}
 
 const DriverDashboard = () => {
   const { t } = useTranslation()
@@ -25,8 +35,24 @@ const DriverDashboard = () => {
   })
   const { getCachedData, setCachedData } = useDataCache()
 
-  const thisMonth = new Date().getMonth() + 1
-  const thisYear = new Date().getFullYear()
+  const jobSalaryLabel = useCallback((job) => {
+    if (!job) return '—'
+    if (job.salaryPerMonth != null && job.salaryPerMonth > 0) {
+      return `₹${job.salaryPerMonth}/${t('perMonth') || 'mahina'}`
+    }
+    if (job.salaryPerDay != null && job.salaryPerDay > 0) {
+      return `₹${job.salaryPerDay}/${t('perDay') || 'din'}`
+    }
+    return '—'
+  }, [t])
+
+  const { thisMonth, thisYear } = useMemo(() => {
+    const now = new Date()
+    return {
+      thisMonth: now.getMonth() + 1,
+      thisYear: now.getFullYear(),
+    }
+  }, [])
 
   useEffect(() => {
     setUser(getUser())
@@ -89,10 +115,7 @@ const DriverDashboard = () => {
             avgRating: ratingsRes.value.data?.avgScore || 0,
             ratingCount: ratingsRes.value.data?.totalRatings || 0,
           }
-          setStats((s) => ({
-            ...s,
-            ...nextStats,
-          }))
+          setStats(nextStats)
         }
         if (attendanceRes.status === 'fulfilled') {
           nextAttendance = attendanceRes.value.data
@@ -108,7 +131,7 @@ const DriverDashboard = () => {
           stats: nextStats,
         })
       } catch (err) {
-        console.error(err)
+        // Silent fail - Promise.allSettled handles individual errors
       } finally {
         if (!silent) setLoading(false)
       }
@@ -122,7 +145,7 @@ const DriverDashboard = () => {
         setApplications(cached.applications || [])
         setAttendance(cached.attendance ?? null)
         setInviteCount(cached.inviteCount || 0)
-        setStats(cached.stats || stats)
+        setStats(cached.stats || { avgRating: 0, ratingCount: 0 })
         setLoading(false)
         loadFresh(true)
         return
@@ -133,46 +156,40 @@ const DriverDashboard = () => {
     loadAll()
   }, [])
 
-  const profileIncomplete =
-    user != null && user.isProfileComplete !== true
+  const profileIncomplete = useMemo(
+    () => user != null && user.isProfileComplete !== true,
+    [user]
+  )
 
-  const monthEarned =
-    summary?.attendance?.find(
-      (x) => x.month === thisMonth && x.year === thisYear
-    )?.totalSalaryEarned ?? 0
+  const monthEarned = useMemo(
+    () =>
+      summary?.attendance?.find(
+        (x) => x.month === thisMonth && x.year === thisYear
+      )?.totalSalaryEarned ?? 0,
+    [summary, thisMonth, thisYear]
+  )
 
-  const netDueRaw =
-    summary?.netDue != null
-      ? summary.netDue
-      : Math.max(
-          0,
-          (summary?.totalSalaryEarned || 0) - (summary?.totalPaid || 0)
-        )
+  const netDueRaw = useMemo(
+    () =>
+      summary?.netDue != null
+        ? summary.netDue
+        : Math.max(
+            0,
+            (summary?.totalSalaryEarned || 0) -
+              (summary?.totalPaid || 0)
+          ),
+    [summary]
+  )
 
-  const pendingConfirmCount = summary?.pendingPayments?.length || 0
+  const pendingConfirmCount = useMemo(
+    () => summary?.pendingPayments?.length || 0,
+    [summary]
+  )
 
-  const recentApps = applications.slice(0, 3)
-
-  const jobSalaryLabel = (job) => {
-    if (!job) return '—'
-    if (job.salaryPerMonth != null && job.salaryPerMonth > 0) {
-      return `₹${job.salaryPerMonth}/mahina`
-    }
-    if (job.salaryPerDay != null && job.salaryPerDay > 0) {
-      return `₹${job.salaryPerDay}/din`
-    }
-    return '—'
-  }
-
-  const startDateLabel = (c) => {
-    const d = c?.startDate || c?.jobId?.startDate
-    if (!d) return '—'
-    try {
-      return new Date(d).toLocaleDateString('hi-IN')
-    } catch {
-      return '—'
-    }
-  }
+  const recentApps = useMemo(
+    () => applications.slice(0, 3),
+    [applications]
+  )
 
   return (
     <div
@@ -191,7 +208,8 @@ const DriverDashboard = () => {
           <>
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-800">
-                {t('greeting')}, {user?.name || 'Driver'}! 👋
+                {t('greeting')}, {user?.name || t('driver')}!{' '}
+                <span aria-hidden="true">👋</span>
               </h2>
               <p className="text-sm text-gray-500">{t('todayOverview')}</p>
               {inviteCount > 0 ? (
@@ -207,7 +225,10 @@ const DriverDashboard = () => {
             {/* Row 1 stats */}
             <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
               <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 md:gap-4 md:p-5">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-green-100 bg-green-50 text-xl">
+                <div
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-green-100 bg-green-50 text-xl"
+                  aria-hidden="true"
+                >
                   🔧
                 </div>
                 <div>
@@ -218,7 +239,10 @@ const DriverDashboard = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 md:gap-4 md:p-5">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-blue-100 bg-blue-50 text-xl">
+                <div
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-blue-100 bg-blue-50 text-xl"
+                  aria-hidden="true"
+                >
                   💰
                 </div>
                 <div>
@@ -231,7 +255,10 @@ const DriverDashboard = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 md:gap-4 md:p-5">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-yellow-100 bg-yellow-50 text-xl">
+                <div
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-yellow-100 bg-yellow-50 text-xl"
+                  aria-hidden="true"
+                >
                   ⭐
                 </div>
                 <div>
@@ -244,7 +271,10 @@ const DriverDashboard = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 md:gap-4 md:p-5">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-purple-100 bg-purple-50 text-xl">
+                <div
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-purple-100 bg-purple-50 text-xl"
+                  aria-hidden="true"
+                >
                   📋
                 </div>
                 <div>
@@ -273,6 +303,7 @@ const DriverDashboard = () => {
                       ? 'border border-red-100 bg-red-50'
                       : 'border border-green-100 bg-green-50'
                   }`}
+                  aria-hidden="true"
                 >
                   💸
                 </div>
@@ -288,7 +319,10 @@ const DriverDashboard = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 md:gap-4 md:p-5">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-amber-100 bg-amber-50 text-xl">
+                <div
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-amber-100 bg-amber-50 text-xl"
+                  aria-hidden="true"
+                >
                   ⏳
                 </div>
                 <div>
@@ -333,13 +367,15 @@ const DriverDashboard = () => {
                 ) : (
                   <>
                     <p className="text-sm font-medium text-amber-700">
-                      Profile Incomplete ⚠️
+                      {t('profileIncomplete') || 'Profile Incomplete'}{' '}
+                      <span aria-hidden="true">⚠️</span>
                     </p>
                     <Link
                       to="/driver/profile"
                       className="text-sm font-semibold text-green-600 hover:text-green-700"
                     >
-                      Profile →
+                      {t('profile')}{' '}
+                      <span aria-hidden="true">→</span>
                     </Link>
                   </>
                 )}
@@ -386,7 +422,7 @@ const DriverDashboard = () => {
                       >
                         <div className="min-w-0">
                           <p className="truncate font-semibold text-gray-900 text-sm">
-                            {a.jobId?.title || 'Job'}
+                            {a.jobId?.title || t('job')}
                           </p>
                           <p className="truncate text-xs text-gray-500">
                             {a.jobId?.vehicleType || '—'}
@@ -409,7 +445,13 @@ const DriverDashboard = () => {
                                   : '#D97706',
                           }}
                         >
-                          {a.status}
+                          {a.status === 'accepted'
+                            ? t('approved')
+                            : a.status === 'rejected'
+                              ? t('rejected')
+                              : a.status === 'active'
+                                ? t('active')
+                                : t('pending')}
                         </span>
                       </div>
                     ))}
@@ -422,7 +464,8 @@ const DriverDashboard = () => {
               <div className="mt-6 mb-6 flex flex-col gap-4 rounded-2xl border border-green-200 bg-green-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium text-green-800">
-                    📝 {t('profileIncompleteMsg')}
+                    <span aria-hidden="true">📝</span>{' '}
+                    {t('profileIncompleteMsg')}
                   </p>
                   <p className="mt-1 text-sm text-green-600">
                     {t('addDocumentsSkills')}
@@ -452,7 +495,7 @@ const DriverDashboard = () => {
                       {jobSalaryLabel(contract.jobId)}
                     </p>
                     <p className="text-sm text-gray-500">
-                      {t('startDate')}: {startDateLabel(contract)}
+                      {t('startDate')}: {formatStartDate(contract)}
                     </p>
                     {attendance?.summary != null && (
                       <p className="mt-1 text-xs text-gray-500">

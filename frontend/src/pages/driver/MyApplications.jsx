@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { getDriverApplications } from '../../api/driverAPI'
 import { getDriverActiveContract } from '../../api/contractAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const formatApplied = (d) => {
   if (!d) return '—'
@@ -25,74 +26,104 @@ const DriverApplications = () => {
   const [activeContract, setActiveContract] = useState(null)
   const [filter, setFilter] = useState('sab')
   const [loading, setLoading] = useState(true)
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache
+  } = useDataCache()
 
-  const getSalaryDisplay = (job) => {
-    if (!job) return '—'
-    if (job.salaryType === 'monthly') {
-      return `₹${job.salaryPerMonth || 0}/${t('perMonth')}`
-    }
-    if (job.salaryType === 'hourly') {
-      return `₹${job.salaryPerHour || 0}/${t('perHour')}`
-    }
-    return `₹${job.salaryPerDay || 0}/${t('perDay')}`
-  }
-
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const [appsRes, contractRes] = await Promise.all([
         getDriverApplications(),
         getDriverActiveContract().catch(() => ({ data: { contract: null } })),
       ])
-      setApplications(appsRes?.data?.applications ?? [])
-      setActiveContract(contractRes?.data?.contract ?? null)
+      const apps = appsRes?.data?.applications ?? []
+      const contract = contractRes?.data?.contract ?? null
+      setApplications(apps)
+      setActiveContract(contract)
+
+      // Cache the data
+      setCachedData('driver_applications', {
+        applications: apps,
+        activeContract: contract,
+      })
     } catch (e) {
-      toast.error(
-        e.response?.data?.message || t('appsLoadError')
-      )
+      if (!silent) {
+        toast.error(
+          e.response?.data?.message || t('appsLoadError')
+        )
+      }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [t])
+  }, [t, setCachedData])
 
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    const cached = getCachedData('driver_applications')
+    if (cached) {
+      setApplications(cached.applications || [])
+      setActiveContract(cached.activeContract || null)
+      setLoading(false)
+      loadData(true) // silent refresh
+    } else {
+      loadData(false)
+    }
+  }, [])
 
-  const activeContractJobId = activeContract?.jobId?._id || activeContract?.jobId
+  const getSalaryDisplay = useCallback((jobData) => {
+    if (!jobData) return '—'
+    if (jobData.salaryType === 'monthly') {
+      return `₹${jobData.salaryPerMonth || 0}/${t('perMonth')}`
+    }
+    if (jobData.salaryType === 'hourly') {
+      return `₹${jobData.salaryPerHour || 0}/${t('perHour')}`
+    }
+    return `₹${jobData.salaryPerDay || 0}/${t('perDay')}`
+  }, [t])
 
-  const getRealStatus = (app) => {
+  const activeContractJobId = useMemo(
+    () => activeContract?.jobId?._id || activeContract?.jobId,
+    [activeContract]
+  )
+
+  const getRealStatus = useCallback((app) => {
     if (app.status === 'terminated') return 'terminated'
     if (app.status === 'active') {
       const appJobId = app.jobId?._id || app.jobId
-      if (activeContractJobId && String(activeContractJobId) === String(appJobId)) {
+      if (
+        activeContractJobId &&
+        String(activeContractJobId) === String(appJobId)
+      ) {
         return 'active'
       }
       return 'terminated'
     }
     return app.status
-  }
+  }, [activeContractJobId])
 
-  const filtered =
-    filter === 'sab'
-      ? applications
-      : filter === 'active'
-        ? applications.filter((a) => {
-            const real = getRealStatus(a)
-            if (real !== 'active') return false
-            const appJobId = a.jobId?._id || a.jobId
-            return (
-              activeContractJobId &&
-              String(activeContractJobId) === String(appJobId)
-            )
-          })
-        : applications.filter((a) => getRealStatus(a) === filter)
+  const filtered = useMemo(() => {
+    if (filter === 'sab') return applications
+    if (filter === 'active') {
+      return applications.filter((a) => {
+        const real = getRealStatus(a)
+        if (real !== 'active') return false
+        const appJobId = a.jobId?._id || a.jobId
+        return (
+          activeContractJobId &&
+          String(activeContractJobId) === String(appJobId)
+        )
+      })
+    }
+    return applications.filter((a) => getRealStatus(a) === filter)
+  }, [filter, applications, getRealStatus, activeContractJobId])
 
-  const statusBlock = (status) => {
+  const statusBlock = useCallback((status) => {
     if (status === 'pending') {
       return (
         <div className="rounded-lg bg-yellow-100 px-3 py-2 text-sm text-yellow-700">
-          ⏳ {t('waitingForReply')}
+          <span aria-hidden="true">⏳</span> {t('waitingForReply')}
         </div>
       )
     }
@@ -100,7 +131,7 @@ const DriverApplications = () => {
       return (
         <div className="space-y-2">
           <div className="rounded-lg bg-green-100 px-3 py-2 text-sm text-green-700">
-            ✅ {t('congratsAccepted')}
+            <span aria-hidden="true">✅</span> {t('congratsAccepted')}
           </div>
           <Link
             to="/driver/active-job"
@@ -115,7 +146,7 @@ const DriverApplications = () => {
       return (
         <div className="space-y-2">
           <div className="rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-800">
-            ✅ {t('workInProgressMsg')}
+            <span aria-hidden="true">✅</span> {t('workInProgressMsg')}
           </div>
           <Link
             to="/driver/active-job"
@@ -135,10 +166,19 @@ const DriverApplications = () => {
     }
     return (
       <div className="rounded-lg bg-red-100 px-3 py-2 text-sm text-red-500">
-        ❌ {t('tryOtherJobs')}
+        <span aria-hidden="true">❌</span> {t('tryOtherJobs')}
       </div>
     )
-  }
+  }, [t])
+
+  const filterButtons = useMemo(() => [
+    { key: 'sab', label: t('all') },
+    { key: 'pending', label: t('pending') },
+    { key: 'accepted', label: t('approved') },
+    { key: 'active', label: t('active') },
+    { key: 'rejected', label: t('rejected') },
+    { key: 'terminated', label: t('terminated') },
+  ], [t])
 
   return (
     <div
@@ -149,14 +189,7 @@ const DriverApplications = () => {
           {t('applications')}
         </h1>
         <div className="mb-6 flex flex-wrap gap-2">
-          {[
-            { key: 'sab', label: t('all') },
-            { key: 'pending', label: t('pending') },
-            { key: 'accepted', label: t('approved') },
-            { key: 'active', label: t('active') },
-            { key: 'rejected', label: t('rejected') },
-            { key: 'terminated', label: t('terminated') },
-          ].map(({ key, label }) => (
+          {filterButtons.map(({ key, label }) => (
             <button
               key={key}
               type="button"
@@ -173,7 +206,13 @@ const DriverApplications = () => {
         </div>
 
         {loading ? (
-          <p className="text-sm text-gray-500">{t('loading')}</p>
+          <div className="flex justify-center py-16">
+            <div
+              className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent"
+              role="status"
+              aria-label={t('loading')}
+            />
+          </div>
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center">
             <p className="text-gray-700">
@@ -192,7 +231,7 @@ const DriverApplications = () => {
               const realStatus = getRealStatus(app)
               const job = app.jobId
               const owner = app.ownerId
-              const title = job?.title || 'Job'
+              const title = job?.title || t('job')
               return (
                 <li
                   key={app._id}
@@ -217,10 +256,10 @@ const DriverApplications = () => {
                     </span>
                   </div>
                   <p className="mt-3 text-sm text-gray-600">
-                    👤 {owner?.name || 'Owner'}
+                    <span aria-hidden="true">👤</span> {owner?.name || t('owner')}
                   </p>
                   <p className="text-sm text-gray-600">
-                    📍 {owner?.location?.state},{' '}
+                    <span aria-hidden="true">📍</span> {owner?.location?.state},{' '}
                     {owner?.location?.district}
                   </p>
                   <p className="text-sm text-gray-600">

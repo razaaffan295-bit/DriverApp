@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
@@ -13,6 +13,7 @@ import {
   driverDeleteRecord,
   driverGetRecords,
 } from '../../api/attendanceAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const MONTH_NAMES = [
   'January',
@@ -69,9 +70,21 @@ const calcSalary = (contract, status, hours) => {
   return Math.round(base)
 }
 
+const fmtDate = (d) =>
+  new Date(d).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+
 const DriverAttendance = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache
+  } = useDataCache()
 
   const [contract, setContract] = useState(null)
   const [records, setRecords] = useState([])
@@ -96,75 +109,121 @@ const DriverAttendance = () => {
     note: '',
   })
 
+  const calcSummary = useCallback((list, contractData) => {
+    const s = {
+      presentDays: 0,
+      absentDays: 0,
+      halfDays: 0,
+      totalHours: 0,
+      grossTotal: 0,
+    }
+    list.forEach((r) => {
+      if (r.status === 'present') s.presentDays += 1
+      else if (r.status === 'absent') s.absentDays += 1
+      else if (r.status === 'half_day') s.halfDays += 1
+      s.totalHours += Number(r.hoursWorked) || 0
+      s.grossTotal += calcSalary(
+        contractData,
+        r.status,
+        Number(r.hoursWorked) || 0
+      )
+    })
+    s.totalHours = Math.round(s.totalHours * 100) / 100
+    s.grossTotal = Math.round(s.grossTotal)
+    return s
+  }, [])
+
   useEffect(() => {
     setUser(getUser())
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     const loadContract = async () => {
       setLoading(true)
       try {
         const res = await getDriverActiveContract()
-        setContract(res.data?.contract || null)
+        if (!cancelled) {
+          setContract(res.data?.contract || null)
+        }
       } catch (e) {
-        setContract(null)
-        toast.error(e.response?.data?.message || 'Contract load nahi hua')
+        if (!cancelled) {
+          setContract(null)
+          toast.error(
+            e.response?.data?.message ||
+            t('contractLoadError') ||
+            'Contract load nahi hua'
+          )
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     loadContract()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
-    const loadRecords = async () => {
-      setLoading(true)
+    const loadRecords = async (silent = false) => {
+      if (!silent) setLoading(true)
       try {
         const res = await driverGetRecords({
           month: selectedMonth,
           year: selectedYear,
         })
         const list = res.data?.records ?? []
+        const newSummary = calcSummary(
+          list,
+          res.data?.contract || contract
+        )
         setRecords(list)
+        setSummary(newSummary)
 
-        const s = {
-          presentDays: 0,
-          absentDays: 0,
-          halfDays: 0,
-          totalHours: 0,
-          grossTotal: 0,
-        }
-        list.forEach((r) => {
-          if (r.status === 'present') s.presentDays += 1
-          else if (r.status === 'absent') s.absentDays += 1
-          else if (r.status === 'half_day') s.halfDays += 1
-          s.totalHours += Number(r.hoursWorked) || 0
-          s.grossTotal += calcSalary(
-            res.data?.contract || contract,
-            r.status,
-            Number(r.hoursWorked) || 0
-          )
+        const cacheKey = `driver_attendance_${selectedMonth}_${selectedYear}`
+        setCachedData(cacheKey, {
+          records: list,
+          summary: newSummary,
         })
-        s.totalHours = Math.round(s.totalHours * 100) / 100
-        s.grossTotal = Math.round(s.grossTotal)
-        setSummary(s)
       } catch (e) {
-        setRecords([])
-        setSummary({
-          presentDays: 0,
-          absentDays: 0,
-          halfDays: 0,
-          totalHours: 0,
-          grossTotal: 0
-        })
-        toast.error(e.response?.data?.message || 'Attendance load nahi hua')
+        if (!silent) {
+          setRecords([])
+          setSummary({
+            presentDays: 0,
+            absentDays: 0,
+            halfDays: 0,
+            totalHours: 0,
+            grossTotal: 0,
+          })
+          toast.error(
+            e.response?.data?.message ||
+            t('attendanceLoadError') ||
+            'Attendance load nahi hua'
+          )
+        }
       } finally {
-        setLoading(false)
+        if (!silent) setLoading(false)
       }
     }
 
-    loadRecords()
-  }, [selectedMonth, selectedYear, contract])
+    const cacheKey = `driver_attendance_${selectedMonth}_${selectedYear}`
+    const cached = getCachedData(cacheKey)
+    if (cached) {
+      setRecords(cached.records || [])
+      setSummary(cached.summary || {
+        presentDays: 0,
+        absentDays: 0,
+        halfDays: 0,
+        totalHours: 0,
+        grossTotal: 0,
+      })
+      setLoading(false)
+      loadRecords(true)
+    } else {
+      loadRecords(false)
+    }
+  }, [selectedMonth, selectedYear, contract, calcSummary, getCachedData, setCachedData, t])
 
   const showHoursInput = useMemo(() => {
     return contract?.salaryType === 'hourly' || Boolean(contract?.hasHourlyBonus)
@@ -175,38 +234,110 @@ const DriverAttendance = () => {
     return calcSalary(contract, form.status, Number(form.hoursWorked) || 0)
   }, [contract, form.status, form.hoursWorked])
 
-  const fmtDate = (d) =>
-    new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+  const isTransport = useMemo(
+    () =>
+      contract?.vehicleCategory === 'transport' ||
+      contract?.jobId?.vehicleCategory === 'transport',
+    [contract]
+  )
 
-  const isTransport =
-    contract?.vehicleCategory === 'transport' ||
-    contract?.jobId?.vehicleCategory === 'transport'
-
-  const handlePrint = async () => {
-    if (isNativeApp()) {
-      await generateAndOpenPDF(
-        'attendance',
-        {
-          driverName: user?.name || '',
-          month: selectedMonth,
-          year: selectedYear,
-          presentDays: summary?.presentDays || 0,
-          absentDays: summary?.absentDays || 0,
-          halfDays: summary?.halfDays || 0,
-          grossTotal: summary?.grossTotal || 0,
-          records: (records || []).map(r => ({
-            date: r.date,
-            status: r.status,
-            hoursWorked: r.hoursWorked || 0,
-            salaryForDay: r.salaryForDay || 0,
-          }))
-        },
-        `attendance-${selectedMonth}-${selectedYear}.pdf`
+  const handlePrint = useCallback(async () => {
+    try {
+      if (isNativeApp()) {
+        await generateAndOpenPDF(
+          'attendance',
+          {
+            driverName: user?.name || '',
+            month: selectedMonth,
+            year: selectedYear,
+            presentDays: summary?.presentDays || 0,
+            absentDays: summary?.absentDays || 0,
+            halfDays: summary?.halfDays || 0,
+            grossTotal: summary?.grossTotal || 0,
+            records: (records || []).map(r => ({
+              date: r.date,
+              status: r.status,
+              hoursWorked: r.hoursWorked || 0,
+              salaryForDay: r.salaryForDay || 0,
+            }))
+          },
+          `attendance-${selectedMonth}-${selectedYear}.pdf`
+        )
+      } else {
+        window.print()
+      }
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message ||
+        'PDF generation failed'
       )
-    } else {
-      window.print()
     }
-  }
+  }, [user, selectedMonth, selectedYear, summary, records])
+
+  const handleSave = useCallback(async () => {
+    if (!form.date || !form.status) return
+    try {
+      setSaving(true)
+      await driverAddRecord({
+        date: form.date,
+        status: form.status,
+        hoursWorked: Number(form.hoursWorked) || 0,
+        note: form.note || '',
+      })
+      toast.success(t('recordSaved'))
+      setForm((f) => ({ ...f, status: '', hoursWorked: '', note: '' }))
+
+      const cacheKey = `driver_attendance_${selectedMonth}_${selectedYear}`
+      clearCache(cacheKey)
+      clearCache('driver_dashboard')
+
+      const res = await driverGetRecords({
+        month: selectedMonth,
+        year: selectedYear,
+      })
+      const list = res.data?.records ?? []
+      setRecords(list)
+      setSummary(calcSummary(list, contract))
+    } catch (e) {
+      toast.error(
+        e.response?.data?.message ||
+        t('saveError2') ||
+        'Save nahi hua'
+      )
+    } finally {
+      setSaving(false)
+    }
+  }, [form, selectedMonth, selectedYear, contract, calcSummary, clearCache, t])
+
+  const handleDelete = useCallback(async (recordId) => {
+    const ok = window.confirm(t('confirmDelete'))
+    if (!ok) return
+    try {
+      setSaving(true)
+      await driverDeleteRecord(recordId)
+      toast.success(t('recordDeleted'))
+
+      const cacheKey = `driver_attendance_${selectedMonth}_${selectedYear}`
+      clearCache(cacheKey)
+      clearCache('driver_dashboard')
+
+      const res = await driverGetRecords({
+        month: selectedMonth,
+        year: selectedYear,
+      })
+      const list = res.data?.records ?? []
+      setRecords(list)
+      setSummary(calcSummary(list, contract))
+    } catch (e) {
+      toast.error(
+        e.response?.data?.message ||
+        t('deleteError') ||
+        'Delete nahi hua'
+      )
+    } finally {
+      setSaving(false)
+    }
+  }, [selectedMonth, selectedYear, contract, calcSummary, clearCache, t])
 
   return (
     <div
@@ -215,7 +346,11 @@ const DriverAttendance = () => {
       <div className="mx-auto max-w-3xl p-4 md:p-6 pb-8">
           {loading ? (
             <div className="flex justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent"
+                role="status"
+                aria-label={t('loading')}
+              />
             </div>
           ) : !contract ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center">
@@ -236,7 +371,7 @@ const DriverAttendance = () => {
                   onClick={handlePrint}
                   className="no-print bg-gray-700 text-white px-4 py-2 rounded-xl text-sm w-full mt-4"
                 >
-                  📄 {t('downloadPDF')}
+                  <span aria-hidden="true">📄</span> {t('downloadPDF')}
                 </button>
               </div>
 
@@ -251,7 +386,7 @@ const DriverAttendance = () => {
                     marginTop: '16px',
                   }}
                 >
-                  <p style={{ fontSize: '32px', marginBottom: '8px' }}>
+                  <p style={{ fontSize: '32px', marginBottom: '8px' }} aria-hidden="true">
                     🚛
                   </p>
                   <p
@@ -549,7 +684,7 @@ const DriverAttendance = () => {
                               : 'border-gray-200 bg-gray-100 text-gray-600'
                           }`}
                         >
-                          ✅ {t('present')}
+                          <span aria-hidden="true">✅</span> {t('present')}
                         </button>
                         <button
                           type="button"
@@ -561,7 +696,7 @@ const DriverAttendance = () => {
                               : 'border-gray-200 bg-gray-100 text-gray-600'
                           }`}
                         >
-                          🕐 {t('halfDay')}
+                          <span aria-hidden="true">🕐</span> {t('halfDay')}
                         </button>
                         <button
                           type="button"
@@ -573,7 +708,7 @@ const DriverAttendance = () => {
                               : 'border-gray-200 bg-gray-100 text-gray-600'
                           }`}
                         >
-                          ❌ {t('absent')}
+                          <span aria-hidden="true">❌</span> {t('absent')}
                         </button>
                       </div>
 
@@ -586,6 +721,7 @@ const DriverAttendance = () => {
                             type="number"
                             min={0}
                             max={24}
+                            step="0.5"
                             value={form.hoursWorked}
                             onChange={(e) => {
                               const val = e.target.value
@@ -613,6 +749,7 @@ const DriverAttendance = () => {
                           value={form.note}
                           onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
                           placeholder={t('addNote')}
+                          maxLength={500}
                           className="input-field w-full"
                         />
                       </div>
@@ -620,48 +757,7 @@ const DriverAttendance = () => {
                       <button
                         type="button"
                         disabled={saving || !form.status}
-                        onClick={async () => {
-                          try {
-                            if (!form.date || !form.status) return
-                            setSaving(true)
-                            await driverAddRecord({
-                              date: form.date,
-                              status: form.status,
-                              hoursWorked: Number(form.hoursWorked) || 0,
-                              note: form.note || '',
-                            })
-                            toast.success(t('recordSaved'))
-                            setForm((f) => ({ ...f, status: '', hoursWorked: '', note: '' }))
-                            const res = await driverGetRecords({
-                              month: selectedMonth,
-                              year: selectedYear,
-                            })
-                            const list = res.data?.records ?? []
-                            setRecords(list)
-
-                            const s = {
-                              presentDays: 0,
-                              absentDays: 0,
-                              halfDays: 0,
-                              totalHours: 0,
-                              grossTotal: 0,
-                            }
-                            list.forEach((r) => {
-                              if (r.status === 'present') s.presentDays += 1
-                              else if (r.status === 'absent') s.absentDays += 1
-                              else if (r.status === 'half_day') s.halfDays += 1
-                              s.totalHours += Number(r.hoursWorked) || 0
-                              s.grossTotal += calcSalary(contract, r.status, Number(r.hoursWorked) || 0)
-                            })
-                            s.totalHours = Math.round(s.totalHours * 100) / 100
-                            s.grossTotal = Math.round(s.grossTotal)
-                            setSummary(s)
-                          } catch (e) {
-                            toast.error(e.response?.data?.message || 'Save nahi hua')
-                          } finally {
-                            setSaving(false)
-                          }
-                        }}
+                        onClick={handleSave}
                         className="w-full rounded-xl bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
                       >
                         {saving ? t('savingText') : t('saveRecord')}
@@ -695,7 +791,11 @@ const DriverAttendance = () => {
                                       : 'bg-yellow-100 text-yellow-700'
                                 }`}
                               >
-                                {r.status === 'half_day' ? t('halfDay') : r.status}
+                                {r.status === 'present'
+                                  ? t('present')
+                                  : r.status === 'absent'
+                                    ? t('absent')
+                                    : t('halfDay')}
                               </span>
                               {Number(r.hoursWorked) > 0 && (
                                 <p className="mt-1 text-xs text-gray-600">
@@ -711,43 +811,7 @@ const DriverAttendance = () => {
                               <button
                                 type="button"
                                 disabled={saving}
-                                onClick={async () => {
-                                  const ok = window.confirm(t('confirmDelete'))
-                                  if (!ok) return
-                                  try {
-                                    setSaving(true)
-                                    await driverDeleteRecord(r._id)
-                                    toast.success(t('recordDeleted'))
-                                    const res = await driverGetRecords({
-                                      month: selectedMonth,
-                                      year: selectedYear,
-                                    })
-                                    const list = res.data?.records ?? []
-                                    setRecords(list)
-
-                                    const s = {
-                                      presentDays: 0,
-                                      absentDays: 0,
-                                      halfDays: 0,
-                                      totalHours: 0,
-                                      grossTotal: 0,
-                                    }
-                                    list.forEach((x) => {
-                                      if (x.status === 'present') s.presentDays += 1
-                                      else if (x.status === 'absent') s.absentDays += 1
-                                      else if (x.status === 'half_day') s.halfDays += 1
-                                      s.totalHours += Number(x.hoursWorked) || 0
-                                      s.grossTotal += calcSalary(contract, x.status, Number(x.hoursWorked) || 0)
-                                    })
-                                    s.totalHours = Math.round(s.totalHours * 100) / 100
-                                    s.grossTotal = Math.round(s.grossTotal)
-                                    setSummary(s)
-                                  } catch (e) {
-                                    toast.error(e.response?.data?.message || 'Delete nahi hua')
-                                  } finally {
-                                    setSaving(false)
-                                  }
-                                }}
+                                onClick={() => handleDelete(r._id)}
                                 className="mt-2 text-xs font-semibold text-red-400 hover:text-red-600 disabled:opacity-60"
                               >
                                 {t('delete')}

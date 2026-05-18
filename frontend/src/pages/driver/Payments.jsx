@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
@@ -18,6 +18,7 @@ import {
   isNativeApp,
   generateAndOpenPDF,
 } from '../../utils/pdfUpload'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const tripFrom = (t) => t.fromLocation || t.from || ''
 const tripTo = (t) => t.toLocation || t.to || ''
@@ -121,23 +122,49 @@ const DriverPayments = () => {
   const [tripLoading, setTripLoading] = useState(false)
   const [tripRequestingId, setTripRequestingId] = useState(null)
   const [printTrip, setPrintTrip] = useState(null)
+  const printPaymentTimeoutRef = useRef(null)
+  const printTripTimeoutRef = useRef(null)
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache
+  } = useDataCache()
 
   const navigate = useNavigate()
 
+  useEffect(() => {
+    return () => {
+      if (printPaymentTimeoutRef.current) {
+        clearTimeout(printPaymentTimeoutRef.current)
+      }
+      if (printTripTimeoutRef.current) {
+        clearTimeout(printTripTimeoutRef.current)
+      }
+      setPrintPayment(null)
+      setPrintTrip(null)
+    }
+  }, [])
+
   const loadSummary = useCallback(async () => {
     const res = await getPaymentSummary()
-    setSummary(res.data?.summary ?? null)
-  }, [])
+    const summaryData = res.data?.summary ?? null
+    setSummary(summaryData)
+    setCachedData('driver_payments_summary', summaryData)
+  }, [setCachedData])
 
   const loadHistory = useCallback(async () => {
     const res = await getPayments()
-    setPayments(res.data?.payments ?? [])
-  }, [])
+    const list = res.data?.payments ?? []
+    setPayments(list)
+    setCachedData('driver_payments_history', list)
+  }, [setCachedData])
 
   const loadAdvances = useCallback(async () => {
     const res = await getAdvances()
-    setAdvances(res.data?.advances ?? [])
-  }, [])
+    const list = res.data?.advances ?? []
+    setAdvances(list)
+    setCachedData('driver_payments_advances', list)
+  }, [setCachedData])
 
   const loadTripEarnings = useCallback(async () => {
     try {
@@ -148,7 +175,7 @@ const DriverPayments = () => {
       ])
 
       const trips = tripsRes.data?.trips || []
-      const approved = trips.filter((t) => t.status === 'approved')
+      const approved = trips.filter((tr) => tr.status === 'approved')
 
       const allPayments = paymentsRes.data?.payments || []
       const tripPayments = allPayments.filter(
@@ -158,7 +185,7 @@ const DriverPayments = () => {
       )
 
       const totalApproved = approved.reduce(
-        (sum, t) => sum + tripApprovedAmount(t),
+        (sum, tr) => sum + tripApprovedAmount(tr),
         0
       )
 
@@ -174,19 +201,27 @@ const DriverPayments = () => {
       setTripTotal(totalApproved)
       setTripPaid(totalTripPaid)
       setTripNetDue(netDueTrips)
+      setCachedData('driver_trip_earnings', {
+        earnings: approved,
+        paymentsList: tripPayments,
+        total: totalApproved,
+        paid: totalTripPaid,
+        netDue: netDueTrips,
+      })
     } catch (err) {
-      console.error(err)
       toast.error(
-        err.response?.data?.message || 'Trips load nahi hue'
+        err.response?.data?.message ||
+        t('tripsLoadError') ||
+        'Trips load nahi hue'
       )
     } finally {
       setTripLoading(false)
     }
-  }, [])
+  }, [t, setCachedData])
 
-  const refreshTab = useCallback(async () => {
+  const refreshTab = useCallback(async (silent = false) => {
     if (tab === 'trip') return
-    setLoading(true)
+    if (!silent) setLoading(true)
     try {
       if (tab === 'summary') {
         await Promise.all([loadSummary(), loadHistory()])
@@ -195,18 +230,65 @@ const DriverPayments = () => {
         await Promise.all([loadSummary(), loadAdvances()])
       }
     } catch (e) {
-      if (tab === 'summary') setSummary(null)
-      toast.error(
-        e.response?.data?.message || 'Load nahi hua'
-      )
+      if (!silent) {
+        if (tab === 'summary') setSummary(null)
+        toast.error(
+          e.response?.data?.message ||
+          t('loadError') ||
+          'Load nahi hua'
+        )
+      }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [tab, loadSummary, loadHistory, loadAdvances])
+  }, [tab, loadSummary, loadHistory, loadAdvances, t])
 
   useEffect(() => {
-    refreshTab()
-  }, [refreshTab])
+    if (tab === 'trip') {
+      const cached = getCachedData('driver_trip_earnings')
+      if (cached) {
+        setTripEarnings(cached.earnings || [])
+        setTripPaymentsList(cached.paymentsList || [])
+        setTripTotal(cached.total || 0)
+        setTripPaid(cached.paid || 0)
+        setTripNetDue(cached.netDue || 0)
+        setTripLoading(false)
+      }
+      return
+    }
+
+    const cachedSummary = getCachedData('driver_payments_summary')
+    const cachedHistory = getCachedData('driver_payments_history')
+    const cachedAdvances = getCachedData('driver_payments_advances')
+
+    let hasCachedData = false
+
+    if (tab === 'summary' || tab === 'advance' || tab === 'request') {
+      if (cachedSummary) {
+        setSummary(cachedSummary)
+        hasCachedData = true
+      }
+    }
+    if (tab === 'summary' || tab === 'history') {
+      if (cachedHistory) {
+        setPayments(cachedHistory)
+        hasCachedData = true
+      }
+    }
+    if (tab === 'advance' || tab === 'request') {
+      if (cachedAdvances) {
+        setAdvances(cachedAdvances)
+        hasCachedData = true
+      }
+    }
+
+    if (hasCachedData) {
+      setLoading(false)
+      refreshTab(true)
+    } else {
+      refreshTab(false)
+    }
+  }, [tab])
 
   const isTransport = summary?.isTransport || false
 
@@ -234,26 +316,35 @@ const DriverPayments = () => {
     }
   }, [summary])
 
-  const pendingPayments = payments.filter(
-    (p) =>
-      p.ownerMarkedPaid &&
-      !p.driverConfirmed &&
-      p.status === 'pending' &&
-      !p.driverRejected
+  const pendingPayments = useMemo(
+    () =>
+      payments.filter(
+        (p) =>
+          p.ownerMarkedPaid &&
+          !p.driverConfirmed &&
+          p.status === 'pending' &&
+          !p.driverRejected
+      ),
+    [payments]
   )
 
-  const pendingAdvanceRequest = advances.some(
-    (a) => a.status === 'pending'
+  const pendingAdvanceRequest = useMemo(
+    () => advances.some((a) => a.status === 'pending'),
+    [advances]
   )
 
-  const [reqPayMonth, reqPayYear] = reqPayKey
-    .split('-')
-    .map((x) => Number(x))
+  const { reqPayMonth, reqPayYear } = useMemo(() => {
+    const parts = reqPayKey.split('-').map((x) => Number(x))
+    return {
+      reqPayMonth: parts[0],
+      reqPayYear: parts[1],
+    }
+  }, [reqPayKey])
 
   const upiFromProfile = summary?.driverBankDetails?.upiId?.trim()
   const hasUpi = Boolean(upiFromProfile)
 
-  const handleRequest = async () => {
+  const handleRequest = useCallback(async () => {
     const due =
       (summary?.totalSalaryEarned || 0) -
       (summary?.totalPaid || 0)
@@ -283,34 +374,56 @@ const DriverPayments = () => {
       })
       toast.success(t('paymentRequestSent'))
       setReqPayNote('')
+
+      clearCache('driver_payments_summary')
+      clearCache('driver_payments_history')
+      clearCache('driver_dashboard')
+
       await loadSummary()
       await loadHistory()
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Request nahi gayi'
+        err.response?.data?.message ||
+        t('requestError') ||
+        'Request nahi gayi'
       )
     } finally {
       setRequesting(false)
     }
-  }
+  }, [
+    summary,
+    requestAmount,
+    reqPayMonth,
+    reqPayYear,
+    reqPayNote,
+    t,
+    loadSummary,
+    loadHistory,
+    clearCache,
+  ])
 
-  const onConfirm = async (paymentId) => {
+  const onConfirm = useCallback(async (paymentId) => {
     setConfirmingId(paymentId)
     try {
       await confirmPaymentApi({ paymentId })
       toast.success(t('confirmDone'))
+      clearCache('driver_payments_summary')
+      clearCache('driver_payments_history')
+      clearCache('driver_dashboard')
       await loadHistory()
       await loadSummary()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Confirm nahi hua'
+        e.response?.data?.message ||
+        t('confirmError') ||
+        'Confirm nahi hua'
       )
     } finally {
       setConfirmingId(null)
     }
-  }
+  }, [t, loadHistory, loadSummary, clearCache])
 
-  const onRejectSubmit = async (paymentId) => {
+  const onRejectSubmit = useCallback(async (paymentId) => {
     try {
       await rejectPaymentApi({
         paymentId,
@@ -319,40 +432,59 @@ const DriverPayments = () => {
       toast.success(t('rejectDone'))
       setRejectingId(null)
       setRejectReason('')
+      clearCache('driver_payments_summary')
+      clearCache('driver_payments_history')
       await loadHistory()
       await loadSummary()
     } catch (e) {
       toast.error(
-        e.response?.data?.message || 'Reject nahi hua'
+        e.response?.data?.message ||
+        t('rejectError') ||
+        'Reject nahi hua'
       )
     }
-  }
+  }, [rejectReason, t, loadHistory, loadSummary, clearCache])
 
-  const handlePrintReceipt = async (payment) => {
-    if (isNativeApp()) {
-      await generateAndOpenPDF(
-        'payment',
-        {
-          amount: payment.amount,
-          netAmount: payment.netAmount || payment.amount,
-          payoutMethod: payment.payoutMethod || 'upi',
-          utrNumber: payment.utrNumber || '',
-          date: new Date(
-            payment.ownerPaidAt || payment.createdAt
-          ).toLocaleDateString('en-IN'),
-          driverName: payment.driverId?.name || '',
-          ownerName: payment.ownerId?.name || '',
-          status: payment.status,
-        },
-        `receipt-${payment._id}.pdf`
+  const handlePrintReceipt = useCallback(async (payment) => {
+    try {
+      if (isNativeApp()) {
+        await generateAndOpenPDF(
+          'payment',
+          {
+            amount: payment.amount,
+            netAmount: payment.netAmount || payment.amount,
+            payoutMethod: payment.payoutMethod || 'upi',
+            utrNumber: payment.utrNumber || '',
+            date: new Date(
+              payment.ownerPaidAt || payment.createdAt
+            ).toLocaleDateString('en-IN'),
+            driverName: payment.driverId?.name || '',
+            ownerName: payment.ownerId?.name || '',
+            status: payment.status,
+          },
+          `receipt-${payment._id}.pdf`
+        )
+      } else {
+        setPrintPayment(payment)
+        if (printPaymentTimeoutRef.current) {
+          clearTimeout(printPaymentTimeoutRef.current)
+        }
+        printPaymentTimeoutRef.current = setTimeout(() => {
+          window.print()
+          setTimeout(() => {
+            setPrintPayment(null)
+          }, 500)
+        }, 300)
+      }
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message ||
+        'PDF generation failed'
       )
-    } else {
-      setPrintPayment(payment)
-      setTimeout(() => window.print(), 300)
     }
-  }
+  }, [])
 
-  const onRequestAdvance = async (e) => {
+  const onRequestAdvance = useCallback(async (e) => {
     e.preventDefault()
     const amt = Number(reqAmount)
     if (!amt || amt <= 0) {
@@ -368,20 +500,27 @@ const DriverPayments = () => {
       toast.success(t('advanceRequested'))
       setReqAmount('')
       setReqReason('')
+      clearCache('driver_payments_advances')
       await loadAdvances()
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Request nahi gayi'
+        err.response?.data?.message ||
+        t('requestError') ||
+        'Request nahi gayi'
       )
     } finally {
       setSubmittingReq(false)
     }
-  }
+  }, [reqAmount, reqReason, t, loadAdvances, clearCache])
 
   const s = summary
-  const netDue =
-    (summary?.totalSalaryEarned || 0) -
-    (summary?.totalPaid || 0)
+
+  const netDue = useMemo(
+    () =>
+      (summary?.totalSalaryEarned || 0) -
+      (summary?.totalPaid || 0),
+    [summary]
+  )
 
   const driverTabs = useMemo(
     () => [
@@ -396,22 +535,33 @@ const DriverPayments = () => {
     [isTransport, t]
   )
 
-  const filteredHistory =
-    historyFilter === 'salary'
-      ? payments.filter((p) => !isTripPaymentRow(p))
-      : historyFilter === 'trip'
-        ? payments.filter((p) => isTripPaymentRow(p))
-        : payments
+  const filteredHistory = useMemo(() => {
+    if (historyFilter === 'salary') {
+      return payments.filter((p) => !isTripPaymentRow(p))
+    }
+    if (historyFilter === 'trip') {
+      return payments.filter((p) => isTripPaymentRow(p))
+    }
+    return payments
+  }, [historyFilter, payments])
 
-  const getTripPaidAmount = (tripId) =>
-    tripPaymentsList
-      .filter(
-        (p) =>
-          String(p.tripId?._id ?? p.tripId) === String(tripId)
-      )
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+  const tripPaidMap = useMemo(() => {
+    const map = new Map()
+    tripPaymentsList.forEach((p) => {
+      const tripId = String(p.tripId?._id ?? p.tripId ?? '')
+      if (!tripId) return
+      const current = map.get(tripId) || 0
+      map.set(tripId, current + (Number(p.amount) || 0))
+    })
+    return map
+  }, [tripPaymentsList])
 
-  const handleTripPaymentRequest = async (trip) => {
+  const getTripPaidAmount = useCallback(
+    (tripId) => tripPaidMap.get(String(tripId)) || 0,
+    [tripPaidMap]
+  )
+
+  const handleTripPaymentRequest = useCallback(async (trip) => {
     const approvedAmt = tripApprovedAmount(trip)
     const paidSoFar = getTripPaidAmount(trip._id)
     const baaki = Math.max(0, approvedAmt - paidSoFar)
@@ -426,51 +576,77 @@ const DriverPayments = () => {
         amount: baaki,
       })
       toast.success(t('tripPaymentRequestSent'))
+      clearCache('driver_trip_earnings')
+      clearCache('driver_payments_history')
       await loadTripEarnings()
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Request nahi gayi'
+        err.response?.data?.message ||
+        t('requestError') ||
+        'Request nahi gayi'
       )
     } finally {
       setTripRequestingId(null)
     }
-  }
+  }, [getTripPaidAmount, t, loadTripEarnings, clearCache])
 
-  const handleTripReceipt = async (trip) => {
-    if (isNativeApp()) {
-      await generateAndOpenPDF(
-        'trip',
-        {
-          from: trip.fromLocation || trip.from || '',
-          to: trip.toLocation || trip.to || '',
-          cargo: trip.cargo || trip.description || '',
-          date: new Date(
-            trip.tripDate || trip.createdAt
-          ).toLocaleDateString('en-IN'),
-          totalExpenses: trip.totalExpenses || 0,
-          totalRepairs: trip.totalRepairs || 0,
-          grandTotal: grandTotalTrip(trip),
-          approvedAmount: tripApprovedAmount(trip),
-          driverName: trip.driverId?.name || '',
-          ownerName: trip.ownerId?.name || '',
-        },
-        `trip-receipt-${trip._id}.pdf`
-      )
-    } else {
-      setPrintTrip(trip)
-      setTimeout(() => window.print(), 300)
-    }
-  }
-
-  const repayPct =
-    s && s.totalAdvance > 0
-      ? Math.min(
-          100,
-          Math.round(
-            (s.totalAdvanceRepaid / s.totalAdvance) * 100
-          )
+  const handleTripReceipt = useCallback(async (trip) => {
+    try {
+      if (isNativeApp()) {
+        await generateAndOpenPDF(
+          'trip',
+          {
+            from: trip.fromLocation || trip.from || '',
+            to: trip.toLocation || trip.to || '',
+            cargo: trip.cargo || trip.description || '',
+            date: new Date(
+              trip.tripDate || trip.createdAt
+            ).toLocaleDateString('en-IN'),
+            totalExpenses: trip.totalExpenses || 0,
+            totalRepairs: trip.totalRepairs || 0,
+            grandTotal: grandTotalTrip(trip),
+            approvedAmount: tripApprovedAmount(trip),
+            driverName: trip.driverId?.name || '',
+            ownerName: trip.ownerId?.name || '',
+          },
+          `trip-receipt-${trip._id}.pdf`
         )
-      : 0
+      } else {
+        setPrintTrip(trip)
+        if (printTripTimeoutRef.current) {
+          clearTimeout(printTripTimeoutRef.current)
+        }
+        printTripTimeoutRef.current = setTimeout(() => {
+          window.print()
+          setTimeout(() => {
+            setPrintTrip(null)
+          }, 500)
+        }, 300)
+      }
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message ||
+        'PDF generation failed'
+      )
+    }
+  }, [])
+
+  const repayPct = useMemo(() => {
+    if (!summary || !summary.totalAdvance || summary.totalAdvance <= 0) {
+      return 0
+    }
+    return Math.min(
+      100,
+      Math.round(
+        (summary.totalAdvanceRepaid / summary.totalAdvance) * 100
+      )
+    )
+  }, [summary])
+
+  const monthOptions = useMemo(
+    () => lastFourMonthYearOptions(),
+    []
+  )
 
   return (
     <div
@@ -499,7 +675,11 @@ const DriverPayments = () => {
 
           {loading && tab !== 'trip' ? (
             <div className="flex justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent"
+                role="status"
+                aria-label={t('loading')}
+              />
             </div>
           ) : tab === 'summary' ? (
             !s ? (
@@ -520,7 +700,7 @@ const DriverPayments = () => {
                       color: '#92400E',
                     }}
                   >
-                    🚛 {t('transportFixedSalary')}: ₹
+                    <span aria-hidden="true">🚛</span> {t('transportFixedSalary')}: ₹
                     {summary?.contract?.salaryPerMonth || 0}/{t('perMonth')}
                   </div>
                 )}
@@ -621,7 +801,7 @@ const DriverPayments = () => {
                       {!hasUpi && (
                         <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
                           <p className="text-sm font-medium text-yellow-900">
-                            ⚠️ {t('setUpiFirst')}
+                            <span aria-hidden="true">⚠️</span> {t('setUpiFirst')}
                           </p>
                           <button
                             type="button"
@@ -656,7 +836,7 @@ const DriverPayments = () => {
                         onChange={(e) => setReqPayKey(e.target.value)}
                         className="mt-1 w-full rounded-xl border border-green-200 bg-white px-3 py-2 text-sm"
                       >
-                        {lastFourMonthYearOptions().map((o) => (
+                        {monthOptions.map((o) => (
                           <option key={o.key} value={o.key}>
                             {o.label}
                           </option>
@@ -671,6 +851,7 @@ const DriverPayments = () => {
                         value={reqPayNote}
                         onChange={(e) => setReqPayNote(e.target.value)}
                         placeholder={t('noteToOwnerPlaceholder')}
+                        maxLength={500}
                         className="mt-1 w-full rounded-xl border border-green-200 bg-white p-3 text-sm"
                       />
 
@@ -738,7 +919,7 @@ const DriverPayments = () => {
                       )}
                       {p.note ? (
                         <p className="text-sm text-gray-500">
-                          Note: {p.note}
+                          {t('notes')}: {p.note}
                         </p>
                       ) : null}
                       {(p.paymentPhoto || p.proofPhoto) && (
@@ -755,11 +936,14 @@ const DriverPayments = () => {
                           <a
                             href={p.paymentPhoto || p.proofPhoto}
                             target="_blank"
-                            rel="noreferrer"
+                            rel="noopener noreferrer"
                           >
                             <img
                               src={p.paymentPhoto || p.proofPhoto}
                               alt="proof"
+                              onError={(e) => {
+                                e.target.style.display = 'none'
+                              }}
                               style={{
                                 width: '100px',
                                 height: '100px',
@@ -789,6 +973,7 @@ const DriverPayments = () => {
                             }
                             placeholder={t('rejectReasonPlaceholder')}
                             rows={3}
+                            maxLength={500}
                             className="w-full rounded-xl border border-gray-200 p-3 text-sm"
                           />
                           <button
@@ -819,14 +1004,14 @@ const DriverPayments = () => {
                           >
                             {confirmingId === p._id
                               ? '…'
-                              : `✅ ${t('confirm')} — ${t('moneyReceived')}`}
+                              : <><span aria-hidden="true">✅</span> {t('confirm')} — {t('moneyReceived')}</>}
                           </button>
                           <button
                             type="button"
                             onClick={() => setRejectingId(p._id)}
                             className="w-full rounded-xl border border-red-400 py-3 text-sm font-medium text-red-500"
                           >
-                            ❌ {t('rejectBtn')} — {t('moneyNotReceived')}
+                            <span aria-hidden="true">❌</span> {t('rejectBtn')} — {t('moneyNotReceived')}
                           </button>
                         </div>
                       )}
@@ -943,6 +1128,8 @@ const DriverPayments = () => {
                     padding: '32px',
                     color: '#9CA3AF',
                   }}
+                  role="status"
+                  aria-label={t('loading')}
                 >
                   {t('loading')}
                 </div>
@@ -956,6 +1143,7 @@ const DriverPayments = () => {
                 >
                   <div
                     style={{ fontSize: '32px', marginBottom: '8px' }}
+                    aria-hidden="true"
                   >
                     🚛
                   </div>
@@ -1105,7 +1293,7 @@ const DriverPayments = () => {
                           >
                             {tripRequestingId === trip._id
                               ? '…'
-                              : `💰 ${t('sendPaymentRequestBtn')}`}
+                              : <><span aria-hidden="true">💰</span> {t('sendPaymentRequestBtn')}</>}
                           </button>
                         ) : baakiForTrip <= 0 ? (
                           <span
@@ -1116,7 +1304,7 @@ const DriverPayments = () => {
                               fontWeight: '600',
                             }}
                           >
-                            ✅ {t('allReceived')}
+                            <span aria-hidden="true">✅</span> {t('allReceived')}
                           </span>
                         ) : (
                           <span
@@ -1128,7 +1316,7 @@ const DriverPayments = () => {
                               fontSize: '13px',
                             }}
                           >
-                            ✅ {t('requestSent')}
+                            <span aria-hidden="true">✅</span> {t('requestSent')}
                           </span>
                         )}
 
@@ -1145,7 +1333,7 @@ const DriverPayments = () => {
                             cursor: 'pointer',
                           }}
                         >
-                          📄 {t('tripReceipt')}
+                          <span aria-hidden="true">📄</span> {t('tripReceipt')}
                         </button>
                       </div>
                     </div>
@@ -1198,8 +1386,8 @@ const DriverPayments = () => {
                         </p>
                         <span className="mt-1 mr-2 inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">
                           {isTripPaymentRow(p)
-                            ? '🚛 Trip'
-                            : '💰 Salary'}
+                            ? <><span aria-hidden="true">🚛</span> {t('trip')}</>
+                            : <><span aria-hidden="true">💰</span> {t('salary')}</>}
                         </span>
                         <span
                           className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
@@ -1211,10 +1399,10 @@ const DriverPayments = () => {
                           }`}
                         >
                           {p.status === 'paid'
-                            ? `✅ ${t('approved')}`
+                            ? <><span aria-hidden="true">✅</span> {t('approved')}</>
                             : p.status === 'rejected'
-                              ? `❌ ${t('rejected')}`
-                              : `⏳ ${t('pending')}`}
+                              ? <><span aria-hidden="true">❌</span> {t('rejected')}</>
+                              : <><span aria-hidden="true">⏳</span> {t('pending')}</>}
                         </span>
                       </div>
                       <p className="text-xs text-gray-400">
@@ -1253,16 +1441,19 @@ const DriverPayments = () => {
                             marginBottom: '4px',
                           }}
                         >
-                          Payment Proof:
+                          {t('paymentProof') || 'Payment Proof'}:
                         </p>
                         <a
                           href={p.paymentPhoto || p.proofPhoto}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                         >
                           <img
                             src={p.paymentPhoto || p.proofPhoto}
                             alt="payment proof"
+                            onError={(e) => {
+                              e.target.style.display = 'none'
+                            }}
                             style={{
                               width: '80px',
                               height: '80px',
@@ -1290,7 +1481,7 @@ const DriverPayments = () => {
                         color: '#374151',
                       }}
                     >
-                      📄 {t('downloadPDF')}
+                      <span aria-hidden="true">📄</span> {t('downloadPDF')}
                     </button>
                   </li>
                 ))}
@@ -1397,6 +1588,7 @@ const DriverPayments = () => {
                   value={reqReason}
                   onChange={(e) => setReqReason(e.target.value)}
                   placeholder={t('advancePlaceholder')}
+                  maxLength={500}
                   className="mt-1 w-full rounded-xl border border-gray-200 p-3 text-sm"
                 />
                 <button

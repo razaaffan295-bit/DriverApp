@@ -1,15 +1,24 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import API from '../../api/axios'
 import { getDriverActiveContract } from '../../api/contractAPI'
 import { getMyComplaints } from '../../api/complaintAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const STATUS_STYLE = {
   pending: 'bg-yellow-100 text-yellow-800',
   under_review: 'bg-blue-100 text-blue-800',
   resolved: 'bg-green-100 text-green-800',
   rejected: 'bg-red-100 text-red-600',
+}
+
+const getStatusLabel = (status, t) => {
+  if (status === 'pending') return t('pending')
+  if (status === 'under_review') return t('underReview')
+  if (status === 'rejected') return t('rejected')
+  if (status === 'resolved') return t('completed')
+  return status
 }
 
 const fmtDate = (d) =>
@@ -24,14 +33,6 @@ const fmtDate = (d) =>
 const DriverComplaints = () => {
   const { t } = useTranslation()
 
-  const DRIVER_TYPES = [
-    { value: 'payment_nahi_diya', label: t('paymentNotGiven') },
-    { value: 'zyada_kaam', label: t('overwork') },
-    { value: 'unsafe_conditions', label: t('unsafeConditions') },
-    { value: 'misbehavior', label: t('misbehavior') },
-    { value: 'other', label: t('other') },
-  ]
-
   const [tab, setTab] = useState('mine')
   const [complaints, setComplaints] = useState([])
   const [loading, setLoading] = useState(true)
@@ -41,43 +42,81 @@ const DriverComplaints = () => {
   const [description, setDescription] = useState('')
   const [evidenceFiles, setEvidenceFiles] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache,
+  } = useDataCache()
 
-  const loadMine = useCallback(async () => {
-    setLoading(true)
+  const DRIVER_TYPES = useMemo(() => [
+    { value: 'payment_nahi_diya', label: t('paymentNotGiven') },
+    { value: 'zyada_kaam', label: t('overwork') },
+    { value: 'unsafe_conditions', label: t('unsafeConditions') },
+    { value: 'misbehavior', label: t('misbehavior') },
+    { value: 'other', label: t('other') },
+  ], [t])
+
+  const loadMine = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const res = await getMyComplaints()
-      setComplaints(res.data?.complaints ?? [])
+      const list = res.data?.complaints ?? []
+      setComplaints(list)
+      setCachedData('driver_complaints_mine', list)
     } catch (e) {
-      toast.error(
-        e.response?.data?.message || t('complaintLoadError')
-      )
+      if (!silent) {
+        toast.error(
+          e.response?.data?.message || t('complaintLoadError')
+        )
+      }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [t])
+  }, [t, setCachedData])
 
-  const loadContract = useCallback(async () => {
-    setCLoading(true)
+  const loadContract = useCallback(async (silent = false) => {
+    if (!silent) setCLoading(true)
     try {
       const res = await getDriverActiveContract()
-      setContract(res.data?.contract || null)
+      const c = res.data?.contract || null
+      setContract(c)
+      setCachedData('driver_complaints_contract', c)
     } catch (e) {
-      toast.error(
-        e.response?.data?.message || t('contractLoadError')
-      )
+      if (!silent) {
+        toast.error(
+          e.response?.data?.message || t('contractLoadError')
+        )
+      }
     } finally {
-      setCLoading(false)
+      if (!silent) setCLoading(false)
     }
-  }, [t])
+  }, [t, setCachedData])
 
   useEffect(() => {
-    if (tab === 'mine') loadMine()
-    else loadContract()
-  }, [tab, loadMine, loadContract])
+    if (tab === 'mine') {
+      const cached = getCachedData('driver_complaints_mine')
+      if (cached) {
+        setComplaints(cached)
+        setLoading(false)
+        loadMine(true)
+      } else {
+        loadMine(false)
+      }
+    } else {
+      const cached = getCachedData('driver_complaints_contract')
+      if (cached !== null && cached !== undefined) {
+        setContract(cached)
+        setCLoading(false)
+        loadContract(true)
+      } else {
+        loadContract(false)
+      }
+    }
+  }, [tab])
 
   const selectedUser = contract?.ownerId
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (
       !contract ||
       !selectedUser ||
@@ -130,16 +169,28 @@ const DriverComplaints = () => {
       setComplaintType('')
       setEvidenceFiles(null)
       setTab('mine')
-      await loadMine()
+
+      clearCache('driver_complaints_mine')
+      clearCache('driver_dashboard')
+
+      await loadMine(false)
     } catch (err) {
       toast.error(
-        err.response?.data?.message ||
-          t('complaintSubmitError')
+        err.response?.data?.message || t('complaintSubmitError')
       )
     } finally {
       setSubmitting(false)
     }
-  }
+  }, [
+    contract,
+    selectedUser,
+    complaintType,
+    description,
+    evidenceFiles,
+    t,
+    loadMine,
+    clearCache,
+  ])
 
   const owner = contract?.ownerId
 
@@ -176,7 +227,11 @@ const DriverComplaints = () => {
           {tab === 'mine' ? (
             loading ? (
               <div className="flex justify-center py-16">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-green-700 border-t-transparent" />
+                <div
+                  className="h-8 w-8 animate-spin rounded-full border-2 border-green-700 border-t-transparent"
+                  role="status"
+                  aria-label={t('loading')}
+                />
               </div>
             ) : complaints.length === 0 ? (
               <p className="text-center text-gray-500">
@@ -199,20 +254,12 @@ const DriverComplaints = () => {
                           'bg-gray-100 text-gray-600'
                         }`}
                       >
-                        {c.status === 'pending'
-                          ? t('pending')
-                          : c.status === 'under_review'
-                            ? t('underReview')
-                            : c.status === 'rejected'
-                              ? t('rejected')
-                              : c.status === 'resolved'
-                                ? t('completed')
-                                : c.status}
+                        {getStatusLabel(c.status, t)}
                       </span>
                     </div>
                     <p className="mt-2 text-sm font-medium text-gray-900">
                       {t('againstLabel')}:{' '}
-                      {c.againstUser?.name || 'Owner'}
+                      {c.againstUser?.name || t('owner')}
                     </p>
                     <p className="mt-1 text-sm text-gray-600">
                       {c.description}
@@ -233,7 +280,7 @@ const DriverComplaints = () => {
                             key={i}
                             href={url}
                             target="_blank"
-                            rel="noreferrer"
+                            rel="noopener noreferrer"
                             className="text-xs font-medium text-green-700 underline"
                           >
                             {t('proofLabel')} {i + 1}
@@ -247,7 +294,11 @@ const DriverComplaints = () => {
             )
           ) : cLoading ? (
             <div className="flex justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-green-700 border-t-transparent" />
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-2 border-green-700 border-t-transparent"
+                role="status"
+                aria-label={t('loading')}
+              />
             </div>
           ) : (
             <form
@@ -272,7 +323,7 @@ const DriverComplaints = () => {
                   <p className="text-sm text-gray-600">{owner.phone}</p>
                   {contract.jobId?.title ? (
                     <p className="mt-1 text-xs text-gray-500">
-                      Job: {contract.jobId.title}
+                      {t('job')}: {contract.jobId.title}
                     </p>
                   ) : null}
                 </div>
@@ -291,9 +342,9 @@ const DriverComplaints = () => {
                 <option value="">
                   {t('complaintTypePlaceholder')}
                 </option>
-                {DRIVER_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
+                {DRIVER_TYPES.map((dt) => (
+                  <option key={dt.value} value={dt.value}>
+                    {dt.label}
                   </option>
                 ))}
               </select>
@@ -308,6 +359,7 @@ const DriverComplaints = () => {
                   setDescription(e.target.value)
                 }
                 placeholder={t('complaintDescPlaceholder')}
+                maxLength={2000}
                 className="w-full rounded-xl border border-gray-200 p-3 text-sm"
               />
 
@@ -319,9 +371,34 @@ const DriverComplaints = () => {
                   type="file"
                   accept="image/*,application/pdf"
                   multiple
-                  onChange={(e) =>
-                    setEvidenceFiles(e.target.files)
-                  }
+                  onChange={(e) => {
+                    const files = e.target.files
+                    if (!files || files.length === 0) {
+                      setEvidenceFiles(null)
+                      return
+                    }
+
+                    if (files.length > 5) {
+                      toast.error(
+                        t('maxFilesError') || 'Maximum 5 files allowed'
+                      )
+                      e.target.value = ''
+                      return
+                    }
+
+                    const maxSize = 5 * 1024 * 1024
+                    for (let i = 0; i < files.length; i++) {
+                      if (files[i].size > maxSize) {
+                        toast.error(
+                          `${files[i].name} - ${t('fileSizeError') || '5MB se kam honi chahiye'}`
+                        )
+                        e.target.value = ''
+                        return
+                      }
+                    }
+
+                    setEvidenceFiles(files)
+                  }}
                   className="mt-2 w-full text-sm"
                 />
               </div>

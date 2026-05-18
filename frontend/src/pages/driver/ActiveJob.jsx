@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
@@ -12,55 +12,19 @@ import {
   getResignRequests,
   requestResign,
 } from '../../api/resignAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
+
+const formatDate = (date) => {
+  if (!date) return '—'
+  return new Date(date).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
 
 const ActiveJob = () => {
   const { t } = useTranslation()
-
-  const getSalaryDisplay = (contract) => {
-    if (!contract) return '₹0'
-    const cat = contract.vehicleCategory
-    const type = contract.salaryType
-
-    if (cat === 'transport') {
-      return `₹${contract.salaryPerMonth || 0}/${t('perMonth2')}`
-    }
-    if (type === 'hourly') {
-      return `₹${contract.salaryPerHour || 0}/${t('perHour2')}`
-    }
-    if (type === 'monthly') {
-      return `₹${contract.salaryPerMonth || 0}/${t('perMonth2')}`
-    }
-    return `₹${contract.salaryPerDay || 0}/${t('perDay2')}`
-  }
-
-  const getTotalKamayi = (contract) => {
-    if (!contract) return 0
-    const type = contract.salaryType
-    const cat = contract.vehicleCategory
-    const dur = contract.duration || 0
-
-    if (cat === 'transport') {
-      const months = Math.ceil(dur / 30)
-      return (contract.salaryPerMonth || 0) * months
-    }
-    if (type === 'monthly') {
-      const months = Math.ceil(dur / 30)
-      return (contract.salaryPerMonth || 0) * months
-    }
-    if (type === 'hourly') {
-      return t('hourlyBasis')
-    }
-    return (contract.salaryPerDay || 0) * dur
-  }
-
-  const contractSalaryTypeLabel = (c) => {
-    if (!c) return '—'
-    if (c.vehicleCategory === 'transport') return t('monthlyTransport')
-    if (c.salaryType === 'hourly') return t('perHourLabel')
-    if (c.salaryType === 'monthly') return t('perMonthLabel')
-    if (c.salaryType === 'daily') return t('perDayLabel')
-    return String(c.salaryType || '—')
-  }
   const [contract, setContract] = useState(null)
   const [loading, setLoading] = useState(true)
   const [signing, setSigning] = useState(false)
@@ -77,13 +41,118 @@ const ActiveJob = () => {
   const [terminatedContract, setTerminatedContract] =
     useState(null)
   const navigate = useNavigate()
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache
+  } = useDataCache()
+
+  const getSalaryDisplay = useCallback((c) => {
+    if (!c) return '₹0'
+    const cat = c.vehicleCategory
+    const type = c.salaryType
+
+    if (cat === 'transport') {
+      return `₹${c.salaryPerMonth || 0}/${t('perMonth2')}`
+    }
+    if (type === 'hourly') {
+      return `₹${c.salaryPerHour || 0}/${t('perHour2')}`
+    }
+    if (type === 'monthly') {
+      return `₹${c.salaryPerMonth || 0}/${t('perMonth2')}`
+    }
+    return `₹${c.salaryPerDay || 0}/${t('perDay2')}`
+  }, [t])
+
+  const getTotalKamayi = useCallback((c) => {
+    if (!c) return 0
+    const type = c.salaryType
+    const cat = c.vehicleCategory
+    const dur = c.duration || 0
+
+    if (cat === 'transport') {
+      const months = Math.ceil(dur / 30)
+      return (c.salaryPerMonth || 0) * months
+    }
+    if (type === 'monthly') {
+      const months = Math.ceil(dur / 30)
+      return (c.salaryPerMonth || 0) * months
+    }
+    if (type === 'hourly') {
+      return t('hourlyBasis')
+    }
+    return (c.salaryPerDay || 0) * dur
+  }, [t])
+
+  const contractSalaryTypeLabel = useCallback((c) => {
+    if (!c) return '—'
+    if (c.vehicleCategory === 'transport') return t('monthlyTransport')
+    if (c.salaryType === 'hourly') return t('perHourLabel')
+    if (c.salaryType === 'monthly') return t('perMonthLabel')
+    if (c.salaryType === 'daily') return t('perDayLabel')
+    return String(c.salaryType || '—')
+  }, [t])
+
+  const fetchContract = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setLoading(true)
+      const res = await getDriverActiveContract()
+      const active = res.data.contract ?? null
+      setContract(active)
+      if (!active) {
+        try {
+          const allRes = await getDriverContracts()
+          const list = allRes.data?.contracts || []
+          const terminated = list
+            .filter((c) => c?.status === 'terminated')
+            .sort((a, b) => {
+              const ta = new Date(
+                a?.updatedAt || a?.createdAt || 0
+              ).getTime()
+              const tb = new Date(
+                b?.updatedAt || b?.createdAt || 0
+              ).getTime()
+              return tb - ta
+            })[0]
+          setTerminatedContract(terminated || null)
+          setCachedData('driver_active_job', {
+            contract: null,
+            terminatedContract: terminated || null,
+          })
+        } catch {
+          setTerminatedContract(null)
+        }
+      } else {
+        setTerminatedContract(null)
+        setCachedData('driver_active_job', {
+          contract: active,
+          terminatedContract: null,
+        })
+      }
+    } catch (err) {
+      if (!silent) {
+        setContract(null)
+        setTerminatedContract(null)
+      }
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }, [setCachedData])
 
   useEffect(() => {
     setUser(getUser())
   }, [])
 
   useEffect(() => {
-    fetchContract()
+    const cached = getCachedData('driver_active_job')
+    if (cached) {
+      setContract(cached.contract || null)
+      setTerminatedContract(cached.terminatedContract || null)
+      setLoading(false)
+      fetchContract(true) // silent refresh
+    } else {
+      fetchContract(false)
+    }
   }, [])
 
   useEffect(() => {
@@ -122,46 +191,16 @@ const ActiveJob = () => {
     }
   }, [contract?._id, contract?.driverSigned, contract?.status])
 
-  const fetchContract = async () => {
-    try {
-      setLoading(true)
-      const res = await getDriverActiveContract()
-      const active = res.data.contract ?? null
-      setContract(active)
-      if (!active) {
-        try {
-          const allRes = await getDriverContracts()
-          const list = allRes.data?.contracts || []
-          const terminated = list
-            .filter((c) => c?.status === 'terminated')
-            .sort((a, b) => {
-              const ta = new Date(a?.updatedAt || a?.createdAt || 0).getTime()
-              const tb = new Date(b?.updatedAt || b?.createdAt || 0).getTime()
-              return tb - ta
-            })[0]
-          setTerminatedContract(terminated || null)
-        } catch {
-          setTerminatedContract(null)
-        }
-      } else {
-        setTerminatedContract(null)
-      }
-    } catch (err) {
-      console.error(err)
-      setContract(null)
-      setTerminatedContract(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSign = async () => {
+  const handleSign = useCallback(async () => {
     if (!contract?._id) return
     try {
       setSigning(true)
       await signContract(contract._id)
       toast.success(t('contractSignedSuccess'))
-      await fetchContract()
+      clearCache('driver_active_job')
+      clearCache('driver_applications')
+      clearCache('driver_dashboard')
+      await fetchContract(false)
     } catch (err) {
       toast.error(
         err.response?.data?.message || t('signError')
@@ -169,24 +208,15 @@ const ActiveJob = () => {
     } finally {
       setSigning(false)
     }
-  }
+  }, [contract, t, fetchContract, clearCache])
 
-  const formatDate = (date) => {
-    if (!date) return '—'
-    return new Date(date).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  }
+  const minResignDate = useMemo(() => {
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return tomorrow.toISOString().slice(0, 10)
+  }, [])
 
-  const minResignDate = (() => {
-    const t = new Date()
-    t.setDate(t.getDate() + 1)
-    return t.toISOString().slice(0, 10)
-  })()
-
-  const submitResign = async (e) => {
+  const submitResign = useCallback(async (e) => {
     e.preventDefault()
     if (!resignForm.reason.trim()) {
       toast.error(t('reasonRequired'))
@@ -205,6 +235,12 @@ const ActiveJob = () => {
       toast.success(t('resignRequestSent'))
       setShowResignModal(false)
       setResignForm({ reason: '', lastWorkingDate: '' })
+
+      // Clear cache - data changed
+      clearCache('driver_active_job')
+      clearCache('driver_dashboard')
+
+      // Refetch resign status (NO page reload)
       const res = await getResignRequests()
       const list = res.data?.resigns || []
       const p = list.find(
@@ -215,7 +251,9 @@ const ActiveJob = () => {
             String(contract._id)
       )
       setResignStatus(p || null)
-      window.location.reload()
+
+      // Refresh contract data
+      await fetchContract(false)
     } catch (err) {
       toast.error(
         err.response?.data?.message || t('resignError')
@@ -223,9 +261,9 @@ const ActiveJob = () => {
     } finally {
       setResigning(false)
     }
-  }
+  }, [resignForm, contract, t, clearCache, fetchContract])
 
-  const getDaysRemaining = () => {
+  const daysRemaining = useMemo(() => {
     if (!contract?.startDate || !contract?.duration) return 0
     const start = new Date(contract.startDate)
     const end = new Date(start)
@@ -235,9 +273,32 @@ const ActiveJob = () => {
       (end - today) / (1000 * 60 * 60 * 24)
     )
     return Math.max(0, diff)
-  }
+  }, [contract])
 
   const duration = Number(contract?.duration) || 0
+
+  const totalKamayi = useMemo(
+    () => getTotalKamayi(contract),
+    [contract, getTotalKamayi]
+  )
+
+  const totalKamayiDisplay = useMemo(
+    () =>
+      typeof totalKamayi === 'string'
+        ? totalKamayi
+        : `₹${totalKamayi}`,
+    [totalKamayi]
+  )
+
+  const salaryDisplay = useMemo(
+    () => getSalaryDisplay(contract),
+    [contract, getSalaryDisplay]
+  )
+
+  const salaryTypeLabel = useMemo(
+    () => contractSalaryTypeLabel(contract),
+    [contract, contractSalaryTypeLabel]
+  )
 
   return (
     <div
@@ -248,6 +309,7 @@ const ActiveJob = () => {
             <div className="flex justify-center items-center h-64">
               <div
                 className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin"
+                role="status"
                 aria-label={t('loading')}
               />
             </div>
@@ -255,12 +317,12 @@ const ActiveJob = () => {
             <>
               {!contract && (
                 <div className="bg-white rounded-2xl p-12 text-center border border-gray-100">
-                  <div className="text-5xl mb-4">🔧</div>
+                  <div className="text-5xl mb-4" aria-hidden="true">🔧</div>
                   {terminatedContract ? (
                     <>
                       <div className="bg-gray-50 rounded-2xl p-6 text-center">
                         <h2 className="text-xl font-semibold text-gray-600">
-                          🚪 {t('workEnded2')}
+                          <span aria-hidden="true">🚪</span> {t('workEnded2')}
                         </h2>
                         <p className="text-sm text-gray-400 mb-6">
                           {t('resignApproved')}
@@ -306,7 +368,7 @@ const ActiveJob = () => {
               {contract && !contract.driverSigned && (
                 <div>
                   <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-6 flex items-center gap-3">
-                    <span className="text-2xl">📄</span>
+                    <span className="text-2xl" aria-hidden="true">📄</span>
                     <div>
                       <div className="font-semibold text-yellow-800">
                         {t('joiningLetterReceived')}
@@ -344,7 +406,7 @@ const ActiveJob = () => {
                             {t('salaryTypeLabel')}
                           </span>
                           <span className="font-medium text-right">
-                            {contractSalaryTypeLabel(contract)}
+                            {salaryTypeLabel}
                           </span>
                         </div>
                         <div className="flex justify-between gap-2">
@@ -352,7 +414,7 @@ const ActiveJob = () => {
                             {t('rateLabel')}
                           </span>
                           <span className="font-bold text-green-700">
-                            {getSalaryDisplay(contract)}
+                            {salaryDisplay}
                           </span>
                         </div>
                         {contract.hasBhatta &&
@@ -398,10 +460,7 @@ const ActiveJob = () => {
                             {t('totalEarningsLabel')}
                           </span>
                           <span className="font-bold text-green-700">
-                            {typeof getTotalKamayi(contract) ===
-                            'string'
-                              ? getTotalKamayi(contract)
-                              : `₹${getTotalKamayi(contract)}`}
+                            {totalKamayiDisplay}
                           </span>
                         </div>
                       </div>
@@ -443,7 +502,7 @@ const ActiveJob = () => {
 
                   <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
                     <h3 className="font-semibold text-gray-800 mb-4 text-lg border-b pb-3">
-                      📋 {t('contract')}
+                      <span aria-hidden="true">📋</span> {t('contract')}
                     </h3>
 
                     <div className="bg-gray-50 rounded-xl p-5 font-mono text-sm text-gray-700 leading-relaxed">
@@ -481,11 +540,11 @@ const ActiveJob = () => {
                       </div>
                       <div className="mb-3">
                         <strong>{t('salaryTypeLabel')}:</strong>{' '}
-                        {contractSalaryTypeLabel(contract)}
+                        {salaryTypeLabel}
                       </div>
                       <div className="mb-3">
                         <strong>{t('rateLabel')}:</strong>{' '}
-                        {getSalaryDisplay(contract)}
+                        {salaryDisplay}
                       </div>
                       {contract.hasBhatta &&
                         contract.dailyBhatta > 0 && (
@@ -511,10 +570,7 @@ const ActiveJob = () => {
                         )}
                       <div className="mb-3">
                         <strong>{t('totalEarningsLabel')}:</strong>{' '}
-                        {typeof getTotalKamayi(contract) ===
-                        'string'
-                          ? getTotalKamayi(contract)
-                          : `₹${getTotalKamayi(contract)}`}
+                        {totalKamayiDisplay}
                       </div>
 
                       <div className="mt-4 pt-4 border-t border-gray-200">
@@ -599,22 +655,19 @@ const ActiveJob = () => {
                   ) : null}
                   <div className="bg-green-50 border border-green-200 rounded-2xl p-5 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <span className="text-3xl">✅</span>
+                      <span className="text-3xl" aria-hidden="true">✅</span>
                       <div>
                         <div className="font-bold text-green-800 text-lg">
                           {t('workInProgressTitle')}
                         </div>
                         <div className="text-sm text-green-600">
-                          {getDaysRemaining()} {t('daysRemaining')}
+                          {daysRemaining} {t('daysRemaining')}
                         </div>
                       </div>
                     </div>
                     <div className="text-left sm:text-right">
                       <div className="text-2xl font-bold text-green-700">
-                        {typeof getTotalKamayi(contract) ===
-                        'string'
-                          ? getTotalKamayi(contract)
-                          : `₹${getTotalKamayi(contract)}`}
+                        {totalKamayiDisplay}
                       </div>
                       <div className="text-xs text-green-600">
                         {t('totalEarningsLabel')}
@@ -649,7 +702,7 @@ const ActiveJob = () => {
                             {t('salaryTypeLabel')}
                           </span>
                           <span className="font-medium text-right">
-                            {contractSalaryTypeLabel(contract)}
+                            {salaryTypeLabel}
                           </span>
                         </div>
                         <div className="flex justify-between gap-2">
@@ -657,7 +710,7 @@ const ActiveJob = () => {
                             {t('rateLabel')}
                           </span>
                           <span className="font-bold text-green-700">
-                            {getSalaryDisplay(contract)}
+                            {salaryDisplay}
                           </span>
                         </div>
                         {contract.hasBhatta &&
@@ -746,7 +799,7 @@ const ActiveJob = () => {
                   <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
                     <div className="no-print flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="font-semibold text-gray-800 text-lg">
-                        📋 {t('contract')}
+                        <span aria-hidden="true">📋</span> {t('contract')}
                       </h3>
                       {contract.status === 'active' && (
                         <button
@@ -793,11 +846,11 @@ const ActiveJob = () => {
                       </div>
                       <div className="mb-2">
                         <strong>{t('salaryTypeLabel')}:</strong>{' '}
-                        {contractSalaryTypeLabel(contract)}
+                        {salaryTypeLabel}
                       </div>
                       <div className="mb-2">
                         <strong>{t('rateLabel')}:</strong>{' '}
-                        {getSalaryDisplay(contract)}
+                        {salaryDisplay}
                       </div>
                       {contract.hasBhatta &&
                         contract.dailyBhatta > 0 && (
@@ -823,10 +876,7 @@ const ActiveJob = () => {
                         )}
                       <div className="mb-2">
                         <strong>{t('totalEarningsLabel')}:</strong>{' '}
-                        {typeof getTotalKamayi(contract) ===
-                        'string'
-                          ? getTotalKamayi(contract)
-                          : `₹${getTotalKamayi(contract)}`}
+                        {totalKamayiDisplay}
                       </div>
                       <div className="mt-4 pt-3 border-t border-gray-200">
                         <strong>{t('termsLabel2')}:</strong>
@@ -846,7 +896,7 @@ const ActiveJob = () => {
                             {t('ownerSignature')}:
                           </div>
                           <div className="font-bold text-green-700 font-sans">
-                            ✓ {contract.ownerId?.name}
+                            <span aria-hidden="true">✓</span> {contract.ownerId?.name}
                           </div>
                         </div>
                         <div>
@@ -854,7 +904,7 @@ const ActiveJob = () => {
                             {t('driverSignature')}:
                           </div>
                           <div className="font-bold text-green-700 font-sans">
-                            ✓{' '}
+                            <span aria-hidden="true">✓</span>{' '}
                             {contract.driverId?.name ||
                               user?.name}
                           </div>
@@ -874,7 +924,7 @@ const ActiveJob = () => {
                       }
                       className="bg-white border border-gray-200 rounded-2xl p-4 text-center hover:border-green-400 hover:bg-green-50 transition-all"
                     >
-                      <div className="text-2xl mb-1">📅</div>
+                      <div className="text-2xl mb-1" aria-hidden="true">📅</div>
                       <div className="text-sm font-medium text-gray-700">
                         {t('attendance')}
                       </div>
@@ -886,7 +936,7 @@ const ActiveJob = () => {
                       }
                       className="bg-white border border-gray-200 rounded-2xl p-4 text-center hover:border-green-400 hover:bg-green-50 transition-all"
                     >
-                      <div className="text-2xl mb-1">💰</div>
+                      <div className="text-2xl mb-1" aria-hidden="true">💰</div>
                       <div className="text-sm font-medium text-gray-700">
                         {t('payments')}
                       </div>
@@ -898,7 +948,7 @@ const ActiveJob = () => {
                       }
                       className="bg-white border border-gray-200 rounded-2xl p-4 text-center hover:border-red-300 hover:bg-red-50 transition-all"
                     >
-                      <div className="text-2xl mb-1">⚠️</div>
+                      <div className="text-2xl mb-1" aria-hidden="true">⚠️</div>
                       <div className="text-sm font-medium text-gray-700">
                         {t('complaintBtn')}
                       </div>
@@ -911,7 +961,7 @@ const ActiveJob = () => {
                       disabled={Boolean(resignStatus) || contract?.status !== 'active'}
                       className="bg-white border border-red-200 rounded-2xl p-4 text-center hover:bg-red-50 transition-all"
                     >
-                      <div className="text-2xl mb-1">🚪</div>
+                      <div className="text-2xl mb-1" aria-hidden="true">🚪</div>
                       <div className="text-sm font-medium text-red-500">
                         {t('resignBtn')}
                       </div>
@@ -924,13 +974,21 @@ const ActiveJob = () => {
         </div>
 
         {showResignModal ? (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-20">
+          <div
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-20"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resign-modal-title"
+          >
             <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-              <h2 className="mb-4 text-xl font-bold text-red-600">
+              <h2
+                id="resign-modal-title"
+                className="mb-4 text-xl font-bold text-red-600"
+              >
                 {t('resignModalTitle')}
               </h2>
               <div className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700">
-                ⚠️ {t('resignWarning')}
+                <span aria-hidden="true">⚠️</span> {t('resignWarning')}
               </div>
               <form onSubmit={submitResign} className="space-y-4">
                 <div>
@@ -958,6 +1016,7 @@ const ActiveJob = () => {
                   <textarea
                     rows={4}
                     required
+                    maxLength={1000}
                     value={resignForm.reason}
                     onChange={(e) =>
                       setResignForm((f) => ({

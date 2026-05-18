@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { STATES, VEHICLE_TYPES } from '../../utils/constants'
 import { searchJobs } from '../../api/driverAPI'
+import { useDataCache } from '../../contexts/DataCacheContext'
 
 const formatDate = (d) => {
   if (!d) return '—'
@@ -30,57 +31,100 @@ const JobSearch = () => {
   })
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const {
+    getCachedData,
+    setCachedData,
+    clearCache,
+  } = useDataCache()
 
   const fetchJobs = useCallback(
-    async (pageNum, append) => {
-      if (append) setLoadingMore(true)
-      else setLoading(true)
+    async (pageNum, append, silent = false) => {
+      if (!silent) {
+        if (append) setLoadingMore(true)
+        else setLoading(true)
+      }
       try {
         const params = { page: pageNum }
         if (filters.state) params.state = filters.state
         if (filters.vehicleType) params.vehicleType = filters.vehicleType
         const { data } = await searchJobs(params)
         const list = data?.jobs ?? []
-        setTotal(data?.total ?? 0)
-        setJobs((prev) => (append ? [...prev, ...list] : list))
+        const newTotal = data?.total ?? 0
+        setTotal(newTotal)
+        setJobs((prev) => {
+          const updated = append ? [...prev, ...list] : list
+          // Cache only page 1 results (initial view)
+          if (pageNum === 1 && !append) {
+            const cacheKey = `driver_jobs_${filters.state || 'all'}_${filters.vehicleType || 'all'}`
+            setCachedData(cacheKey, {
+              jobs: updated,
+              total: newTotal,
+            })
+          }
+          return updated
+        })
       } catch (e) {
-        toast.error(
-          e.response?.data?.message || t('jobsLoadError')
-        )
-        if (!append) setJobs([])
+        if (!silent) {
+          toast.error(
+            e.response?.data?.message || t('jobsLoadError')
+          )
+          if (!append) setJobs([])
+        }
       } finally {
-        setLoading(false)
-        setLoadingMore(false)
+        if (!silent) {
+          setLoading(false)
+          setLoadingMore(false)
+        }
       }
     },
-    [filters.state, filters.vehicleType, t]
+    [filters.state, filters.vehicleType, t, setCachedData]
   )
 
   useEffect(() => {
     setPage(1)
-    fetchJobs(1, false)
-  }, [fetchJobs])
 
-  const handleDhundho = () => {
+    // Check cache for instant display
+    const cacheKey = `driver_jobs_${filters.state || 'all'}_${filters.vehicleType || 'all'}`
+    const cached = getCachedData(cacheKey)
+
+    if (cached) {
+      setJobs(cached.jobs || [])
+      setTotal(cached.total || 0)
+      setLoading(false)
+      fetchJobs(1, false, true) // silent refresh
+    } else {
+      fetchJobs(1, false, false)
+    }
+  }, [filters.state, filters.vehicleType])
+
+  const handleDhundho = useCallback(() => {
     setPage(1)
-    fetchJobs(1, false)
-  }
+    // Clear cache for fresh search
+    const cacheKey = `driver_jobs_${filters.state || 'all'}_${filters.vehicleType || 'all'}`
+    clearCache(cacheKey)
+    fetchJobs(1, false, false)
+  }, [filters.state, filters.vehicleType, fetchJobs, clearCache])
 
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     const next = page + 1
     setPage(next)
-    fetchJobs(next, true)
-  }
+    fetchJobs(next, true, false)
+  }, [page, fetchJobs])
 
-  const ownerName = (ownerId) => {
+  const ownerName = useCallback((ownerId) => {
     if (!ownerId) return '—'
-    if (typeof ownerId === 'object' && ownerId.name) return ownerId.name
+    if (typeof ownerId === 'object' && ownerId.name) {
+      return ownerId.name
+    }
     return '—'
-  }
+  }, [])
 
-  const hasMore = jobs.length < total
+  const hasMore = useMemo(
+    () => jobs.length < total,
+    [jobs.length, total]
+  )
 
-  const getSalaryDisplay = (job) => {
+  const getSalaryDisplay = useCallback((job) => {
     if (!job) return '₹0'
     if (job.salaryType === 'monthly') {
       return `₹${job.salaryPerMonth || 0}/${t('perMonth')}`
@@ -89,9 +133,9 @@ const JobSearch = () => {
       return `₹${job.salaryPerHour || 0}/${t('perHour')}`
     }
     return `₹${job.salaryPerDay || 0}/${t('perDay')}`
-  }
+  }, [t])
 
-  const getTotalKamayi = (job) => {
+  const getTotalKamayi = useCallback((job) => {
     if (!job) return 0
     if (job.salaryType === 'monthly') {
       const months = Math.ceil((job.duration || 30) / 30)
@@ -101,7 +145,7 @@ const JobSearch = () => {
       return t('hourlyBasis')
     }
     return (job.salaryPerDay || 0) * (job.duration || 0)
-  }
+  }, [t])
 
   return (
     <div
@@ -150,9 +194,9 @@ const JobSearch = () => {
                 className="input-field w-full"
               >
                 <option value="">{t('all')}</option>
-                {VEHICLE_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
+                {VEHICLE_TYPES.map((vt) => (
+                  <option key={vt} value={vt}>
+                    {vt}
                   </option>
                 ))}
               </select>
@@ -169,7 +213,13 @@ const JobSearch = () => {
         </div>
 
         {loading && jobs.length === 0 ? (
-          <p className="text-sm text-gray-500">{t('loading')}</p>
+          <div className="flex justify-center py-16">
+            <div
+              className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent"
+              role="status"
+              aria-label={t('loading')}
+            />
+          </div>
         ) : jobs.length === 0 ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center">
             <p className="text-gray-700">{t('noJobs')}</p>
@@ -202,10 +252,14 @@ const JobSearch = () => {
                     {job.title}
                   </h3>
                   <p className="text-sm text-gray-500">
-                    👤 {ownerName(job.ownerId)}
+                    <span aria-hidden="true">👤</span>{' '}
+                    {ownerName(job.ownerId)}
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-1">
-                    <span className="text-sm text-yellow-400">
+                    <span
+                      className="text-sm text-yellow-400"
+                      aria-hidden="true"
+                    >
                       ★
                     </span>
                     <span className="text-sm text-gray-600">
@@ -220,17 +274,21 @@ const JobSearch = () => {
                     ) : null}
                   </div>
                   <p className="text-sm text-gray-500">
-                    📍 {job.location?.state},{' '}
+                    <span aria-hidden="true">📍</span>{' '}
+                    {job.location?.state},{' '}
                     {job.location?.district}, {job.location?.city}
                   </p>
                   <p className="text-sm text-gray-500">
-                    📅 {t('startLabel')}: {formatDate(job.startDate)}
+                    <span aria-hidden="true">📅</span>{' '}
+                    {t('startLabel')}: {formatDate(job.startDate)}
                   </p>
                   <p className="text-sm text-gray-500">
-                    ⏱️ {job.duration} {t('durationDays')}
+                    <span aria-hidden="true">⏱️</span>{' '}
+                    {job.duration} {t('durationDays')}
                   </p>
                   <p className="text-sm text-gray-500">
-                    💰 {t('totalApprox')}:{' '}
+                    <span aria-hidden="true">💰</span>{' '}
+                    {t('totalApprox')}:{' '}
                     {typeof getTotalKamayi(job) === 'string'
                       ? getTotalKamayi(job)
                       : `₹${getTotalKamayi(job)}`}
