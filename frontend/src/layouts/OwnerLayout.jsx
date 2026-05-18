@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import API from '../api/axios'
 import { useTranslation } from 'react-i18next'
 import { useDataCache } from '../contexts/DataCacheContext'
+
+const UNREAD_DOT_COLOR = '#3B82F6'
 
 const notifTypeIcon = (type) => {
   if (type === 'new_message') return '💬'
@@ -37,6 +39,20 @@ const getNotifLink = (notif) => {
   }
 }
 
+const timeAgo = (dateStr) => {
+  const now = new Date()
+  const date = new Date(dateStr)
+  const diff = Math.floor((now - date) / 1000)
+  if (diff < 60) return 'Just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
+  return new Date(dateStr).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+  })
+}
+
 const OwnerLayout = () => {
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
@@ -48,13 +64,11 @@ const OwnerLayout = () => {
   const { i18n, t } = useTranslation()
   const { clearCache } = useDataCache()
 
-  const unreadDotColor = '#3B82F6'
-
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     clearCache()
     localStorage.clear()
     navigate('/login')
-  }
+  }, [clearCache, navigate])
 
   const fetchNotifications = useCallback(async (silent = false) => {
     try {
@@ -66,7 +80,7 @@ const OwnerLayout = () => {
         setUnreadCount(data.unreadCount || 0)
       }
     } catch (err) {
-      console.error(err)
+      // Silent fail - notifications not critical
     } finally {
       if (!silent) setNotifLoading(false)
     }
@@ -78,7 +92,7 @@ const OwnerLayout = () => {
       setUnreadCount(0)
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
     } catch (err) {
-      console.error(err)
+      // Silent fail - notifications not critical
     }
   }, [])
 
@@ -93,7 +107,7 @@ const OwnerLayout = () => {
         )
         setUnreadCount((prev) => Math.max(0, prev - 1))
       } catch (err) {
-        console.error(err)
+        // Silent fail - notifications not critical
       }
     },
     []
@@ -117,33 +131,23 @@ const OwnerLayout = () => {
         return prev
       })
     } catch (err) {
-      console.error(err)
+      // Silent fail - notifications not critical
     }
-  }
-
-  const timeAgo = (dateStr) => {
-    const now = new Date()
-    const date = new Date(dateStr)
-    const diff = Math.floor((now - date) / 1000)
-    if (diff < 60) return 'Just now'
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-    })
   }
 
   useEffect(() => {
     fetchNotifications(false)
-    const interval = setInterval(() => fetchNotifications(true), 30000)
+    const interval = setInterval(() => {
+      // Skip when tab hidden - save battery + API
+      if (document.hidden) return
+      fetchNotifications(true)
+    }, 10000)
     return () => clearInterval(interval)
   }, [fetchNotifications])
 
-  const toggleNotifPanel = () => {
+  const toggleNotifPanel = useCallback(() => {
     setShowNotif((prev) => !prev)
-  }
+  }, [])
 
   const renderBellButton = (iconSize = '22px') => (
     <button
@@ -183,16 +187,16 @@ const OwnerLayout = () => {
     </button>
   )
 
-  const toggleLanguage = () => {
+  const toggleLanguage = useCallback(() => {
     const newLang =
       i18n.language === 'en' ? 'hi' : 'en'
     i18n.changeLanguage(newLang)
     localStorage.setItem('lang', newLang)
-  }
+  }, [i18n])
 
   const currentLang = i18n.language
 
-  const sidebarLinks = [
+  const sidebarLinks = useMemo(() => [
     { path: '/owner/dashboard', label: t('dashboard'), icon: '🏠' },
     { path: '/owner/profile', label: t('profile'), icon: '👤' },
     { path: '/owner/vehicles', label: t('myVehicles'), icon: '🚛' },
@@ -207,16 +211,19 @@ const OwnerLayout = () => {
     { path: '/owner/payments', label: t('payments'), icon: '💰' },
     { path: '/owner/complaints', label: t('complaints'), icon: '⚠️' },
     { path: '/owner/ratings', label: t('ratings'), icon: '⭐' },
-  ]
+  ], [t])
 
-  const bottomLinks = [
+  const bottomLinks = useMemo(() => [
     { path: '/owner/dashboard', icon: '🏠', label: t('home') },
     { path: '/owner/applications', icon: '📋', label: t('applications') },
     { path: '/owner/drivers', icon: '👥', label: t('myDrivers') },
     { path: '/owner/profile', icon: '👤', label: t('profile') },
-  ]
+  ], [t])
 
-  const isActive = (path) => location.pathname === path
+  const isActive = useCallback(
+    (path) => location.pathname === path,
+    [location.pathname]
+  )
 
   return (
     <div>
@@ -613,7 +620,7 @@ const OwnerLayout = () => {
               }}
             >
               <span style={{ fontWeight: '600', fontSize: '16px' }}>
-                🔔 Notifications
+                <span aria-hidden="true">🔔</span> {t('notifications') || 'Notifications'}
                 {unreadCount > 0 && (
                   <span style={{
                     marginLeft: '8px',
@@ -642,7 +649,7 @@ const OwnerLayout = () => {
                       fontWeight: '600',
                     }}
                   >
-                    Mark all read
+                    {t('markAllRead') || 'Mark all read'}
                   </button>
                 )}
                 <button
@@ -669,7 +676,7 @@ const OwnerLayout = () => {
                   color: '#9CA3AF',
                 }}
               >
-                Loading...
+                {t('loading') || 'Loading...'}
               </div>
             ) : notifications.length === 0 ? (
               <div
@@ -680,7 +687,7 @@ const OwnerLayout = () => {
                 }}
               >
                 <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔔</div>
-                Koi notification nahi
+                {t('noNotifications') || 'Koi notification nahi'}
               </div>
             ) : (
               notifications.map((notif) => (
@@ -777,7 +784,7 @@ const OwnerLayout = () => {
                       style={{
                         width: '8px',
                         height: '8px',
-                        background: unreadDotColor,
+                        background: UNREAD_DOT_COLOR,
                         borderRadius: '50%',
                         marginTop: '6px',
                         flexShrink: 0,

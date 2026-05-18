@@ -1,10 +1,58 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useDataCache } from '../contexts/DataCacheContext'
+import API from '../api/axios'
 
-const NOTIF_API_BASE =
-  process.env.REACT_APP_API_URL || 'http://localhost:5000'
+const getNotifIcon = (type) => {
+  if (type === 'new_message') return '💬'
+  if (type === 'payment_received') return '💰'
+  if (type === 'application_accepted') return '✅'
+  if (type === 'complaint_update') return '⚠️'
+  if (type === 'new_application') return '🎯'
+  if (type === 'trip_submitted' || type === 'trip_update') return '🚛'
+  return '🔔'
+}
+
+const getNotifLink = (notif) => {
+  if (notif?.link && String(notif.link).trim()) {
+    return String(notif.link).trim()
+  }
+  switch (notif?.type) {
+    case 'new_message':
+      return '/driver/messages'
+    case 'payment_received':
+    case 'payment_request':
+      return '/driver/payments'
+    case 'application_accepted':
+      return '/driver/active-job'
+    case 'application_rejected':
+      return '/driver/applications'
+    case 'complaint_update':
+      return '/driver/complaints'
+    case 'trip_submitted':
+    case 'trip_update':
+      return '/driver/trips'
+    case 'new_application':
+      return '/driver/invites'
+    default:
+      return '/driver/dashboard'
+  }
+}
+
+const timeAgo = (dateStr) => {
+  const now = new Date()
+  const date = new Date(dateStr)
+  const diff = Math.floor((now - date) / 1000)
+  if (diff < 60) return 'Just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
+  return new Date(dateStr).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+  })
+}
 
 const DriverLayout = () => {
   const [open, setOpen] = useState(false)
@@ -17,79 +65,41 @@ const DriverLayout = () => {
   const { i18n, t } = useTranslation()
   const { clearCache } = useDataCache()
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     clearCache()
     localStorage.clear()
     navigate('/login')
-  }
+  }, [clearCache, navigate])
 
-  useEffect(() => {
-    const fetchNotifs = async (withSpinner) => {
-      try {
-        if (withSpinner) setNotifLoading(true)
-        const token = localStorage.getItem('token')
-        if (!token) return
-        const res = await fetch(
-          `${NOTIF_API_BASE}/api/notifications`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        )
-        const data = await res.json()
-        if (data.success) {
-          setNotifications(data.notifications || [])
-          setUnreadCount(data.unreadCount || 0)
-        }
-      } catch (err) {
-        console.error(err)
-      } finally {
-        if (withSpinner) setNotifLoading(false)
+  const fetchNotifications = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setNotifLoading(true)
+      const res = await API.get('/api/notifications')
+      const data = res.data
+      if (data.success) {
+        setNotifications(data.notifications || [])
+        setUnreadCount(data.unreadCount || 0)
       }
+    } catch (err) {
+      // Silent fail
+    } finally {
+      if (!silent) setNotifLoading(false)
     }
-    fetchNotifs(true)
-    const interval = setInterval(
-      () => fetchNotifs(false), 30000
-    )
-    return () => clearInterval(interval)
   }, [])
 
-  const markRead = async () => {
-    try {
-      const token = localStorage.getItem('token')
-      if (!token) return
-      await fetch(
-        `${NOTIF_API_BASE}/api/notifications/read`,
-        {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
-      setUnreadCount(0)
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, isRead: true }))
-      )
-    } catch (err) {
-      console.error(err)
-    }
-  }
+  useEffect(() => {
+    fetchNotifications(false)
+    const interval = setInterval(() => {
+      // Skip when tab hidden - save battery
+      if (document.hidden) return
+      fetchNotifications(true)
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [fetchNotifications])
 
-  const markOneRead = async (notifId) => {
+  const markOneRead = useCallback(async (notifId) => {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) return
-      await fetch(
-        `${NOTIF_API_BASE}/api/notifications/${notifId}/read`,
-        {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
+      await API.put(`/api/notifications/${notifId}/read`)
       setNotifications((prev) =>
         prev.map((n) =>
           n._id === notifId
@@ -99,45 +109,25 @@ const DriverLayout = () => {
       )
       setUnreadCount((prev) => Math.max(0, prev - 1))
     } catch (err) {
-      console.error(err)
+      // Silent fail
     }
-  }
+  }, [])
 
-  const markAllRead = async () => {
+  const markAllRead = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) return
-      await fetch(
-        `${NOTIF_API_BASE}/api/notifications/read`,
-        {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
+      await API.put('/api/notifications/read')
       setUnreadCount(0)
       setNotifications((prev) =>
         prev.map((n) => ({ ...n, isRead: true }))
       )
     } catch (err) {
-      console.error(err)
+      // Silent fail
     }
-  }
+  }, [])
 
-  const deleteNotification = async (notifId) => {
+  const deleteNotification = useCallback(async (notifId) => {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) return
-      await fetch(
-        `${NOTIF_API_BASE}/api/notifications/${notifId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
+      await API.delete(`/api/notifications/${notifId}`)
       setNotifications((prev) =>
         prev.filter((n) => n._id !== notifId)
       )
@@ -151,59 +141,9 @@ const DriverLayout = () => {
         return prev
       })
     } catch (err) {
-      console.error(err)
+      // Silent fail
     }
-  }
-
-  const getNotifIcon = (type) => {
-    if (type === 'new_message') return '💬'
-    if (type === 'payment_received') return '💰'
-    if (type === 'application_accepted') return '✅'
-    if (type === 'complaint_update') return '⚠️'
-    if (type === 'new_application') return '🎯'
-    if (type === 'trip_submitted' || type === 'trip_update') return '🚛'
-    return '🔔'
-  }
-
-  const getNotifLink = (notif) => {
-    if (notif?.link && String(notif.link).trim()) {
-      return String(notif.link).trim()
-    }
-    switch (notif?.type) {
-      case 'new_message':
-        return '/driver/messages'
-      case 'payment_received':
-      case 'payment_request':
-        return '/driver/payments'
-      case 'application_accepted':
-        return '/driver/active-job'
-      case 'application_rejected':
-        return '/driver/applications'
-      case 'complaint_update':
-        return '/driver/complaints'
-      case 'trip_submitted':
-      case 'trip_update':
-        return '/driver/trips'
-      case 'new_application':
-        return '/driver/invites'
-      default:
-        return '/driver/dashboard'
-    }
-  }
-
-  const timeAgo = (dateStr) => {
-    const now = new Date()
-    const date = new Date(dateStr)
-    const diff = Math.floor((now - date) / 1000)
-    if (diff < 60) return 'Just now'
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-    })
-  }
+  }, [notifications])
 
   const BellButton = () => (
     <button
@@ -246,55 +186,41 @@ const DriverLayout = () => {
     </button>
   )
 
-  const toggleLanguage = () => {
+  const toggleLanguage = useCallback(() => {
     const newLang =
       i18n.language === 'en' ? 'hi' : 'en'
     i18n.changeLanguage(newLang)
     localStorage.setItem('lang', newLang)
-  }
+  }, [i18n])
 
   const currentLang = i18n.language
 
-  const sidebarLinks = [
-    { path: '/driver/dashboard',
-      label: t('dashboard'), icon: '🏠' },
-    { path: '/driver/profile',
-      label: t('profile'), icon: '👤' },
-    { path: '/driver/jobs',
-      label: t('jobSearch'), icon: '💼' },
-    { path: '/driver/applications',
-      label: t('applications'), icon: '📋' },
-    { path: '/driver/active-job',
-      label: t('activeJob'), icon: '🔧' },
-    { path: '/driver/messages',
-      label: t('messages'), icon: '💬' },
-    { path: '/driver/attendance',
-      label: t('attendance'), icon: '📅' },
-    { path: '/driver/trips',
-      label: t('tripRequests'), icon: '🚛' },
-    { path: '/driver/payments',
-      label: t('payments'), icon: '💰' },
-    { path: '/driver/complaints',
-      label: t('complaints'), icon: '⚠️' },
-    { path: '/driver/ratings',
-      label: t('ratings'), icon: '⭐' },
-    { path: '/driver/invites',
-      label: t('invites'), icon: '🎯' },
-  ]
+  const sidebarLinks = useMemo(() => [
+    { path: '/driver/dashboard', label: t('dashboard'), icon: '🏠' },
+    { path: '/driver/profile', label: t('profile'), icon: '👤' },
+    { path: '/driver/jobs', label: t('jobSearch'), icon: '💼' },
+    { path: '/driver/applications', label: t('applications'), icon: '📋' },
+    { path: '/driver/active-job', label: t('activeJob'), icon: '🔧' },
+    { path: '/driver/messages', label: t('messages'), icon: '💬' },
+    { path: '/driver/attendance', label: t('attendance'), icon: '📅' },
+    { path: '/driver/trips', label: t('tripRequests'), icon: '🚛' },
+    { path: '/driver/payments', label: t('payments'), icon: '💰' },
+    { path: '/driver/complaints', label: t('complaints'), icon: '⚠️' },
+    { path: '/driver/ratings', label: t('ratings'), icon: '⭐' },
+    { path: '/driver/invites', label: t('invites'), icon: '🎯' },
+  ], [t])
 
-  const bottomLinks = [
-    { path: '/driver/dashboard',
-      icon: '🏠', label: t('home') },
-    { path: '/driver/jobs',
-      icon: '💼', label: t('jobs') },
-    { path: '/driver/active-job',
-      icon: '🔧', label: t('work') },
-    { path: '/driver/profile',
-      icon: '👤', label: t('profile') },
-  ]
+  const bottomLinks = useMemo(() => [
+    { path: '/driver/dashboard', icon: '🏠', label: t('home') },
+    { path: '/driver/jobs', icon: '💼', label: t('jobs') },
+    { path: '/driver/active-job', icon: '🔧', label: t('work') },
+    { path: '/driver/profile', icon: '👤', label: t('profile') },
+  ], [t])
 
-  const isActive = (path) =>
-    location.pathname === path
+  const isActive = useCallback(
+    (path) => location.pathname === path,
+    [location.pathname]
+  )
 
   return (
     <div>
@@ -523,7 +449,7 @@ const DriverLayout = () => {
                 fontSize: '15px',
                 color: '#111827',
               }}>
-                🔔 Notifications
+                <span aria-hidden="true">🔔</span> {t('notifications') || 'Notifications'}
                 {unreadCount > 0 && (
                   <span style={{
                     marginLeft: '8px',
@@ -552,7 +478,7 @@ const DriverLayout = () => {
                       fontWeight: '600',
                     }}
                   >
-                    Mark all read
+                    {t('markAllRead') || 'Mark all read'}
                   </button>
                 )}
                 <button
@@ -579,7 +505,7 @@ const DriverLayout = () => {
                 textAlign: 'center',
                 color: '#9CA3AF',
               }}>
-                Loading...
+                {t('loading') || 'Loading...'}
               </div>
             ) : notifications.length === 0 ? (
               <div style={{
@@ -594,7 +520,7 @@ const DriverLayout = () => {
                   🔔
                 </div>
                 <div style={{ fontSize: '14px' }}>
-                  Koi notification nahi
+                  {t('noNotifications') || 'Koi notification nahi'}
                 </div>
               </div>
             ) : (
