@@ -99,7 +99,7 @@ app.use(requestLogger)
 // General rate limit
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
@@ -112,11 +112,24 @@ const generalLimiter = rateLimit({
     message: 'Bahut zyada requests. Thoda ruko!',
   },
   skip: (req) => {
+    // Skip GET routes that are read-heavy
     const skipPaths = [
       '/api/notifications',
       '/api/messages/conversations',
       '/api/payments/summary',
+      '/api/payments/owner-summary',
+      '/api/payments/history',
+      '/api/payments/advances',
+      '/api/trips',
+      '/api/contracts',
+      '/api/attendance',
+      '/api/jobs',
+      '/api/applications',
+      '/api/ratings',
+      '/api/invites',
     ]
+    // Only skip GET requests
+    if (req.method !== 'GET') return false
     return skipPaths.some((path) => req.path.startsWith(path))
   },
 })
@@ -125,7 +138,7 @@ app.use('/api/', generalLimiter)
 // Auth rate limit (strict)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 50,
   message: {
     success: false,
     message:
@@ -156,7 +169,7 @@ const loginLimiter = rateLimit({
 // Subscription rate limit
 const subscriptionLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 20,
+  max: 50,
   keyGenerator: (req) => {
     const auth = req.headers.authorization
     if (auth) return auth
@@ -165,7 +178,7 @@ const subscriptionLimiter = rateLimit({
   message: {
     success: false,
     message:
-      'Bahut zyada payment attempts! 1 ghante baad try karein.',
+      'Bahut zyada payment attempts! Thoda ruko.',
   },
 })
 app.use('/api/subscription/', subscriptionLimiter)
@@ -183,7 +196,7 @@ app.use('/api/auth/login', loginLimiter)
 
 const paymentLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 30,
+  max: 500,
   keyGenerator: (req) => {
     const auth = req.headers.authorization
     if (auth) return auth
@@ -191,10 +204,12 @@ const paymentLimiter = rateLimit({
   },
   message: {
     success: false,
-    message: 'Too many payment requests. Try after 1 hour.',
+    message: 'Too many payment requests. Try after some time.',
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip GET requests - they are safe
+  skip: (req) => req.method === 'GET',
 })
 
 // Health check endpoint
