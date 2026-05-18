@@ -108,9 +108,9 @@ const OwnerRatings = () => {
     if (!silent) setContractsLoading(true)
     try {
       const res = await getOwnerContracts()
-      const list = (res.data?.contracts || []).filter(
-        (c) => c.status === 'completed'
-      )
+const list = (res.data?.contracts || []).filter(
+  (c) => ['active', 'signed', 'completed', 'terminated'].includes(c.status)
+)
       setContracts(list)
       setCachedData('owner_ratings_contracts', list)
     } catch (e) {

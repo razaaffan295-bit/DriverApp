@@ -108,9 +108,9 @@ const DriverRatings = () => {
     if (!silent) setContractsLoading(true)
     try {
       const res = await getDriverContracts()
-      const list = (res.data?.contracts || []).filter(
-        (c) => c.status === 'completed'
-      )
+const list = (res.data?.contracts || []).filter(
+  (c) => ['active', 'signed', 'completed', 'terminated'].includes(c.status)
+)
       setContracts(list)
       setCachedData('driver_ratings_contracts', list)
     } catch (e) {
