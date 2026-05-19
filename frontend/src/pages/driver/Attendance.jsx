@@ -7,7 +7,7 @@ import {
   isNativeApp,
   generateAndOpenPDF,
 } from '../../utils/pdfUpload'
-import { getDriverActiveContract } from '../../api/contractAPI'
+import { getDriverActiveContract, startWork } from '../../api/contractAPI'
 import {
   driverAddRecord,
   driverDeleteRecord,
@@ -102,6 +102,12 @@ const DriverAttendance = () => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [user, setUser] = useState(null)
+  const [showStartWorkModal, setShowStartWorkModal] = useState(false)
+  const [startWorkLoading, setStartWorkLoading] = useState(false)
+  const [startWorkMode, setStartWorkMode] = useState('today')
+  const [customStartDate, setCustomStartDate] = useState(
+    new Date().toISOString().split('T')[0]
+  )
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
     status: '',
@@ -240,6 +246,41 @@ const DriverAttendance = () => {
       contract?.jobId?.vehicleCategory === 'transport',
     [contract]
   )
+
+  useEffect(() => {
+    if (contract && !contract.workStartDate && !isTransport) {
+      setShowStartWorkModal(true)
+    }
+  }, [contract, isTransport])
+
+  const handleStartWork = useCallback(async () => {
+    if (!contract?._id) return
+    try {
+      setStartWorkLoading(true)
+      const dateToSend =
+        startWorkMode === 'custom' ? customStartDate : undefined
+      
+      await startWork(contract._id, dateToSend ? { startDate: dateToSend } : {})
+      toast.success(t('workStarted') || 'Kaam shuru ho gaya!')
+      setShowStartWorkModal(false)
+      
+      // Clear cache and reload
+      clearCache('driver_active_job')
+      clearCache('driver_dashboard')
+      
+      // Reload contract
+      const res = await getDriverActiveContract()
+      setContract(res.data?.contract || null)
+    } catch (e) {
+      toast.error(
+        e.response?.data?.message ||
+        t('workStartError') ||
+        'Kaam shuru nahi hua'
+      )
+    } finally {
+      setStartWorkLoading(false)
+    }
+  }, [contract, startWorkMode, customStartDate, t, clearCache])
 
   const handlePrint = useCallback(async () => {
     try {
@@ -827,6 +868,111 @@ const DriverAttendance = () => {
             </>
           )}
         </div>
+      
+      {showStartWorkModal ? (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-20"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="start-work-modal-title"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2
+              id="start-work-modal-title"
+              className="mb-2 text-xl font-bold text-green-700"
+            >
+              <span aria-hidden="true">🚀</span>{' '}
+              {t('startWorkTitle') || 'Kaam Shuru Karein'}
+            </h2>
+            <p className="mb-4 text-sm text-gray-600">
+              {t('startWorkDesc') || 
+                'Attendance lagane ke liye pehle kaam shuru karna hoga'}
+            </p>
+            
+            <div className="mb-4 space-y-2">
+              <button
+                type="button"
+                onClick={() => setStartWorkMode('today')}
+                className={`w-full rounded-xl border-2 p-3 text-left ${
+                  startWorkMode === 'today'
+                    ? 'border-green-600 bg-green-50'
+                    : 'border-gray-200'
+                }`}
+              >
+                <div className="font-semibold">
+                  <span aria-hidden="true">📅</span>{' '}
+                  {t('startToday') || 'Aaj se shuru karein'}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {new Date().toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </div>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setStartWorkMode('custom')}
+                className={`w-full rounded-xl border-2 p-3 text-left ${
+                  startWorkMode === 'custom'
+                    ? 'border-green-600 bg-green-50'
+                    : 'border-gray-200'
+                }`}
+              >
+                <div className="font-semibold">
+                  <span aria-hidden="true">📆</span>{' '}
+                  {t('pickPastDate') || 'Pichli date select karein'}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {t('pickPastDateDesc') || 
+                    'Agar aap pehle pahunche the'}
+                </div>
+              </button>
+            </div>
+            
+            {startWorkMode === 'custom' && (
+              <div className="mb-4">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('selectStartDate') || 'Start date'}
+                </label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  min={
+                    contract?.driverSignedAt
+                      ? new Date(contract.driverSignedAt)
+                          .toISOString()
+                          .split('T')[0]
+                      : undefined
+                  }
+                  max={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                />
+              </div>
+            )}
+            
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <span aria-hidden="true">⚠️</span>{' '}
+              {t('startWorkWarning') || 
+                'Yeh ek baar hi set kar sakte hain. Salary calculation is date se hogi.'}
+            </div>
+            
+            <button
+              type="button"
+              onClick={handleStartWork}
+              disabled={startWorkLoading}
+              className="w-full rounded-xl bg-green-600 py-3 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {startWorkLoading
+                ? (t('savingText') || 'Saving...')
+                : (t('confirmStartWork') || 'Confirm - Kaam Shuru')}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

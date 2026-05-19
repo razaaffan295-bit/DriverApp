@@ -15,6 +15,9 @@ export const signContract = (id) =>
 export const completeContract = (id) =>
   API.put(`/api/contracts/${id}/complete`)
 
+export const startWork = (id, data = {}) =>
+  API.put(`/api/contracts/${id}/start-work`, data)
+
 export const getDriverActiveContract = () =>
   API.get('/api/contracts/driver/active')
 

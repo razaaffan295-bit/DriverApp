@@ -9,6 +9,7 @@ const {
   getDriverContract,
   getDriverContracts,
   getDriverContractHistory,
+  startWork,
 } = require('../controllers/contractController')
 const {
   verifyToken,
@@ -70,6 +71,14 @@ router.put(
   validateObjectId('id'),
   isOwner,
   completeContract
+)
+router.put(
+  '/:id/start-work',
+  verifyToken,
+  validateObjectId('id'),
+  isDriver,
+  requireActiveSubscription,
+  startWork
 )
 
 module.exports = router

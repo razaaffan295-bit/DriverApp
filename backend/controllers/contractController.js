@@ -124,7 +124,6 @@ const createContract = async (req, res) => {
       contract: populated,
     });
   } catch (error) {
-    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -151,7 +150,6 @@ const getOwnerContracts = async (req, res) => {
       contracts,
     });
   } catch (error) {
-    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -193,7 +191,6 @@ const getContractById = async (req, res) => {
       contract,
     });
   } catch (error) {
-    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -275,7 +272,6 @@ const driverSignContract = async (req, res) => {
       contract: populated,
     });
   } catch (error) {
-    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -333,7 +329,6 @@ const completeContract = async (req, res) => {
       message: "Contract complete ho gaya!",
     });
   } catch (error) {
-    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -360,7 +355,6 @@ const getDriverContracts = async (req, res) => {
       contracts,
     });
   } catch (error) {
-    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -390,7 +384,6 @@ const getDriverContractHistory = async (req, res) => {
       contracts,
     });
   } catch (error) {
-    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -399,6 +392,118 @@ const getDriverContractHistory = async (req, res) => {
     });
   }
 };
+
+const startWork = async (req, res) => {
+  try {
+    const driverId = uidFromReq(req)
+    const { startDate } = req.body
+    
+    const contract = await Contract.findById(req.params.id)
+    
+    if (!contract) {
+      return res.status(404).json({
+        success: false,
+        message: "Contract nahi mila",
+      })
+    }
+    
+    if (String(contract.driverId) !== String(driverId)) {
+      return res.status(403).json({
+        success: false,
+        message: "Yeh aapka contract nahi hai",
+      })
+    }
+    
+    if (contract.status !== "active") {
+      return res.status(400).json({
+        success: false,
+        message: "Contract active nahi hai",
+      })
+    }
+    
+    if (contract.workStartDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Kaam pehle se shuru ho chuka hai",
+      })
+    }
+    
+    // Validate start date
+    let workDate = new Date()
+    if (startDate) {
+      const picked = new Date(startDate)
+      if (isNaN(picked.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "Date sahi nahi hai",
+        })
+      }
+      
+      // Not future
+      const today = new Date()
+      today.setHours(23, 59, 59, 999)
+      if (picked > today) {
+        return res.status(400).json({
+          success: false,
+          message: "Future date nahi chal sakti",
+        })
+      }
+      
+      // Not before contract sign
+      const signDate = contract.driverSignedAt || contract.createdAt
+      const signDateStart = new Date(signDate)
+      signDateStart.setHours(0, 0, 0, 0)
+      if (picked < signDateStart) {
+        return res.status(400).json({
+          success: false,
+          message: "Contract sign date se pehle nahi chal sakti",
+        })
+      }
+      
+      workDate = picked
+    }
+    
+    workDate.setHours(0, 0, 0, 0)
+    contract.workStartDate = workDate
+    contract.workStartedAt = new Date()
+    await contract.save()
+    
+    const driver = await User.findById(driverId).select("name")
+    
+    // Owner notification (fire and forget)
+    const dateStr = workDate.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+    
+    Notification.create({
+      userId: contract.ownerId,
+      title: "Driver Started Work",
+      message: `${driver?.name || "Driver"} ne kaam shuru kiya - ${dateStr} se`,
+      type: "application_accepted",
+      link: "/owner/applications",
+      isRead: false,
+    }).catch(() => {})
+    
+    return res.json({
+      success: true,
+      contract: {
+        _id: contract._id,
+        workStartDate: contract.workStartDate,
+        workStartedAt: contract.workStartedAt,
+      },
+      message: "Kaam shuru ho gaya!",
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : error.message,
+    })
+  }
+}
 
 const getDriverContract = async (req, res) => {
   try {
@@ -428,7 +533,6 @@ const getDriverContract = async (req, res) => {
       contract,
     });
   } catch (error) {
-    console.error('[Error]', error)
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -447,4 +551,5 @@ module.exports = {
   getDriverContract,
   getDriverContracts,
   getDriverContractHistory,
+  startWork,
 };

@@ -87,6 +87,27 @@ const driverAddRecord = async (req, res) => {
       })
     }
 
+    // Block attendance if work not started yet
+    if (!contract.workStartDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pehle "Kaam Shuru" button click karein',
+        code: 'NEEDS_WORK_START',
+      })
+    }
+
+    // Don't allow attendance before work start date
+    const recordDateCheck = new Date(date)
+    recordDateCheck.setHours(0, 0, 0, 0)
+    const workStartCheck = new Date(contract.workStartDate)
+    workStartCheck.setHours(0, 0, 0, 0)
+    if (recordDateCheck < workStartCheck) {
+      return res.status(400).json({
+        success: false,
+        message: 'Kaam shuru date se pehle attendance nahi laga sakte',
+      })
+    }
+
     const recordDate = new Date(date);
     recordDate.setHours(0, 0, 0, 0);
 
@@ -139,7 +160,7 @@ const driverAddRecord = async (req, res) => {
       message: "Record save ho gaya!",
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -201,7 +222,7 @@ const driverGetRecords = async (req, res) => {
       contract,
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -275,7 +296,7 @@ const driverDeleteRecord = async (req, res) => {
       message: "Record delete ho gaya",
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -350,7 +371,7 @@ const ownerAddRecord = async (req, res) => {
       message: "Record save ho gaya!",
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -417,7 +438,7 @@ const ownerGetRecords = async (req, res) => {
       contract,
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -447,7 +468,7 @@ const ownerDeleteRecord = async (req, res) => {
       message: "Record delete ho gaya",
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -468,7 +489,7 @@ const ownerGetAllContracts = async (req, res) => {
 
     return res.json({ success: true, contracts });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'

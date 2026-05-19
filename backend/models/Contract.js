@@ -54,6 +54,8 @@ const contractSchema = new mongoose.Schema({
   },
   driverSigned: { type: Boolean, default: false },
   driverSignedAt: { type: Date },
+  workStartDate: { type: Date, default: null },
+  workStartedAt: { type: Date, default: null },
   pdfUrl: { type: String },
   createdAt: { type: Date, default: Date.now },
 });

@@ -152,11 +152,12 @@ const getPaymentSummary = async (req, res) => {
     let attendanceBreakdown = []
 
     if (isTransport) {
-      // Pro-rated calculation:
-      // First month: join date to month end
-      // Subsequent months: full salary
+      // Pro-rated calculation using workStartDate
+      // (falls back to startDate for backward compatibility)
       const contractStart =
-        contract.startDate || contract.createdAt;
+        contract.workStartDate ||
+        contract.startDate ||
+        contract.createdAt
       totalSalaryEarned = calcTransportSalary(
         Number(contract.salaryPerMonth) || 0,
         contractStart
@@ -288,7 +289,7 @@ const getPaymentSummary = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -604,7 +605,7 @@ const makePayment = async (req, res) => {
       message: "Payment mark ho gayi! Driver confirm karega.",
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -709,7 +710,7 @@ const confirmPayment = async (req, res) => {
       message: "Payment confirm ho gayi!",
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -782,7 +783,7 @@ const rejectPayment = async (req, res) => {
       message: "Payment reject ho gayi",
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -826,7 +827,7 @@ const getPayments = async (req, res) => {
       payments,
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -891,7 +892,7 @@ const requestAdvance = async (req, res) => {
       advance,
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -1009,7 +1010,7 @@ const handleAdvance = async (req, res) => {
       advance: adv,
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -1056,11 +1057,12 @@ const requestPayment = async (req, res) => {
     let totalSalaryEarned = 0
 
     if (isTransport) {
-      // Pro-rated calculation:
-      // First month: join date to month end
-      // Subsequent months: full salary
+      // Pro-rated calculation using workStartDate
+      // (falls back to startDate for backward compatibility)
       const contractStart =
-        contract.startDate || contract.createdAt;
+        contract.workStartDate ||
+        contract.startDate ||
+        contract.createdAt
       totalSalaryEarned = calcTransportSalary(
         Number(contract.salaryPerMonth) || 0,
         contractStart
@@ -1163,7 +1165,7 @@ const requestPayment = async (req, res) => {
       requestAmount: requestAmt,
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -1303,7 +1305,7 @@ const createTripPaymentRequest = async (req, res) => {
       payment: populated,
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -1341,7 +1343,7 @@ const getAdvances = async (req, res) => {
       advances,
     });
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
@@ -1370,7 +1372,7 @@ const getOwnerPaymentsSummary = async (req, res) => {
       payments,
     })
   } catch (error) {
-    console.error('[Error]', error)
+    // Error logged to Sentry automatically
     return res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'production'
