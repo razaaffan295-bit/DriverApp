@@ -195,12 +195,26 @@ const ActiveJob = () => {
     if (!contract?._id) return
     try {
       setSigning(true)
-      await signContract(contract._id)
+      const signRes = await signContract(contract._id)
       toast.success(t('contractSignedSuccess'))
+      
+      // Clear all related caches
       clearCache('driver_active_job')
       clearCache('driver_applications')
       clearCache('driver_dashboard')
-      await fetchContract(false)
+      
+      // Use response data if available for instant UI update
+      const signedContract = signRes?.data?.contract
+      if (signedContract) {
+        setContract(signedContract)
+        setCachedData('driver_active_job', {
+          contract: signedContract,
+          terminatedContract: null,
+        })
+      } else {
+        // Fallback - fetch fresh
+        await fetchContract(false)
+      }
     } catch (err) {
       toast.error(
         err.response?.data?.message || t('signError')
@@ -208,7 +222,7 @@ const ActiveJob = () => {
     } finally {
       setSigning(false)
     }
-  }, [contract, t, fetchContract, clearCache])
+  }, [contract, t, fetchContract, clearCache, setCachedData])
 
   const minResignDate = useMemo(() => {
     const tomorrow = new Date()

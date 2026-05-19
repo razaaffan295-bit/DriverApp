@@ -29,12 +29,11 @@ router.post(
   requireActiveSubscription,
   createContract
 )
-router.get('/owner', verifyToken, isOwner, cacheMiddleware(60), getOwnerContracts)
+router.get('/owner', verifyToken, isOwner, getOwnerContracts)
 router.get(
   '/driver/active',
   verifyToken,
   isDriver,
-  cacheMiddleware(60),
   getDriverContract
 )
 router.get(
@@ -47,7 +46,6 @@ router.get(
   '/driver/all',
   verifyToken,
   isDriver,
-  cacheMiddleware(60),
   getDriverContracts
 )
 router.get(
