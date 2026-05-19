@@ -7,6 +7,84 @@ const Notification = require("../models/Notification");
 const DriverProfile = require("../models/DriverProfile");
 const TripRecord = require("../models/TripRecord");
 
+/**
+ * Calculate pro-rated salary for transport drivers.
+ * First month: pro-rated by days from join date.
+ * Subsequent months: full monthly salary.
+ * Per day = monthlySalary / 30 (industry standard).
+ */
+const calcTransportSalary = (monthlySalary, contractStart) => {
+  if (!monthlySalary || monthlySalary <= 0) return 0;
+  if (!contractStart) return 0;
+
+  const start = new Date(contractStart);
+  const now = new Date();
+
+  if (isNaN(start.getTime())) return 0;
+  if (start > now) return 0;
+
+  const perDay = Number(monthlySalary) / 30;
+  let total = 0;
+
+  // Cursor at contract start date
+  let cursorYear = start.getFullYear();
+  let cursorMonth = start.getMonth();
+  let cursorDay = start.getDate();
+
+  const nowYear = now.getFullYear();
+  const nowMonth = now.getMonth();
+  const nowDay = now.getDate();
+
+  while (
+    cursorYear < nowYear ||
+    (cursorYear === nowYear && cursorMonth <= nowMonth)
+  ) {
+    // Last day of this month
+    const lastDayOfMonth = new Date(
+      cursorYear,
+      cursorMonth + 1,
+      0
+    ).getDate();
+
+    const isStartMonth =
+      cursorYear === start.getFullYear() &&
+      cursorMonth === start.getMonth();
+
+    const isCurrentMonth =
+      cursorYear === nowYear &&
+      cursorMonth === nowMonth;
+
+    if (isStartMonth && isCurrentMonth) {
+      // Same month - joined and checking now
+      const daysWorked = nowDay - cursorDay + 1;
+      total += Math.round(perDay * Math.max(0, daysWorked));
+      break;
+    } else if (isStartMonth) {
+      // First month, partial (join to month end)
+      const daysWorked = lastDayOfMonth - cursorDay + 1;
+      total += Math.round(perDay * Math.max(0, daysWorked));
+    } else if (isCurrentMonth) {
+      // Current month, partial (1st to today)
+      const daysWorked = nowDay;
+      total += Math.round(perDay * Math.max(0, daysWorked));
+      break;
+    } else {
+      // Full month in between
+      total += Number(monthlySalary);
+    }
+
+    // Move cursor to 1st of next month
+    cursorMonth += 1;
+    if (cursorMonth > 11) {
+      cursorMonth = 0;
+      cursorYear += 1;
+    }
+    cursorDay = 1;
+  }
+
+  return total;
+};
+
 const uidFromReq = (req) => req.user._id || req.user.id;
 
 /** Trip settlement — not counted in salary totalPaid / netDue */
@@ -74,20 +152,15 @@ const getPaymentSummary = async (req, res) => {
     let attendanceBreakdown = []
 
     if (isTransport) {
-      const now = new Date()
-      const contractStart = new Date(
-        contract.startDate || contract.createdAt
-      )
-      const monthsWorked = Math.max(
-        1,
-        Math.ceil(
-          (now - contractStart) /
-            (1000 * 60 * 60 * 24 * 30)
-        )
-      )
-      totalSalaryEarned =
-        (Number(contract.salaryPerMonth) || 0) *
-        monthsWorked
+      // Pro-rated calculation:
+      // First month: join date to month end
+      // Subsequent months: full salary
+      const contractStart =
+        contract.startDate || contract.createdAt;
+      totalSalaryEarned = calcTransportSalary(
+        Number(contract.salaryPerMonth) || 0,
+        contractStart
+      );
     } else {
       const driverRecords = await DriverAttendance.find({
         contractId: cidQuery,
@@ -983,20 +1056,15 @@ const requestPayment = async (req, res) => {
     let totalSalaryEarned = 0
 
     if (isTransport) {
-      const now = new Date()
-      const contractStart = new Date(
-        contract.startDate || contract.createdAt
-      )
-      const monthsWorked = Math.max(
-        1,
-        Math.ceil(
-          (now - contractStart) /
-            (1000 * 60 * 60 * 24 * 30)
-        )
-      )
-      totalSalaryEarned =
-        (Number(contract.salaryPerMonth) || 0) *
-        monthsWorked
+      // Pro-rated calculation:
+      // First month: join date to month end
+      // Subsequent months: full salary
+      const contractStart =
+        contract.startDate || contract.createdAt;
+      totalSalaryEarned = calcTransportSalary(
+        Number(contract.salaryPerMonth) || 0,
+        contractStart
+      );
     } else {
       const attendanceRecords = await DriverAttendance.find({
         contractId: contract._id,
@@ -1285,7 +1353,6 @@ const getAdvances = async (req, res) => {
 
 const getOwnerPaymentsSummary = async (req, res) => {
   try {
-    const Payment = require('../models/Payment')
     const ownerId = req.user._id || req.user.id
 
     // Get ALL payments for this owner in ONE query
