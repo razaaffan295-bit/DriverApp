@@ -1,10 +1,26 @@
 const User = require('../models/User')
 
-const requireActiveSubscription = async (
-  req, res, next
-) => {
+// Helper for consistent 500 responses
+const sendServerError = (res) => {
+  return res.status(500).json({
+    success: false,
+    message: process.env.NODE_ENV === 'production'
+      ? 'Server error'
+      : undefined,
+  })
+}
+
+const requireActiveSubscription = async (req, res, next) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Login karein pehle',
+      })
+    }
+
     const userId = req.user._id || req.user.id
+
     const user = await User.findById(userId)
       .select(
         'isPermanentFree subscriptionRequired subscriptionDeadline subscription role'
@@ -24,7 +40,7 @@ const requireActiveSubscription = async (
     // Permanent free users
     if (user.isPermanentFree) return next()
 
-    // Subscription not required yet (free trial)
+    // Subscription not required yet (free trial active)
     if (!user.subscriptionRequired) return next()
 
     // Subscription required - check if paid
@@ -46,17 +62,14 @@ const requireActiveSubscription = async (
         message: 'Subscription required',
         subscriptionRequired: true,
         deadlinePassed: true,
+        code: 'SUBSCRIPTION_REQUIRED',
       })
     }
 
-    // Not yet deadline - allow but warn
+    // Not yet deadline - allow but warn (existing behavior)
     next()
   } catch (error) {
-    console.error('Subscription check error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-    })
+    return sendServerError(res)
   }
 }
 

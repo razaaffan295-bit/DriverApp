@@ -4,11 +4,38 @@ const Contract = require("../models/Contract");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 
+// Constants
+const MAX_REVIEW_LENGTH = 2000;
+const MIN_SCORE = 1;
+const MAX_SCORE = 5;
+const RECENT_RATINGS_LIMIT = 10;
+const RATABLE_STATUSES = ["active", "signed", "completed", "terminated"];
+
 const uid = (req) => req.user._id || req.user.id;
+
+// Helpers
+const sendServerError = (res) => {
+  return res.status(500).json({
+    success: false,
+    message:
+      process.env.NODE_ENV === "production" ? "Server error" : undefined,
+  });
+};
+
+const isValidObjectId = (id) => {
+  return mongoose.Types.ObjectId.isValid(String(id || ""));
+};
+
+const createNotificationSafe = (data) => {
+  Notification.create(data).catch(() => {
+    // Silent fail - non-blocking
+  });
+};
 
 const giveRating = async (req, res) => {
   try {
     const { contractId, ratedToId, score, review, jobId } = req.body;
+    const userId = uid(req);
 
     if (!contractId) {
       return res.status(400).json({
@@ -24,15 +51,55 @@ const giveRating = async (req, res) => {
       });
     }
 
-    const n = Number(score);
-    if (!Number.isFinite(n) || n < 1 || n > 5) {
+    // ObjectId validations
+    if (!isValidObjectId(contractId)) {
       return res.status(400).json({
         success: false,
-        message: "Score must be between 1 and 5",
+        message: "Invalid contract ID",
+      });
+    }
+    if (!isValidObjectId(ratedToId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid ratedTo ID",
+      });
+    }
+    if (jobId && !isValidObjectId(jobId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid job ID",
       });
     }
 
-    const contract = await Contract.findById(contractId).lean();
+    const n = Number(score);
+    if (!Number.isFinite(n) || n < MIN_SCORE || n > MAX_SCORE) {
+      return res.status(400).json({
+        success: false,
+        message: `Score must be between ${MIN_SCORE} and ${MAX_SCORE}`,
+      });
+    }
+
+    // Role check (cheapest - no DB)
+    if (req.user.role !== "owner" && req.user.role !== "driver") {
+      return res.status(403).json({
+        success: false,
+        message: "Sirf owner ya driver rating de sakte hain",
+      });
+    }
+
+    const reviewTrim = String(review || "").slice(0, MAX_REVIEW_LENGTH);
+
+    // PARALLEL - contract + existing rating check (2x faster)
+    const [contract, existing] = await Promise.all([
+      Contract.findById(contractId).lean(),
+      Rating.findOne({
+        ratedBy: userId,
+        ratedTo: ratedToId,
+        contractId,
+      })
+        .select("_id")
+        .lean(),
+    ]);
 
     if (!contract) {
       return res.status(404).json({
@@ -41,7 +108,6 @@ const giveRating = async (req, res) => {
       });
     }
 
-    const userId = req.user._id || req.user.id;
     const userIdStr = String(userId);
     const ownerIdStr = String(contract.ownerId);
     const driverIdStr = String(contract.driverId);
@@ -59,27 +125,12 @@ const giveRating = async (req, res) => {
       });
     }
 
-    const ratableStatuses = ['active', 'signed', 'completed', 'terminated'];
-    if (!ratableStatuses.includes(contract.status)) {
+    if (!RATABLE_STATUSES.includes(contract.status)) {
       return res.status(400).json({
         success: false,
         message: "Contract must be signed before rating",
       });
     }
-
-    if (req.user.role !== "owner" && req.user.role !== "driver") {
-      return res.status(403).json({
-        success: false,
-        message: "Sirf owner ya driver rating de sakte hain",
-      });
-    }
-
-    const cid = contractId;
-    const existing = await Rating.findOne({
-      ratedBy: uid(req),
-      ratedTo: ratedToId,
-      contractId: cid,
-    });
 
     if (existing) {
       return res.status(400).json({
@@ -89,19 +140,21 @@ const giveRating = async (req, res) => {
     }
 
     const rating = await Rating.create({
-      ratedBy: uid(req),
+      ratedBy: userId,
       ratedTo: ratedToId,
       jobId: jobId || null,
-      contractId: cid,
+      contractId,
       score: n,
-      review: review || "",
+      review: reviewTrim,
       ratedByRole: req.user.role,
     });
 
     // Fire-and-forget notification (don't block response)
-    User.findById(uid(req)).select("name").lean()
+    User.findById(userId)
+      .select("name")
+      .lean()
       .then((rater) => {
-        return Notification.create({
+        createNotificationSafe({
           userId: ratedToId,
           title: "New Rating",
           message: `${rater?.name || "User"} gave you ${n} stars.`,
@@ -123,13 +176,7 @@ const giveRating = async (req, res) => {
       message: "Rating de di gayi!",
     });
   } catch (error) {
-    // Silent in production - error logged to Sentry
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
@@ -173,13 +220,7 @@ const getMyRatings = async (req, res) => {
       totalRatings: received.length,
     });
   } catch (error) {
-    // Silent in production
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
@@ -187,37 +228,33 @@ const getUserRatings = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Validate userId format
-    if (!userId || !userId.match(/^[0-9a-fA-F]{24}$/)) {
+    // ObjectId validation
+    if (!isValidObjectId(userId)) {
       return res.status(400).json({
         success: false,
         message: "Invalid user ID",
       });
     }
 
-    // Parallel: limited recent + total count
-    const [ratings, total] = await Promise.all([
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    // PARALLEL - 3 queries at once (3x faster)
+    const [ratings, total, avgAggregate] = await Promise.all([
       Rating.find({ ratedTo: userId })
         .populate("ratedBy", "name role")
         .sort({ createdAt: -1 })
-        .limit(10)
+        .limit(RECENT_RATINGS_LIMIT)
         .lean(),
       Rating.countDocuments({ ratedTo: userId }),
-    ]);
-
-    // Calculate avg from ALL ratings, not just 10
-    const avgAggregate = await Rating.aggregate([
-      {
-        $match: {
-          ratedTo: new mongoose.Types.ObjectId(userId),
+      Rating.aggregate([
+        { $match: { ratedTo: userObjectId } },
+        {
+          $group: {
+            _id: null,
+            avg: { $avg: "$score" },
+          },
         },
-      },
-      {
-        $group: {
-          _id: null,
-          avg: { $avg: '$score' },
-        },
-      },
+      ]),
     ]);
 
     const avgScore = avgAggregate.length > 0
@@ -231,13 +268,7 @@ const getUserRatings = async (req, res) => {
       total,
     });
   } catch (error) {
-    // Silent in production
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 

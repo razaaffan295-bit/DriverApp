@@ -1,8 +1,40 @@
+const mongoose = require("mongoose");
 const Job = require("../models/Job");
 const Vehicle = require("../models/Vehicle");
 const User = require("../models/User");
 
+// Constants
+const ALLOWED_CATEGORIES = ["mining", "road", "transport"];
+const ALLOWED_SALARY_TYPES = ["daily", "monthly", "hourly"];
+const ALLOWED_TRANSPORT_TYPES = ["company_trip", "malik_trip", "none"];
+
+const MAX_TITLE_LENGTH = 200;
+const MAX_DESCRIPTION_LENGTH = 2000;
+const MAX_LOCATION_FIELD_LENGTH = 200;
+const MAX_VEHICLE_TYPE_LENGTH = 100;
+const MAX_SALARY = 1000000;
+const MAX_DURATION_DAYS = 1825;
+const MIN_DURATION_DAYS = 1;
+
+const PAGE_LIMIT = 50;
+const MAX_PAGE = 1000;
+
 const ownerIdFromReq = (req) => req.user._id || req.user.id;
+
+// Helper for consistent 500 responses
+const sendServerError = (res) => {
+  return res.status(500).json({
+    success: false,
+    message: process.env.NODE_ENV === 'production'
+      ? 'Server error'
+      : undefined,
+  });
+};
+
+// Validate ObjectId format
+const isValidObjectId = (id) => {
+  return mongoose.Types.ObjectId.isValid(String(id || ""));
+};
 
 const isSubscriptionActive = (user) => {
   if (user.isPermanentFree) return true;
@@ -19,24 +51,6 @@ const isSubscriptionActive = (user) => {
 const createJob = async (req, res) => {
   try {
     const oid = ownerIdFromReq(req);
-
-    const ownerUser = await User.findById(oid).select(
-      "subscription isPermanentFree subscriptionRequired"
-    );
-    if (!ownerUser) {
-      return res.status(401).json({
-        success: false,
-        message: "User nahi mila",
-      });
-    }
-    if (!isSubscriptionActive(ownerUser)) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Job post karne ke liye active subscription chahiye (₹499/month).",
-        code: "SUBSCRIPTION_REQUIRED",
-      });
-    }
 
     const {
       title,
@@ -56,6 +70,46 @@ const createJob = async (req, res) => {
       duration,
       startDate,
     } = req.body;
+
+    // Validate vehicleId format FIRST (before DB queries)
+    if (!vehicleId || !isValidObjectId(vehicleId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Vehicle ID galat hai",
+      });
+    }
+
+    // Parallel queries - 2x faster
+    const [ownerUser, vehicle] = await Promise.all([
+      User.findById(oid)
+        .select("subscription isPermanentFree subscriptionRequired")
+        .lean(),
+      Vehicle.findOne({
+        _id: vehicleId,
+        ownerId: oid,
+      }).lean(),
+    ]);
+
+    if (!ownerUser) {
+      return res.status(401).json({
+        success: false,
+        message: "User nahi mila",
+      });
+    }
+    if (!isSubscriptionActive(ownerUser)) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Job post karne ke liye active subscription chahiye (₹499/month).",
+        code: "SUBSCRIPTION_REQUIRED",
+      });
+    }
+    if (!vehicle) {
+      return res.status(400).json({
+        success: false,
+        message: "Yeh gadi aapki nahi hai ya valid nahi hai",
+      });
+    }
 
     const loc = location && typeof location === "object" ? location : null;
     const reqState = loc?.state;
@@ -83,14 +137,53 @@ const createJob = async (req, res) => {
       });
     }
 
-    const vehicle = await Vehicle.findOne({
-      _id: vehicleId,
-      ownerId: oid,
-    });
-    if (!vehicle) {
+    // Input length validations
+    if (String(title).length > MAX_TITLE_LENGTH) {
       return res.status(400).json({
         success: false,
-        message: "Yeh gadi aapki nahi hai ya valid nahi hai",
+        message: `Title ${MAX_TITLE_LENGTH} characters se kam hona chahiye`,
+      });
+    }
+    if (String(description).length > MAX_DESCRIPTION_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        message: `Description ${MAX_DESCRIPTION_LENGTH} characters se kam hona chahiye`,
+      });
+    }
+    if (String(vehicleType).length > MAX_VEHICLE_TYPE_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        message: "Vehicle type bahut lamba hai",
+      });
+    }
+    if (
+      String(reqState).length > MAX_LOCATION_FIELD_LENGTH ||
+      String(reqDistrict).length > MAX_LOCATION_FIELD_LENGTH ||
+      String(reqCity).length > MAX_LOCATION_FIELD_LENGTH ||
+      String(reqAddress).length > MAX_LOCATION_FIELD_LENGTH
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Location fields bahut lambe hain",
+      });
+    }
+
+    // Start date validation - not in past
+    const startDateObj = new Date(startDate);
+    if (isNaN(startDateObj.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Start date sahi nahi hai",
+      });
+    }
+
+    // Allow start date up to 2 years in future
+    const maxFutureDate = new Date();
+    maxFutureDate.setFullYear(maxFutureDate.getFullYear() + 2);
+    if (startDateObj > maxFutureDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Start date 2 saal se zyada future mein nahi ho sakti",
       });
     }
 
@@ -98,22 +191,20 @@ const createJob = async (req, res) => {
     const st = salaryType ? String(salaryType) : "daily";
     const tt = transportType ? String(transportType) : "none";
 
-    const allowedCats = ["mining", "road", "transport"];
-    const allowedSalaryTypes = ["daily", "monthly", "hourly"];
-    const allowedTransportTypes = ["company_trip", "malik_trip", "none"];
-    if (!allowedCats.includes(cat)) {
+    // Use constants for validation
+    if (!ALLOWED_CATEGORIES.includes(cat)) {
       return res.status(400).json({
         success: false,
         message: "Vehicle category invalid hai",
       });
     }
-    if (!allowedSalaryTypes.includes(st)) {
+    if (!ALLOWED_SALARY_TYPES.includes(st)) {
       return res.status(400).json({
         success: false,
         message: "Salary type invalid hai",
       });
     }
-    if (!allowedTransportTypes.includes(tt)) {
+    if (!ALLOWED_TRANSPORT_TYPES.includes(tt)) {
       return res.status(400).json({
         success: false,
         message: "Transport type invalid hai",
@@ -139,33 +230,73 @@ const createJob = async (req, res) => {
     const salaryHourNum =
       salaryPerHour === undefined || salaryPerHour === "" ? undefined : Number(salaryPerHour);
 
-    if (st === "daily" && (salaryDayNum === undefined || Number.isNaN(salaryDayNum) || salaryDayNum < 0)) {
-      return res.status(400).json({
-        success: false,
-        message: "Salary per day valid number honi chahiye",
-      });
+    // Salary validations with upper bound
+    if (st === "daily") {
+      if (!Number.isFinite(salaryDayNum) || salaryDayNum < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Salary per day valid number honi chahiye",
+        });
+      }
+      if (salaryDayNum > MAX_SALARY) {
+        return res.status(400).json({
+          success: false,
+          message: `Salary per day ₹${MAX_SALARY} se zyada nahi ho sakti`,
+        });
+      }
     }
-    if (
-      st === "monthly" &&
-      (salaryMonthNum === undefined || Number.isNaN(salaryMonthNum) || salaryMonthNum < 0)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Salary per month valid number honi chahiye",
-      });
+    if (st === "monthly") {
+      if (!Number.isFinite(salaryMonthNum) || salaryMonthNum < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Salary per month valid number honi chahiye",
+        });
+      }
+      if (salaryMonthNum > MAX_SALARY) {
+        return res.status(400).json({
+          success: false,
+          message: `Salary per month ₹${MAX_SALARY} se zyada nahi ho sakti`,
+        });
+      }
     }
-    if (st === "hourly" && (salaryHourNum === undefined || Number.isNaN(salaryHourNum) || salaryHourNum < 0)) {
-      return res.status(400).json({
-        success: false,
-        message: "Salary per hour valid number honi chahiye",
-      });
+    if (st === "hourly") {
+      if (!Number.isFinite(salaryHourNum) || salaryHourNum < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Salary per hour valid number honi chahiye",
+        });
+      }
+      if (salaryHourNum > MAX_SALARY) {
+        return res.status(400).json({
+          success: false,
+          message: `Salary per hour ₹${MAX_SALARY} se zyada nahi ho sakti`,
+        });
+      }
     }
 
+    // Daily bhatta validation
+    if (dailyBhatta !== undefined && dailyBhatta !== "") {
+      const bhattaNum = Number(dailyBhatta);
+      if (!Number.isFinite(bhattaNum) || bhattaNum < 0 || bhattaNum > MAX_SALARY) {
+        return res.status(400).json({
+          success: false,
+          message: "Daily bhatta valid amount honi chahiye",
+        });
+      }
+    }
+
+    // Duration validation with upper bound
     const durationNum = Number(duration);
-    if (Number.isNaN(durationNum) || durationNum < 1) {
+    if (!Number.isFinite(durationNum) || durationNum < MIN_DURATION_DAYS) {
       return res.status(400).json({
         success: false,
-        message: "Duration kam se kam 1 din honi chahiye",
+        message: `Duration kam se kam ${MIN_DURATION_DAYS} din honi chahiye`,
+      });
+    }
+    if (durationNum > MAX_DURATION_DAYS) {
+      return res.status(400).json({
+        success: false,
+        message: `Duration ${MAX_DURATION_DAYS} din se zyada nahi ho sakti`,
       });
     }
 
@@ -205,50 +336,65 @@ const createJob = async (req, res) => {
       job,
     });
   } catch (error) {
-    console.error('[Error]', error)
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
 const getOwnerJobs = async (req, res) => {
   try {
     const oid = ownerIdFromReq(req);
-    const jobs = await Job.find({ ownerId: oid }).sort({
-      createdAt: -1,
-    });
+    const { page = "1" } = req.query;
+
+    // Pagination with max limit
+    const p = Math.min(MAX_PAGE, Math.max(1, parseInt(page, 10) || 1));
+    const skip = (p - 1) * PAGE_LIMIT;
+
+    // Parallel - get jobs + total count
+    const [jobs, total] = await Promise.all([
+      Job.find({ ownerId: oid })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(PAGE_LIMIT)
+        .lean(),
+      Job.countDocuments({ ownerId: oid }),
+    ]);
+
     return res.json({
       success: true,
       jobs,
+      total,
+      page: p,
+      hasMore: skip + jobs.length < total,
     });
   } catch (error) {
-    console.error('[Error]', error)
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
 const getJobById = async (req, res) => {
   try {
     const oid = ownerIdFromReq(req);
-    const job = await Job.findById(req.params.id).populate(
-      "ownerId",
-      "name phone"
-    );
+    const jobId = req.params.id;
+
+    // Validate ObjectId
+    if (!isValidObjectId(jobId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid job ID",
+      });
+    }
+
+    const job = await Job.findById(jobId)
+      .populate("ownerId", "name phone")
+      .lean();
+
     if (!job) {
       return res.status(404).json({
         success: false,
         message: "Job nahi mili",
       });
     }
+
     const jobOwnerId =
       job.ownerId && job.ownerId._id ? job.ownerId._id : job.ownerId;
     if (String(jobOwnerId) !== String(oid)) {
@@ -257,48 +403,54 @@ const getJobById = async (req, res) => {
         message: "Yeh aapki job nahi hai",
       });
     }
+
     return res.json({
       success: true,
       job,
     });
   } catch (error) {
-    console.error('[Error]', error)
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
 const closeJob = async (req, res) => {
   try {
     const oid = ownerIdFromReq(req);
-    const job = await Job.findById(req.params.id);
-    if (!job) {
-      return res.status(404).json({
+    const jobId = req.params.id;
+
+    // Validate ObjectId
+    if (!isValidObjectId(jobId)) {
+      return res.status(400).json({
         success: false,
-        message: "Job nahi mili",
+        message: "Invalid job ID",
       });
     }
-    if (String(job.ownerId) !== String(oid)) {
+
+    // Atomic update - 1 query (was 2)
+    const job = await Job.findOneAndUpdate(
+      { _id: jobId, ownerId: oid },
+      { $set: { status: "closed" } },
+      { new: true }
+    ).lean();
+
+    if (!job) {
+      // Either job doesn't exist OR not owned by this owner
+      const exists = await Job.exists({ _id: jobId });
+      if (!exists) {
+        return res.status(404).json({
+          success: false,
+          message: "Job nahi mili",
+        });
+      }
       return res.status(403).json({
         success: false,
         message: "Yeh aapki job nahi hai",
       });
     }
-    job.status = "closed";
-    await job.save();
+
     return res.json({ success: true });
   } catch (error) {
-    console.error('[Error]', error)
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 

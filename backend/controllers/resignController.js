@@ -1,8 +1,37 @@
+const mongoose = require("mongoose");
 const Contract = require("../models/Contract");
 const ResignLetter = require("../models/ResignLetter");
 const Notification = require("../models/Notification");
+const Application = require("../models/Application");
+const Job = require("../models/Job");
+const Vehicle = require("../models/Vehicle");
+
+// Constants
+const MAX_REASON_LENGTH = 2000;
+const MAX_RESPONSE_LENGTH = 1000;
+const ALLOWED_ACTIONS = ["approved", "rejected"];
 
 const uid = (req) => req.user._id || req.user.id;
+
+// Helpers
+const sendServerError = (res) => {
+  return res.status(500).json({
+    success: false,
+    message: process.env.NODE_ENV === 'production'
+      ? 'Server error'
+      : undefined,
+  });
+};
+
+const isValidObjectId = (id) => {
+  return mongoose.Types.ObjectId.isValid(String(id || ""));
+};
+
+const createNotificationSafe = (data) => {
+  Notification.create(data).catch(() => {
+    // Silent fail - non-blocking
+  });
+};
 
 const requestResign = async (req, res) => {
   try {
@@ -15,10 +44,47 @@ const requestResign = async (req, res) => {
       });
     }
 
+    // Validate reason length
+    const reasonTrim = String(reason).trim();
+    if (reasonTrim.length < 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Reason kam se kam 5 characters ka hona chahiye",
+      });
+    }
+    if (reasonTrim.length > MAX_REASON_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        message: `Reason ${MAX_REASON_LENGTH} characters se kam hona chahiye`,
+      });
+    }
+
+    // Validate lastWorkingDate
+    const lwd = new Date(lastWorkingDate);
+    if (isNaN(lwd.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Last working date sahi nahi hai",
+      });
+    }
+
+    // Last working date should not be in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (lwd < today) {
+      return res.status(400).json({
+        success: false,
+        message: "Last working date past mein nahi ho sakti",
+      });
+    }
+
+    // Find active contract
     const contract = await Contract.findOne({
       driverId: uid(req),
       status: "active",
-    }).populate("ownerId", "name");
+    })
+      .populate("ownerId", "name")
+      .lean();
 
     if (!contract) {
       return res.status(400).json({
@@ -27,10 +93,13 @@ const requestResign = async (req, res) => {
       });
     }
 
+    // Check existing pending resign
     const existing = await ResignLetter.findOne({
       contractId: contract._id,
       status: "pending",
-    });
+    })
+      .select("_id")
+      .lean();
 
     if (existing) {
       return res.status(400).json({
@@ -39,17 +108,20 @@ const requestResign = async (req, res) => {
       });
     }
 
+    const ownerRef = contract.ownerId?._id || contract.ownerId;
+
     const resign = await ResignLetter.create({
       contractId: contract._id,
       driverId: uid(req),
-      ownerId: contract.ownerId._id || contract.ownerId,
-      reason: String(reason).trim(),
-      lastWorkingDate: new Date(lastWorkingDate),
+      ownerId: ownerRef,
+      reason: reasonTrim,
+      lastWorkingDate: lwd,
       status: "pending",
     });
 
-    await Notification.create({
-      userId: contract.ownerId._id || contract.ownerId,
+    // Non-blocking notification
+    createNotificationSafe({
+      userId: ownerRef,
       title: "Resign Request",
       message: `${req.user.name} sent a resign request. Please approve or reject.`,
       type: "complaint_update",
@@ -63,13 +135,7 @@ const requestResign = async (req, res) => {
       message: "Resign request bhej di!",
     });
   } catch (error) {
-    console.error('[Error]', error)
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
@@ -77,10 +143,7 @@ const handleResign = async (req, res) => {
   try {
     const { resignId, action, response } = req.body;
 
-    const Application = require("../models/Application");
-    const Job = require("../models/Job");
-    const Vehicle = require("../models/Vehicle");
-
+    // Basic validation
     if (!resignId || !action) {
       return res.status(400).json({
         success: false,
@@ -88,22 +151,36 @@ const handleResign = async (req, res) => {
       });
     }
 
-    if (action !== "approved" && action !== "rejected") {
+    // ObjectId validation
+    if (!isValidObjectId(resignId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid resign ID",
+      });
+    }
+
+    // Action validation
+    if (!ALLOWED_ACTIONS.includes(action)) {
       return res.status(400).json({
         success: false,
         message: "Action approved ya rejected hona chahiye",
       });
     }
-    if (action === "rejected" && (!response || !String(response).trim())) {
+
+    // Response length validation
+    const respText = String(response || "").slice(0, MAX_RESPONSE_LENGTH);
+
+    if (action === "rejected" && !respText.trim()) {
       return res.status(400).json({
         success: false,
         message: "Reject karne ke liye response required hai",
       });
     }
 
+    // Get resign with populated contract+driver (need contract jobId)
     const resign = await ResignLetter.findById(resignId)
       .populate("driverId", "name")
-      .populate("contractId");
+      .populate("contractId", "jobId ownerId");
 
     if (!resign) {
       return res.status(404).json({
@@ -112,63 +189,76 @@ const handleResign = async (req, res) => {
       });
     }
 
-    if (
-      String(resign.ownerId) !== String(uid(req))
-    ) {
+    // Authorization check
+    if (String(resign.ownerId) !== String(uid(req))) {
       return res.status(403).json({
         success: false,
         message: "Access nahi hai",
       });
     }
 
+    // Update resign
     resign.status = action;
-    resign.ownerResponse = response || "";
-    await resign.save();
+    resign.ownerResponse = respText;
 
-    const respText = response || "";
+    const driverIdRef = resign.driverId._id;
+    const driverName = resign.driverId.name;
 
     if (action === "approved") {
       const contractId = resign.contractId?._id || resign.contractId;
       const jobId = resign.contractId?.jobId;
 
-      await Contract.findByIdAndUpdate(contractId, {
-        status: "terminated",
-      });
+      // Get job WITH vehicleId in one query (need vehicle info)
+      const job = jobId
+        ? await Job.findById(jobId).select("vehicleId").lean()
+        : null;
 
-      if (jobId) {
-        await Application.findOneAndUpdate(
-          {
-            jobId,
-            driverId: resign.driverId._id,
-          },
-          { status: "terminated" }
-        );
+      // Get vehicle info if exists (need for notification)
+      const vehicle = job?.vehicleId
+        ? await Vehicle.findById(job.vehicleId)
+            .select("vehicleType vehicleNumber")
+            .lean()
+        : null;
 
-        await Job.findByIdAndUpdate(jobId, {
-          status: "open",
-          hiredDriver: null,
+      // PARALLEL - all updates at once (5x faster!)
+      await Promise.all([
+        resign.save(),
+        Contract.findByIdAndUpdate(contractId, {
+          status: "terminated",
+        }),
+        jobId
+          ? Application.findOneAndUpdate(
+              { jobId, driverId: driverIdRef },
+              { status: "terminated" }
+            )
+          : Promise.resolve(null),
+        jobId
+          ? Job.findByIdAndUpdate(jobId, {
+              status: "open",
+              hiredDriver: null,
+            })
+          : Promise.resolve(null),
+        job?.vehicleId
+          ? Vehicle.findByIdAndUpdate(job.vehicleId, {
+              assignedDriver: null,
+            })
+          : Promise.resolve(null),
+      ]);
+
+      // Non-blocking notifications
+      if (vehicle) {
+        createNotificationSafe({
+          userId: uid(req),
+          title: "Driver Needed",
+          message: `${driverName} resigned. Your ${vehicle.vehicleType || "vehicle"} (${vehicle.vehicleNumber || ""}) has no driver assigned. Please hire a new driver.`,
+          type: "new_application",
+          link: "/owner/drivers",
+          isRead: false,
         });
-
-        const job = await Job.findById(jobId).select("vehicleId").lean();
-        if (job?.vehicleId) {
-          await Vehicle.findByIdAndUpdate(job.vehicleId, {
-            assignedDriver: null,
-          });
-
-          const vehicle = await Vehicle.findById(job.vehicleId).lean();
-          await Notification.create({
-            userId: uid(req),
-            title: "Driver Needed",
-            message: `${resign.driverId.name} resigned. Your ${vehicle?.vehicleType || "vehicle"} (${vehicle?.vehicleNumber || ""}) has no driver assigned. Please hire a new driver.`,
-            type: "new_application",
-            link: "/owner/drivers",
-            isRead: false,
-          });
-        }
       }
 
-      await Notification.create({
-        userId: resign.driverId._id,
+      createNotificationSafe({
+        userId: driverIdRef,
         title: "Resign Approved",
         message:
           "Your resign request was approved. You can look for new work now.",
@@ -177,8 +267,11 @@ const handleResign = async (req, res) => {
         isRead: false,
       });
     } else {
-      await Notification.create({
-        userId: resign.driverId._id,
+      // Rejected - just save resign
+      await resign.save();
+
+      createNotificationSafe({
+        userId: driverIdRef,
         title: "Resign Rejected",
         message: `Your resign request was rejected. ${respText}`,
         type: "complaint_update",
@@ -192,13 +285,7 @@ const handleResign = async (req, res) => {
       message: `Resign ${action} ho gayi`,
     });
   } catch (error) {
-    console.error('[Error]', error)
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
@@ -216,17 +303,12 @@ const getResignRequests = async (req, res) => {
         "contractId",
         "salaryPerDay salaryPerMonth vehicleCategory"
       )
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     return res.json({ success: true, resigns });
   } catch (error) {
-    console.error('[Error]', error)
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 

@@ -1,6 +1,41 @@
+const mongoose = require('mongoose')
+const TripRecord = require('../models/TripRecord')
+const Contract = require('../models/Contract')
+const Notification = require('../models/Notification')
+const RepairRequest = require('../models/RepairRequest')
+
+// Constants
+const ACTIVE_STATUSES = ['draft', 'active']
+const ALLOWED_EXPENSE_TYPES = new Set([
+  'diesel', 'toll', 'police', 'khana', 'repair', 'other',
+])
+const ALLOWED_REVIEW_ACTIONS = ['approved', 'rejected']
+const MAX_DESCRIPTION_LENGTH = 1000
+const MAX_NOTE_LENGTH = 500
+const MAX_LOCATION_LENGTH = 200
+const MAX_AMOUNT = 1000000
+
 const tripUid = (req) => req.user._id || req.user.id
 
-const ACTIVE_STATUSES = ['draft', 'active']
+// Helpers
+const sendServerError = (res) => {
+  return res.status(500).json({
+    success: false,
+    message: process.env.NODE_ENV === 'production'
+      ? 'Server error'
+      : undefined,
+  })
+}
+
+const isValidObjectId = (id) => {
+  return mongoose.Types.ObjectId.isValid(String(id || ''))
+}
+
+const createNotificationSafe = (data) => {
+  Notification.create(data).catch(() => {
+    // Silent fail - non-blocking
+  })
+}
 
 const recalcExpenseTotal = (trip) =>
   (trip.expenses || []).reduce(
@@ -16,22 +51,11 @@ const recalcRepairTotal = (trip) =>
 
 const normalizeExpenseType = (body) => {
   const raw = body.type || body.category || 'other'
-  const allowed = new Set([
-    'diesel',
-    'toll',
-    'police',
-    'khana',
-    'repair',
-    'other',
-  ])
-  return allowed.has(String(raw)) ? String(raw) : 'other'
+  return ALLOWED_EXPENSE_TYPES.has(String(raw)) ? String(raw) : 'other'
 }
 
 const createTrip = async (req, res) => {
   try {
-    const TripRecord = require('../models/TripRecord')
-    const Contract = require('../models/Contract')
-
     const {
       tripDate,
       fromLocation,
@@ -48,7 +72,7 @@ const createTrip = async (req, res) => {
       driverId: uid,
       status: 'active',
       vehicleCategory: 'transport',
-    })
+    }).lean()
 
     if (!contract) {
       return res.status(400).json({
@@ -61,7 +85,8 @@ const createTrip = async (req, res) => {
       contractId: contract._id,
       driverId: uid,
       status: { $in: ACTIVE_STATUSES },
-    })
+    }).select('_id').lean()
+
     if (openTrip) {
       return res.status(400).json({
         success: false,
@@ -69,9 +94,11 @@ const createTrip = async (req, res) => {
       })
     }
 
-    const fromVal = fromLocation || from || ''
-    const toVal = toLocation || to || ''
-    const cargoVal = cargo || ''
+    // Sanitize + length limits
+    const fromVal = String(fromLocation || from || '').slice(0, MAX_LOCATION_LENGTH)
+    const toVal = String(toLocation || to || '').slice(0, MAX_LOCATION_LENGTH)
+    const cargoVal = String(cargo || '').slice(0, MAX_LOCATION_LENGTH)
+    const descVal = String(description || cargoVal || '').slice(0, MAX_DESCRIPTION_LENGTH)
 
     const trip = await TripRecord.create({
       contractId: contract._id,
@@ -84,7 +111,7 @@ const createTrip = async (req, res) => {
       from: fromVal,
       to: toVal,
       cargo: cargoVal,
-      description: description || cargoVal || '',
+      description: descVal,
       expenses: [],
       repairs: [],
       totalExpenses: 0,
@@ -98,24 +125,29 @@ const createTrip = async (req, res) => {
       message: 'Trip start ho gaya!',
     })
   } catch (error) {
-    console.error('[Error]', error)
-    res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res)
   }
 }
 
 const addExpense = async (req, res) => {
   try {
-    const TripRecord = require('../models/TripRecord')
-
-    const { tripId, amount, note, image, photo, description } =
-      req.body
-
+    const { tripId, amount, note, image, photo, description } = req.body
     const uid = tripUid(req)
+
+    if (!isValidObjectId(tripId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid trip ID',
+      })
+    }
+
+    const amtNum = Number(amount) || 0
+    if (amtNum < 0 || amtNum > MAX_AMOUNT) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount valid honi chahiye',
+      })
+    }
 
     const trip = await TripRecord.findOne({
       _id: tripId,
@@ -151,12 +183,13 @@ const addExpense = async (req, res) => {
     }
     const imgVal = uploadUrl || image || photo || ''
 
+    const noteTrim = String(noteVal).slice(0, MAX_NOTE_LENGTH)
     trip.expenses.push({
       type: expType,
       category: expType,
-      amount: Number(amount) || 0,
-      note: noteVal,
-      description: noteVal,
+      amount: amtNum,
+      note: noteTrim,
+      description: noteTrim,
       image: imgVal,
       photo: imgVal,
       addedAt: new Date(),
@@ -171,22 +204,29 @@ const addExpense = async (req, res) => {
       trip,
     })
   } catch (error) {
-    console.error('[Error]', error)
-    res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res)
   }
 }
 
 const addRepair = async (req, res) => {
   try {
-    const TripRecord = require('../models/TripRecord')
-
     const { tripId, description, amount, image } = req.body
     const uid = tripUid(req)
+
+    if (!isValidObjectId(tripId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid trip ID',
+      })
+    }
+
+    const amtNum = Number(amount) || 0
+    if (amtNum < 0 || amtNum > MAX_AMOUNT) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount valid honi chahiye',
+      })
+    }
 
     const trip = await TripRecord.findOne({
       _id: tripId,
@@ -209,8 +249,8 @@ const addRepair = async (req, res) => {
 
     trip.repairs = trip.repairs || []
     trip.repairs.push({
-      description: description != null ? String(description) : '',
-      amount: Number(amount) || 0,
+      description: String(description ?? '').slice(0, MAX_DESCRIPTION_LENGTH),
+      amount: amtNum,
       image: imageUrl || image || '',
       addedAt: new Date(),
     })
@@ -223,24 +263,21 @@ const addRepair = async (req, res) => {
       trip,
     })
   } catch (error) {
-    console.error('[Error]', error)
-    res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res)
   }
 }
 
 const completeTrip = async (req, res) => {
   try {
-    const TripRecord = require('../models/TripRecord')
-    const Notification = require('../models/Notification')
-    const Contract = require('../models/Contract')
-
     const { tripId } = req.body
     const uid = tripUid(req)
+
+    if (!isValidObjectId(tripId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid trip ID',
+      })
+    }
 
     const trip = await TripRecord.findOne({
       _id: tripId,
@@ -265,14 +302,14 @@ const completeTrip = async (req, res) => {
     trip.submittedAt = new Date()
     await trip.save()
 
-    const contract = await Contract.findById(trip.contractId)
-    const ownerRef = contract?.ownerId || trip.ownerId
-    const fromLabel =
-      trip.fromLocation || trip.from || '—'
+    // Use already-populated contract from trip (avoid extra query)
+    const ownerRef = trip.contractId?.ownerId || trip.ownerId
+    const fromLabel = trip.fromLocation || trip.from || '—'
     const toLabel = trip.toLocation || trip.to || '—'
 
     if (ownerRef) {
-      await Notification.create({
+      // Non-blocking notification
+      createNotificationSafe({
         userId: ownerRef,
         title: 'Trip Submitted',
         message: `${trip.driverId?.name || 'Driver'} submitted a trip. ${fromLabel} → ${toLabel}. Total expense: ₹${totalExpenses}`,
@@ -288,52 +325,39 @@ const completeTrip = async (req, res) => {
       trip,
     })
   } catch (error) {
-    console.error('[Error]', error)
-    res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res)
   }
 }
 
 const getActiveTrip = async (req, res) => {
   try {
-    const TripRecord = require('../models/TripRecord')
     const uid = tripUid(req)
 
     const trip = await TripRecord.findOne({
       driverId: uid,
       status: { $in: ACTIVE_STATUSES },
-    }).sort({ createdAt: -1 })
+    })
+      .sort({ createdAt: -1 })
+      .lean()
 
     res.json({
       success: true,
       trip: trip || null,
     })
   } catch (error) {
-    console.error('[Error]', error)
-    res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res)
   }
 }
 
 const getDriverTrips = async (req, res) => {
   try {
-    const TripRecord = require('../models/TripRecord')
-    const Contract = require('../models/Contract')
     const uid = tripUid(req)
 
     const contract = await Contract.findOne({
       driverId: uid,
       status: 'active',
       vehicleCategory: 'transport',
-    })
+    }).lean()
 
     if (!contract) {
       return res.json({
@@ -349,6 +373,7 @@ const getDriverTrips = async (req, res) => {
     })
       .populate('ownerId', 'name phone')
       .sort({ createdAt: -1 })
+      .lean()
 
     res.json({
       success: true,
@@ -356,53 +381,37 @@ const getDriverTrips = async (req, res) => {
       contract,
     })
   } catch (error) {
-    console.error('[Error]', error)
-    res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res)
   }
 }
 
 const getOwnerTrips = async (req, res) => {
   try {
-    const TripRecord = require('../models/TripRecord')
     const uid = tripUid(req)
 
     const trips = await TripRecord.find({
       ownerId: uid,
       status: {
-        $in: [
-          'submitted',
-          'approved',
-          'rejected',
-          'partial',
-        ],
+        $in: ['submitted', 'approved', 'rejected', 'partial'],
       },
     })
       .populate('driverId', 'name phone')
       .sort({ submittedAt: -1, createdAt: -1 })
+      .lean()
 
     res.json({
       success: true,
       trips,
     })
   } catch (error) {
-    console.error('[Error]', error)
-    res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res)
   }
 }
 
 const assertOwnerTrip = async (trip, ownerUid) => {
-  const Contract = require('../models/Contract')
   const contract = await Contract.findById(trip.contractId)
+    .select('ownerId')
+    .lean()
   if (!contract || String(contract.ownerId) !== String(ownerUid)) {
     return false
   }
@@ -411,9 +420,6 @@ const assertOwnerTrip = async (trip, ownerUid) => {
 
 const handleTrip = async (req, res) => {
   try {
-    const TripRecord = require('../models/TripRecord')
-    const Notification = require('../models/Notification')
-
     const {
       tripId,
       action,
@@ -423,6 +429,20 @@ const handleTrip = async (req, res) => {
       ownerNote,
     } = req.body
     const uid = tripUid(req)
+
+    if (!isValidObjectId(tripId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid trip ID',
+      })
+    }
+
+    if (!ALLOWED_REVIEW_ACTIONS.includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Action approved ya rejected ho sakti hai',
+      })
+    }
 
     const trip = await TripRecord.findById(tripId).populate(
       'driverId',
@@ -452,7 +472,7 @@ const handleTrip = async (req, res) => {
 
     const act = action === 'approved' ? 'approved' : 'rejected'
     trip.status = act
-    trip.ownerNote = String(note ?? ownerNote ?? '').trim()
+    trip.ownerNote = String(note ?? ownerNote ?? '').trim().slice(0, MAX_NOTE_LENGTH)
 
     const approvedNum =
       act === 'approved'
@@ -468,12 +488,10 @@ const handleTrip = async (req, res) => {
 
     const driverRef = trip.driverId?._id || trip.driverId
     if (driverRef) {
-      await Notification.create({
+      // Non-blocking notification
+      createNotificationSafe({
         userId: driverRef,
-        title:
-          act === 'approved'
-            ? 'Trip Approved'
-            : 'Trip Rejected',
+        title: act === 'approved' ? 'Trip Approved' : 'Trip Rejected',
         message:
           act === 'approved'
             ? `Your trip was approved. Amount: ₹${trip.approvedAmount}`
@@ -490,13 +508,7 @@ const handleTrip = async (req, res) => {
       trip,
     })
   } catch (error) {
-    console.error('[Error]', error)
-    res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res)
   }
 }
 
@@ -506,24 +518,32 @@ const reviewTrip = handleTrip
 
 const createRepairRequest = async (req, res) => {
   try {
-    const RepairRequest = require('../models/RepairRequest')
-    const Contract = require('../models/Contract')
-    const Notification = require('../models/Notification')
-
     const { description, amount } = req.body
     const uid = tripUid(req)
 
-    if (!description || !amount) {
+    if (!description || amount === undefined || amount === '') {
       return res.status(400).json({
         success: false,
         message: 'Description aur amount required hai',
       })
     }
 
+    const amtNum = Number(amount)
+    if (!Number.isFinite(amtNum) || amtNum < 0 || amtNum > MAX_AMOUNT) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount valid honi chahiye',
+      })
+    }
+
+    const descTrim = String(description).trim().slice(0, MAX_DESCRIPTION_LENGTH)
+
     const contract = await Contract.findOne({
       driverId: uid,
       status: 'active',
     })
+      .select('_id ownerId')
+      .lean()
 
     if (!contract) {
       return res.status(400).json({
@@ -536,15 +556,16 @@ const createRepairRequest = async (req, res) => {
       contractId: contract._id,
       driverId: uid,
       ownerId: contract.ownerId,
-      description,
-      amount: Number(amount),
+      description: descTrim,
+      amount: amtNum,
       status: 'pending',
     })
 
-    await Notification.create({
+    // Non-blocking notification
+    createNotificationSafe({
       userId: contract.ownerId,
       title: 'Repair Requested',
-      message: `The driver requested a repair of ₹${amount}: ${description}`,
+      message: `The driver requested a repair of ₹${amtNum}: ${descTrim}`,
       type: 'payment_received',
       link: '/owner/trips',
       isRead: false,
@@ -556,29 +577,46 @@ const createRepairRequest = async (req, res) => {
       message: 'Repair request bhej di!',
     })
   } catch (error) {
-    console.error('[Error]', error)
-    res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res)
   }
 }
 
 const reviewRepairRequest = async (req, res) => {
   try {
-    const RepairRequest = require('../models/RepairRequest')
-    const Notification = require('../models/Notification')
-
     const { repairId, action, ownerNote } = req.body
     const uid = tripUid(req)
 
-    const repair = await RepairRequest.findOne({
-      _id: repairId,
-      ownerId: uid,
-      status: 'pending',
-    })
+    if (!isValidObjectId(repairId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid repair ID',
+      })
+    }
+
+    if (!ALLOWED_REVIEW_ACTIONS.includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Action approved ya rejected ho sakti hai',
+      })
+    }
+
+    const noteTrim = String(ownerNote || '').slice(0, MAX_NOTE_LENGTH)
+
+    const repair = await RepairRequest.findOneAndUpdate(
+      {
+        _id: repairId,
+        ownerId: uid,
+        status: 'pending',
+      },
+      {
+        $set: {
+          status: action,
+          ownerNote: noteTrim,
+          reviewedAt: new Date(),
+        },
+      },
+      { new: true }
+    )
 
     if (!repair) {
       return res.status(404).json({
@@ -587,19 +625,14 @@ const reviewRepairRequest = async (req, res) => {
       })
     }
 
-    repair.status = action
-    repair.ownerNote = ownerNote || ''
-    repair.reviewedAt = new Date()
-    await repair.save()
-
-    await Notification.create({
+    // Non-blocking notification
+    createNotificationSafe({
       userId: repair.driverId,
-      title:
-        action === 'approved' ? 'Repair Approved' : 'Repair Rejected',
+      title: action === 'approved' ? 'Repair Approved' : 'Repair Rejected',
       message:
         action === 'approved'
           ? `Your ₹${repair.amount} repair was approved.`
-          : `Repair rejected: ${ownerNote}`,
+          : `Repair rejected: ${noteTrim}`,
       type: 'payment_received',
       link: '/driver/trips',
       isRead: false,
@@ -610,13 +643,7 @@ const reviewRepairRequest = async (req, res) => {
       message: `Repair ${action} ho gayi!`,
     })
   } catch (error) {
-    console.error('[Error]', error)
-    res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res)
   }
 }
 

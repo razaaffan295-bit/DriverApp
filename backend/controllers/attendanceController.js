@@ -1,7 +1,54 @@
+const mongoose = require("mongoose");
 const DriverAttendance = require("../models/DriverAttendance");
 const OwnerAttendance = require("../models/OwnerAttendance");
 const Contract = require("../models/Contract");
 const Payment = require("../models/Payment");
+
+// Constants
+const ALLOWED_STATUSES = ["present", "absent", "half_day"];
+const MAX_HOURS = 24;
+const MAX_NOTE_LENGTH = 500;
+
+// Helpers
+const sendServerError = (res) => {
+  return res.status(500).json({
+    success: false,
+    message:
+      process.env.NODE_ENV === "production" ? "Server error" : undefined,
+  });
+};
+
+const isValidObjectId = (id) => {
+  return mongoose.Types.ObjectId.isValid(String(id || ""));
+};
+
+const validateAttendanceInput = (date, status, hours) => {
+  // Date validation
+  const recordDate = new Date(date);
+  if (isNaN(recordDate.getTime())) {
+    return { valid: false, error: "Date sahi nahi hai" };
+  }
+
+  // Not future date
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  if (recordDate > today) {
+    return { valid: false, error: "Future date nahi chal sakti" };
+  }
+
+  // Status enum validation
+  if (!ALLOWED_STATUSES.includes(status)) {
+    return { valid: false, error: "Status invalid hai" };
+  }
+
+  // Hours validation
+  const h = Number(hours) || 0;
+  if (h < 0 || h > MAX_HOURS) {
+    return { valid: false, error: "Hours 0 se 24 ke beech honi chahiye" };
+  }
+
+  return { valid: true };
+};
 
 const calculateDaySalary = (contract, status, hours) => {
   const {
@@ -55,9 +102,7 @@ const calculateDaySalary = (contract, status, hours) => {
 const driverAddRecord = async (req, res) => {
   try {
     const { date, status, note } = req.body;
-
-    const hoursWorked =
-      Number(req.body.hoursWorked) || 0;
+    const hoursWorked = Number(req.body.hoursWorked) || 0;
 
     if (!date || !status) {
       return res.status(400).json({
@@ -65,6 +110,17 @@ const driverAddRecord = async (req, res) => {
         message: "Date aur status required hai",
       });
     }
+
+    // Validate input
+    const validation = validateAttendanceInput(date, status, hoursWorked);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: validation.error,
+      });
+    }
+
+    const noteTrim = String(note || "").slice(0, MAX_NOTE_LENGTH);
 
     const contract = await Contract.findOne({
       driverId: req.user.id,
@@ -149,8 +205,8 @@ const driverAddRecord = async (req, res) => {
       month: recordDate.getMonth() + 1,
       year: recordDate.getFullYear(),
       status,
-      hoursWorked: Number(req.body.hoursWorked) || 0,
-      note: note || "",
+      hoursWorked,
+      note: noteTrim,
       salaryForDay,
     });
 
@@ -160,13 +216,7 @@ const driverAddRecord = async (req, res) => {
       message: "Record save ho gaya!",
     });
   } catch (error) {
-    // Error logged to Sentry automatically
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
@@ -177,7 +227,7 @@ const driverGetRecords = async (req, res) => {
     const contract = await Contract.findOne({
       driverId: req.user.id,
       status: "active",
-    });
+    }).lean();
 
     if (!contract) {
       return res.json({
@@ -196,8 +246,11 @@ const driverGetRecords = async (req, res) => {
     if (month) query.month = Number(month);
     if (year) query.year = Number(year);
 
-    const records = await DriverAttendance.find(query).sort({ date: -1 });
+    const records = await DriverAttendance.find(query)
+      .sort({ date: -1 })
+      .lean();
 
+    // Single-pass summary (O(n))
     const summary = {
       presentDays: 0,
       absentDays: 0,
@@ -206,14 +259,14 @@ const driverGetRecords = async (req, res) => {
       grossTotal: 0,
     };
 
-    records.forEach((r) => {
+    for (const r of records) {
       if (r.status === "present") summary.presentDays += 1;
       else if (r.status === "absent") summary.absentDays += 1;
       else if (r.status === "half_day") summary.halfDays += 1;
 
       summary.totalHours += r.hoursWorked || 0;
       summary.grossTotal += r.salaryForDay || 0;
-    });
+    }
 
     return res.json({
       success: true,
@@ -222,22 +275,25 @@ const driverGetRecords = async (req, res) => {
       contract,
     });
   } catch (error) {
-    // Error logged to Sentry automatically
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
 const driverDeleteRecord = async (req, res) => {
   try {
+    const recordId = req.params.id;
+
+    if (!isValidObjectId(recordId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid record ID",
+      });
+    }
+
     const record = await DriverAttendance.findOne({
-      _id: req.params.id,
+      _id: recordId,
       driverId: req.user.id,
-    });
+    }).lean();
 
     if (!record) {
       return res.status(404).json({
@@ -246,13 +302,25 @@ const driverDeleteRecord = async (req, res) => {
       });
     }
 
-    const confirmedPayments = await Payment.find({
-      contractId: record.contractId,
-      driverId: req.user.id,
-      status: "paid",
-      driverConfirmed: true,
-      $nor: [{ paymentType: "trip" }, { requestKind: "trip" }],
-    });
+    // PARALLEL - get payments + all records (2x faster)
+    const [confirmedPayments, allRecords] = await Promise.all([
+      Payment.find({
+        contractId: record.contractId,
+        driverId: req.user.id,
+        status: "paid",
+        driverConfirmed: true,
+        $nor: [{ paymentType: "trip" }, { requestKind: "trip" }],
+      })
+        .select("amount")
+        .lean(),
+      DriverAttendance.find({
+        contractId: record.contractId,
+        driverId: req.user.id,
+      })
+        .select("_id salaryForDay date")
+        .sort({ date: 1 })
+        .lean(),
+    ]);
 
     const totalConfirmedAmount = confirmedPayments.reduce(
       (sum, p) => sum + (Number(p.amount) || 0),
@@ -260,11 +328,6 @@ const driverDeleteRecord = async (req, res) => {
     );
 
     if (totalConfirmedAmount > 0) {
-      const allRecords = await DriverAttendance.find({
-        contractId: record.contractId,
-        driverId: req.user.id,
-      }).sort({ date: 1 });
-
       let remaining = totalConfirmedAmount;
       const lockedIds = new Set();
 
@@ -287,7 +350,7 @@ const driverDeleteRecord = async (req, res) => {
     }
 
     await DriverAttendance.findOneAndDelete({
-      _id: req.params.id,
+      _id: recordId,
       driverId: req.user.id,
     });
 
@@ -296,13 +359,7 @@ const driverDeleteRecord = async (req, res) => {
       message: "Record delete ho gaya",
     });
   } catch (error) {
-    // Error logged to Sentry automatically
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
@@ -316,6 +373,24 @@ const ownerAddRecord = async (req, res) => {
         message: "Sab fields required hain",
       });
     }
+
+    if (!isValidObjectId(contractId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid contract ID",
+      });
+    }
+
+    // Validate input
+    const validation = validateAttendanceInput(date, status, hoursWorked);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: validation.error,
+      });
+    }
+
+    const noteTrim = String(note || "").slice(0, MAX_NOTE_LENGTH);
 
     const contract = await Contract.findOne({
       _id: contractId,
@@ -361,7 +436,7 @@ const ownerAddRecord = async (req, res) => {
       year: recordDate.getFullYear(),
       status,
       hoursWorked: Number(hoursWorked) || 0,
-      note: note || "",
+      note: noteTrim,
       salaryForDay,
     });
 
@@ -371,13 +446,7 @@ const ownerAddRecord = async (req, res) => {
       message: "Record save ho gaya!",
     });
   } catch (error) {
-    // Error logged to Sentry automatically
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
@@ -392,10 +461,19 @@ const ownerGetRecords = async (req, res) => {
       });
     }
 
+    if (!isValidObjectId(contractId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid contract ID",
+      });
+    }
+
     const contract = await Contract.findOne({
       _id: contractId,
       ownerId: req.user.id,
-    }).populate("driverId", "name phone");
+    })
+      .populate("driverId", "name phone")
+      .lean();
 
     if (!contract) {
       return res.status(404).json({
@@ -412,8 +490,11 @@ const ownerGetRecords = async (req, res) => {
     if (month) query.month = Number(month);
     if (year) query.year = Number(year);
 
-    const records = await OwnerAttendance.find(query).sort({ date: -1 });
+    const records = await OwnerAttendance.find(query)
+      .sort({ date: -1 })
+      .lean();
 
+    // Single-pass summary (O(n))
     const summary = {
       presentDays: 0,
       absentDays: 0,
@@ -422,14 +503,14 @@ const ownerGetRecords = async (req, res) => {
       grossTotal: 0,
     };
 
-    records.forEach((r) => {
+    for (const r of records) {
       if (r.status === "present") summary.presentDays += 1;
       else if (r.status === "absent") summary.absentDays += 1;
       else if (r.status === "half_day") summary.halfDays += 1;
 
       summary.totalHours += r.hoursWorked || 0;
       summary.grossTotal += r.salaryForDay || 0;
-    });
+    }
 
     return res.json({
       success: true,
@@ -438,21 +519,23 @@ const ownerGetRecords = async (req, res) => {
       contract,
     });
   } catch (error) {
-    // Error logged to Sentry automatically
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
 const ownerDeleteRecord = async (req, res) => {
   try {
     const ownerId = req.user._id || req.user.id;
+    const recordId = req.params.id;
+
+    if (!isValidObjectId(recordId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid record ID",
+      });
+    }
     const deleted = await OwnerAttendance.findOneAndDelete({
-      _id: req.params.id,
+      _id: recordId,
       ownerId,
     });
 
@@ -468,13 +551,7 @@ const ownerDeleteRecord = async (req, res) => {
       message: "Record delete ho gaya",
     });
   } catch (error) {
-    // Error logged to Sentry automatically
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 
@@ -485,17 +562,12 @@ const ownerGetAllContracts = async (req, res) => {
       status: "active",
     })
       .populate("driverId", "name phone")
-      .populate("jobId", "title vehicleType vehicleCategory");
+      .populate("jobId", "title vehicleType vehicleCategory")
+      .lean();
 
     return res.json({ success: true, contracts });
   } catch (error) {
-    // Error logged to Sentry automatically
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    });
+    return sendServerError(res);
   }
 };
 

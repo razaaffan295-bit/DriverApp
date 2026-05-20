@@ -1,6 +1,127 @@
 const { cloudinary } = require('../config/cloudinary')
 const streamifier = require('streamifier')
 const { jsPDF } = require('jspdf')
+const Contract = require('../models/Contract')
+const DriverAttendance = require('../models/DriverAttendance')
+const OwnerAttendance = require('../models/OwnerAttendance')
+const Payment = require('../models/Payment')
+const TripRecord = require('../models/TripRecord')
+
+// Constants
+const ALLOWED_PDF_TYPES = ['attendance', 'payment', 'trip', 'contract']
+
+const MAX_NAME_LENGTH = 200
+const MAX_TERMS_LENGTH = 10000
+const MAX_SAFETY_LENGTH = 5000
+const MAX_RECORDS_COUNT = 365 // 1 year max
+const MAX_LOCATION_LENGTH = 500
+const MAX_TITLE_LENGTH = 200
+
+// Helpers
+const sendServerError = (res) => {
+  return res.status(500).json({
+    success: false,
+    message: process.env.NODE_ENV === 'production'
+      ? 'Server error'
+      : undefined,
+  })
+}
+
+const sanitizeStr = (val, maxLen) => {
+  return String(val || '').slice(0, maxLen)
+}
+
+// Validate + sanitize data based on PDF type
+const validateAndSanitizeData = (type, data) => {
+  if (!data || typeof data !== 'object') {
+    return { valid: false, error: 'Data required' }
+  }
+
+  if (type === 'attendance') {
+    const records = Array.isArray(data.records) ? data.records : []
+    if (records.length > MAX_RECORDS_COUNT) {
+      return {
+        valid: false,
+        error: `Records ${MAX_RECORDS_COUNT} se zyada nahi ho sakte`,
+      }
+    }
+    return {
+      valid: true,
+      data: {
+        driverName: sanitizeStr(data.driverName, MAX_NAME_LENGTH),
+        month: Number(data.month) || 0,
+        year: Number(data.year) || 0,
+        presentDays: Number(data.presentDays) || 0,
+        absentDays: Number(data.absentDays) || 0,
+        halfDays: Number(data.halfDays) || 0,
+        grossTotal: Number(data.grossTotal) || 0,
+        records: records.slice(0, MAX_RECORDS_COUNT),
+      },
+    }
+  }
+
+  if (type === 'payment') {
+    return {
+      valid: true,
+      data: {
+        amount: Number(data.amount) || 0,
+        netAmount: Number(data.netAmount) || 0,
+        payoutMethod: sanitizeStr(data.payoutMethod, 50),
+        utrNumber: sanitizeStr(data.utrNumber, 100),
+        date: sanitizeStr(data.date, 100),
+        driverName: sanitizeStr(data.driverName, MAX_NAME_LENGTH),
+        ownerName: sanitizeStr(data.ownerName, MAX_NAME_LENGTH),
+        status: sanitizeStr(data.status, 50),
+      },
+    }
+  }
+
+  if (type === 'trip') {
+    return {
+      valid: true,
+      data: {
+        from: sanitizeStr(data.from, MAX_LOCATION_LENGTH),
+        to: sanitizeStr(data.to, MAX_LOCATION_LENGTH),
+        cargo: sanitizeStr(data.cargo, MAX_LOCATION_LENGTH),
+        date: sanitizeStr(data.date, 100),
+        totalExpenses: Number(data.totalExpenses) || 0,
+        totalRepairs: Number(data.totalRepairs) || 0,
+        grandTotal: Number(data.grandTotal) || 0,
+        approvedAmount: Number(data.approvedAmount) || 0,
+        driverName: sanitizeStr(data.driverName, MAX_NAME_LENGTH),
+        ownerName: sanitizeStr(data.ownerName, MAX_NAME_LENGTH),
+      },
+    }
+  }
+
+  if (type === 'contract') {
+    return {
+      valid: true,
+      data: {
+        createdAt: sanitizeStr(data.createdAt, 100),
+        ownerName: sanitizeStr(data.ownerName, MAX_NAME_LENGTH),
+        driverName: sanitizeStr(data.driverName, MAX_NAME_LENGTH),
+        jobTitle: sanitizeStr(data.jobTitle, MAX_TITLE_LENGTH),
+        vehicleType: sanitizeStr(data.vehicleType, 100),
+        workLocation: sanitizeStr(data.workLocation, MAX_LOCATION_LENGTH),
+        startDate: sanitizeStr(data.startDate, 100),
+        duration: Number(data.duration) || 0,
+        salaryType: sanitizeStr(data.salaryType, 50),
+        salary: sanitizeStr(data.salary, 100),
+        hasBhatta: Boolean(data.hasBhatta),
+        dailyBhatta: Number(data.dailyBhatta) || 0,
+        hasHourlyBonus: Boolean(data.hasHourlyBonus),
+        salaryPerHour: Number(data.salaryPerHour) || 0,
+        terms: sanitizeStr(data.terms, MAX_TERMS_LENGTH),
+        safetyConditions: sanitizeStr(data.safetyConditions, MAX_SAFETY_LENGTH),
+        driverSigned: Boolean(data.driverSigned),
+        driverSignedAt: sanitizeStr(data.driverSignedAt, 100),
+      },
+    }
+  }
+
+  return { valid: false, error: 'Invalid type' }
+}
 
 const generateAndUploadPDF = async (type, data) => {
   const doc = new jsPDF()
@@ -359,91 +480,72 @@ const generatePDF = async (req, res) => {
       })
     }
 
-    const allowedTypes = [
-      'attendance',
-      'payment',
-      'trip',
-      'contract',
-    ]
-    if (!allowedTypes.includes(type)) {
+    if (!ALLOWED_PDF_TYPES.includes(type)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid PDF type',
       })
     }
 
-    if (type === 'contract') {
-      const Contract = require('../models/Contract')
+    // Validate + sanitize data (SECURITY)
+    const validation = validateAndSanitizeData(type, data)
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: validation.error,
+      })
+    }
+    const safeData = validation.data
 
+    // Authorization check - user must have a record of this type
+    let hasRecord = false
+
+    if (type === 'contract') {
       const found = await Contract.findOne({
         $or: [{ ownerId: userId }, { driverId: userId }],
       })
-        .limit(1)
+        .select('_id')
         .lean()
-
-      if (!found) {
-        return res.status(403).json({
-          success: false,
-          message: 'No contract found for user',
-        })
-      }
-    }
-
-    if (type === 'attendance') {
-      const DriverAttendance = require('../models/DriverAttendance')
-      const OwnerAttendance = require('../models/OwnerAttendance')
-
+      hasRecord = !!found
+    } else if (type === 'attendance') {
+      // Parallel - check driver OR owner attendance
       const [drvAtt, ownAtt] = await Promise.all([
-        DriverAttendance.findOne({ driverId: userId }).lean(),
-        OwnerAttendance.findOne({ ownerId: userId }).lean(),
+        DriverAttendance.findOne({ driverId: userId })
+          .select('_id')
+          .lean(),
+        OwnerAttendance.findOne({ ownerId: userId })
+          .select('_id')
+          .lean(),
       ])
-
-      if (!drvAtt && !ownAtt) {
-        return res.status(403).json({
-          success: false,
-          message: 'No attendance records found',
-        })
-      }
-    }
-
-    if (type === 'payment') {
-      const Payment = require('../models/Payment')
+      hasRecord = !!(drvAtt || ownAtt)
+    } else if (type === 'payment') {
       const found = await Payment.findOne({
         $or: [{ driverId: userId }, { ownerId: userId }],
-      }).lean()
-
-      if (!found) {
-        return res.status(403).json({
-          success: false,
-          message: 'No payment records found',
-        })
-      }
-    }
-
-    if (type === 'trip') {
-      const TripRecord = require('../models/TripRecord')
+      })
+        .select('_id')
+        .lean()
+      hasRecord = !!found
+    } else if (type === 'trip') {
       const found = await TripRecord.findOne({
         $or: [{ driverId: userId }, { ownerId: userId }],
-      }).lean()
-
-      if (!found) {
-        return res.status(403).json({
-          success: false,
-          message: 'No trip records found',
-        })
-      }
+      })
+        .select('_id')
+        .lean()
+      hasRecord = !!found
     }
 
-    const url = await generateAndUploadPDF(type, data)
+    if (!hasRecord) {
+      return res.status(403).json({
+        success: false,
+        message: `No ${type} records found for user`,
+      })
+    }
+
+    // Generate + upload PDF with sanitized data
+    const url = await generateAndUploadPDF(type, safeData)
     return res.json({ success: true, url })
   } catch (error) {
-    console.error('[Error]', error)
-    return res.status(500).json({
-      success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Server error'
-        : error.message,
-    })
+    return sendServerError(res)
   }
 }
 
