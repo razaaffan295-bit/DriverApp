@@ -157,17 +157,36 @@ const OwnerApplications = () => {
 
   const handleAccept = useCallback(async (id) => {
     setAcceptId(id)
+    
+    // Optimistic UI update - instant feedback
+    setApplications((prev) =>
+      prev.map((app) =>
+        app._id === id 
+          ? { ...app, status: 'accepted', canCancelAccept: true } 
+          : app
+      )
+    )
+    
     try {
       await acceptApplication(id)
       toast.success(t('driverAccepted'))
       
-      // Clear caches - data changed
+      // Clear caches in background
       clearCache('owner_applications')
       clearCache('owner_dashboard')
       clearCache('owner_drivers')
       
-      await loadData(false)
+      // Silent reload to sync with backend (don't block UI)
+      loadData(true)
     } catch (e) {
+      // Revert optimistic update on error
+      setApplications((prev) =>
+        prev.map((app) =>
+          app._id === id 
+            ? { ...app, status: 'pending', canCancelAccept: false } 
+            : app
+        )
+      )
       toast.error(
         e.response?.data?.message || t('acceptError2')
       )
@@ -178,16 +197,30 @@ const OwnerApplications = () => {
 
   const handleReject = useCallback(async (id) => {
     setRejectId(id)
+    
+    // Optimistic UI update
+    setApplications((prev) =>
+      prev.map((app) =>
+        app._id === id ? { ...app, status: 'rejected' } : app
+      )
+    )
+    
     try {
       await rejectApplication(id)
       toast.success(t('applicationRejected'))
       
-      // Clear caches - data changed
       clearCache('owner_applications')
       clearCache('owner_dashboard')
       
-      await loadData(false)
+      // Silent reload
+      loadData(true)
     } catch (e) {
+      // Revert on error
+      setApplications((prev) =>
+        prev.map((app) =>
+          app._id === id ? { ...app, status: 'pending' } : app
+        )
+      )
       toast.error(
         e.response?.data?.message || t('rejectError3')
       )

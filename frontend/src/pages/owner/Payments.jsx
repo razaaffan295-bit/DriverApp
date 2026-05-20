@@ -190,26 +190,25 @@ const OwnerPayments = () => {
       const trips = tripsRes.data?.trips || []
       const approved = trips.filter((t) => t.status === 'approved')
 
+      // Load all trip payments (paid + pending confirmation)
       const loadTripPayments = async () => {
         try {
           const res = await API.get('/api/payments/history')
           const all = res.data?.payments || []
-          console.log('All payments:', all)
-          const tripPays = all.filter(
-            (p) => p.paymentType === 'trip'
+          // Include: trip payments that are paid OR awaiting driver confirmation
+          // Exclude: rejected payments
+          return all.filter(
+            (p) =>
+              p.paymentType === 'trip' &&
+              p.status !== 'rejected' &&
+              (p.driverConfirmed === true || p.ownerMarkedPaid === true)
           )
-          console.log('Trip payments:', tripPays)
-          return tripPays
-        } catch (err) {
-          console.error(err)
+        } catch {
           return []
         }
       }
 
-      const tripPaymentsAllTypes = await loadTripPayments()
-      const tripPayments = tripPaymentsAllTypes.filter(
-        (p) => p.driverConfirmed === true
-      )
+      const tripPayments = await loadTripPayments()
 
       const tripPaidForTrip = (tripId, list) =>
         list
@@ -229,23 +228,19 @@ const OwnerPayments = () => {
       )
       const totalBaaki = totalApproved - totalTripPaid
 
-      console.log('tripPayments:', tripPayments)
-      console.log('tripEarnings:', approved)
-
       setTripEarnings(approved)
       setTripPaymentsList(tripPayments)
       setTripTotal(totalApproved)
       setTripPaid(totalTripPaid)
       setTripNetDue(totalBaaki)
     } catch (err) {
-      console.error(err)
       toast.error(
         err.response?.data?.message || t('tripsLoadError2')
       )
     } finally {
       setTripLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     let cancelled = false

@@ -253,6 +253,7 @@ const acceptApplication = async (req, res) => {
     }
 
     // Atomic update - find + accept in 1 query
+    // Use new: true so we get updated doc directly (no fallback query needed)
     const application = await Application.findOneAndUpdate(
       {
         _id: applicationId,
@@ -260,11 +261,11 @@ const acceptApplication = async (req, res) => {
         status: "pending",
       },
       { $set: { status: "accepted" } },
-      { new: false } // Returns OLD doc to check it existed
-    );
+      { new: true }
+    ).lean();
 
     if (!application) {
-      // Either not found, not owner, or not pending
+      // Single fast check - was it wrong status or doesn't exist
       const exists = await Application.findById(applicationId)
         .select("ownerId status")
         .lean();
@@ -286,8 +287,9 @@ const acceptApplication = async (req, res) => {
       });
     }
 
-    // Parallel updates - 2x faster
-    const [, , owner] = await Promise.all([
+    // FIRE-AND-FORGET parallel updates - don't block response
+    // These run in background, response returns immediately
+    Promise.all([
       // Mark job as filled
       Job.updateOne(
         { _id: application.jobId },
@@ -304,21 +306,31 @@ const acceptApplication = async (req, res) => {
         },
         { status: "rejected" }
       ),
-      // Get owner name for notification
-      User.findById(oid).select("name").lean(),
-    ]);
-
-    // Non-blocking notification (fire-and-forget)
-    createNotificationSafe({
-      userId: application.driverId,
-      title: "Application Accepted",
-      message: `${owner?.name || "Owner"} accepted your application. Please wait for the joining letter.`,
-      type: "application_accepted",
-      link: "/driver/active-job",
-      isRead: false,
+    ]).catch(() => {
+      // Silent fail - background ops shouldn't break user flow
     });
 
-    return res.json({ success: true });
+    // Get owner name for notification (non-blocking)
+    User.findById(oid)
+      .select("name")
+      .lean()
+      .then((owner) => {
+        createNotificationSafe({
+          userId: application.driverId,
+          title: "Application Accepted",
+          message: `${owner?.name || "Owner"} accepted your application. Please wait for the joining letter.`,
+          type: "application_accepted",
+          link: "/driver/active-job",
+          isRead: false,
+        });
+      })
+      .catch(() => {});
+
+    // Return IMMEDIATELY with accepted application data
+    return res.json({
+      success: true,
+      application,
+    });
   } catch (error) {
     return sendServerError(res);
   }
