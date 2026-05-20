@@ -64,10 +64,9 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Fetch user (lean for speed - we only need data, not methods)
+    // Fetch user - NO .lean() (virtual 'id' getter needed by controllers)
     const user = await User.findById(decoded.id)
-      .select("-password")
-      .lean();
+      .select("-password");
 
     if (!user) {
       return res.status(401).json({
