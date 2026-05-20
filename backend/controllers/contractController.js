@@ -323,9 +323,11 @@ const driverSignContract = async (req, res) => {
     contract.driverSignedAt = new Date();
     contract.status = "active";
 
-    // PARALLEL - 3 operations (3x faster)
-    const [, , driver, populated] = await Promise.all([
-      contract.save(),
+    // STEP 1: Save contract FIRST (must complete before populate)
+    await contract.save();
+
+    // STEP 2: NOW run parallel - application update + driver + populate (3x faster)
+    const [, driver, populated] = await Promise.all([
       Application.findOneAndUpdate(
         { jobId: contract.jobId, driverId: contract.driverId },
         { status: "active" }
