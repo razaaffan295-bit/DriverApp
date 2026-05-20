@@ -22,6 +22,9 @@ const isValidObjectId = (id) => {
   return mongoose.Types.ObjectId.isValid(String(id || ""));
 };
 
+// Get user ID safely (works with both .lean() and regular Mongoose docs)
+const uidFromReq = (req) => req.user._id || req.user.id;
+
 const validateAttendanceInput = (date, status, hours) => {
   // Date validation
   const recordDate = new Date(date);
@@ -122,8 +125,9 @@ const driverAddRecord = async (req, res) => {
 
     const noteTrim = String(note || "").slice(0, MAX_NOTE_LENGTH);
 
+    const userId = uidFromReq(req);
     const contract = await Contract.findOne({
-      driverId: req.user.id,
+      driverId: userId,
       status: "active",
     });
 
@@ -169,7 +173,7 @@ const driverAddRecord = async (req, res) => {
 
     const existing = await DriverAttendance.findOne({
       contractId: contract._id,
-      driverId: req.user.id,
+      driverId: userId,
       date: {
         $gte: new Date(
           recordDate.getFullYear(),
@@ -199,7 +203,7 @@ const driverAddRecord = async (req, res) => {
 
     const record = await DriverAttendance.create({
       contractId: contract._id,
-      driverId: req.user.id,
+      driverId: userId,
       ownerId: contract.ownerId,
       date: recordDate,
       month: recordDate.getMonth() + 1,
@@ -223,9 +227,10 @@ const driverAddRecord = async (req, res) => {
 const driverGetRecords = async (req, res) => {
   try {
     const { month, year } = req.query;
+    const userId = uidFromReq(req);
 
     const contract = await Contract.findOne({
-      driverId: req.user.id,
+      driverId: userId,
       status: "active",
     }).lean();
 
@@ -240,7 +245,7 @@ const driverGetRecords = async (req, res) => {
 
     const query = {
       contractId: contract._id,
-      driverId: req.user.id,
+      driverId: userId,
     };
 
     if (month) query.month = Number(month);
@@ -282,6 +287,7 @@ const driverGetRecords = async (req, res) => {
 const driverDeleteRecord = async (req, res) => {
   try {
     const recordId = req.params.id;
+    const userId = uidFromReq(req);
 
     if (!isValidObjectId(recordId)) {
       return res.status(400).json({
@@ -292,7 +298,7 @@ const driverDeleteRecord = async (req, res) => {
 
     const record = await DriverAttendance.findOne({
       _id: recordId,
-      driverId: req.user.id,
+      driverId: userId,
     }).lean();
 
     if (!record) {
@@ -306,7 +312,7 @@ const driverDeleteRecord = async (req, res) => {
     const [confirmedPayments, allRecords] = await Promise.all([
       Payment.find({
         contractId: record.contractId,
-        driverId: req.user.id,
+        driverId: userId,
         status: "paid",
         driverConfirmed: true,
         $nor: [{ paymentType: "trip" }, { requestKind: "trip" }],
@@ -315,7 +321,7 @@ const driverDeleteRecord = async (req, res) => {
         .lean(),
       DriverAttendance.find({
         contractId: record.contractId,
-        driverId: req.user.id,
+        driverId: userId,
       })
         .select("_id salaryForDay date")
         .sort({ date: 1 })
@@ -351,7 +357,7 @@ const driverDeleteRecord = async (req, res) => {
 
     await DriverAttendance.findOneAndDelete({
       _id: recordId,
-      driverId: req.user.id,
+      driverId: userId,
     });
 
     return res.json({
@@ -392,9 +398,10 @@ const ownerAddRecord = async (req, res) => {
 
     const noteTrim = String(note || "").slice(0, MAX_NOTE_LENGTH);
 
+    const ownerId = uidFromReq(req);
     const contract = await Contract.findOne({
       _id: contractId,
-      ownerId: req.user.id,
+      ownerId: ownerId,
       status: "active",
     });
 
@@ -430,7 +437,7 @@ const ownerAddRecord = async (req, res) => {
     const record = await OwnerAttendance.create({
       contractId,
       driverId: contract.driverId,
-      ownerId: req.user.id,
+      ownerId: ownerId,
       date: recordDate,
       month: recordDate.getMonth() + 1,
       year: recordDate.getFullYear(),
@@ -468,9 +475,10 @@ const ownerGetRecords = async (req, res) => {
       });
     }
 
+    const ownerId = uidFromReq(req);
     const contract = await Contract.findOne({
       _id: contractId,
-      ownerId: req.user.id,
+      ownerId: ownerId,
     })
       .populate("driverId", "name phone")
       .lean();
@@ -484,7 +492,7 @@ const ownerGetRecords = async (req, res) => {
 
     const query = {
       contractId,
-      ownerId: req.user.id,
+      ownerId: ownerId,
     };
 
     if (month) query.month = Number(month);
@@ -525,7 +533,7 @@ const ownerGetRecords = async (req, res) => {
 
 const ownerDeleteRecord = async (req, res) => {
   try {
-    const ownerId = req.user._id || req.user.id;
+    const ownerId = uidFromReq(req);
     const recordId = req.params.id;
 
     if (!isValidObjectId(recordId)) {
@@ -558,7 +566,7 @@ const ownerDeleteRecord = async (req, res) => {
 const ownerGetAllContracts = async (req, res) => {
   try {
     const contracts = await Contract.find({
-      ownerId: req.user.id,
+      ownerId: uidFromReq(req),
       status: "active",
     })
       .populate("driverId", "name phone")
